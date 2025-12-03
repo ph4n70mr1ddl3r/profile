@@ -1,0 +1,16 @@
+retainedFiles:
+  - bmm/agents/analyst.md.bak
+  - bmm/agents/architect.md.bak
+  - bmm/agents/dev.md.bak
+  - bmm/agents/pm.md.bak
+  - bmm/agents/quick-flow-solo-dev.md.bak
+  - bmm/agents/sm.md.bak
+  - bmm/agents/tea.md.bak
+  - bmm/agents/tech-writer.md.bak
+  - bmm/agents/ux-designer.md.bak
+  - core/agents/bmad-master.md.bak
+history:
+  - date: '2025-12-03T08:01:34.763Z'
+    deleted: 0
+    retained: 10
+    files: []
