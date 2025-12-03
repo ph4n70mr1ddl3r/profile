@@ -1,0 +1,14 @@
+import next from 'eslint-config-next';
+
+export default [
+  {
+    ignores: ['node_modules', '.next', 'dist']
+  },
+  ...next,
+  {
+    rules: {
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      '@next/next/no-html-link-for-pages': 'off'
+    }
+  }
+];
