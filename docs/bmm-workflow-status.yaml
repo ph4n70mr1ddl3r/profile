@@ -64,6 +64,7 @@ workflow_status:
     condition: "if_has_ui"
     agent: "ux-designer"
     command: "create-ux-design"
+    output: "docs/ux-design-specification.md"
     note: "Determined after PRD - user/agent decides if needed"
   
   - id: create-architecture

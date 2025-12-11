@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Design Direction Showcase</title>
+    <style>
+        :root {
+            /* Design Tokens from Visual Foundation */
+            --color-primary: #2c5282;
+            --color-secondary: #4a5568;
+            --color-accent: #38b2ac;
+            --color-background: #f7fafc;
+            --color-text: #1a202c;
+            --color-surface: #ffffff;
+            --color-border: #e2e8f0;
+            
+            --spacing-unit: 8px;
+            --spacing-xs: calc(var(--spacing-unit) * 0.5); /* 4px */
+            --spacing-sm: calc(var(--spacing-unit) * 1);   /* 8px */
+            --spacing-md: calc(var(--spacing-unit) * 2);   /* 16px */
+            --spacing-lg: calc(var(--spacing-unit) * 3);   /* 24px */
+            --spacing-xl: calc(var(--spacing-unit) * 4);   /* 32px */
+            --spacing-xxl: calc(var(--spacing-unit) * 6);   /* 48px */
+            
+            --border-radius-sm: 6px;
+            --border-radius-md: 8px;
+            --border-radius-lg: 12px;
+            
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.6;
+            padding: var(--spacing-xl);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: var(--spacing-xxl);
+            padding-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-primary);
+        }
+        
+        .header p {
+            color: var(--color-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+        
+        .instructions {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-xxl);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .instructions h2 {
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-md);
+            font-size: 1.5rem;
+        }
+        
+        .criteria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .criterion {
+            background: var(--color-background);
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            border-left: 4px solid var(--color-accent);
+        }
+        
+        .criterion h3 {
+            color: var(--color-secondary);
+            margin-bottom: var(--spacing-xs);
+            font-size: 1.1rem;
+        }
+        
+        .design-directions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xxl);
+        }
+        
+        .direction {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--color-border);
+        }
+        
+        .direction:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .direction-header {
+            padding: var(--spacing-lg);
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .direction-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .direction-tag {
+            display: inline-block;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--border-radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .direction-content {
+            padding: var(--spacing-lg);
+        }
+        
+        .direction-description {
+            color: var(--color-secondary);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.6;
+        }
+        
+        .mockup-preview {
+            background: var(--color-background);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            border: 1px solid var(--color-border);
+        }
+        
+        .mockup-title {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-sm);
+            font-size: 1rem;
+        }
+        
+        .ui-elements {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+        
+        .ui-element {
+            background: var(--color-surface);
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--color-border);
+        }
+        
+        .button {
+            display: inline-block;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--border-radius-md);
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        
+        .button-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .button-primary:hover {
+            background: #2a4365;
+            transform: translateY(-2px);
+        }
+        
+        .input-group {
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 600;
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-md);
+            font-family: var(--font-family);
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
+        }
+        
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            border: 1px solid var(--color-border);
+        }
+        
+        .card-title {
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text);
+        }
+        
+        .card-content {
+            color: var(--color-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .comparison-tools {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xxl);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .comparison-tools h2 {
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+        }
+        
+        .selection-form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            font-weight: 600;
+            color: var(--color-secondary);
+        }
+        
+        .form-group select, .form-group textarea {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-md);
+            font-family: var(--font-family);
+            font-size: 1rem;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: var(--spacing-xxl);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--color-border);
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: var(--spacing-md);
+            }
+            
+            .design-directions {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Profile Design Direction Showcase</h1>
+        <p>Explore different visual approaches for your ultra-simple profile platform. Each direction applies our design foundation in unique ways.</p>
+    </header>
+
+    <section class="instructions">
+        <h2>How to Evaluate Design Directions</h2>
+        <p>As you explore each direction, consider how well it supports Profile's core values: simplicity, speed, trustworthiness, and efficiency.</p>
+        
+        <div class="criteria-grid">
+            <div class="criterion">
+                <h3>Layout Intuitiveness</h3>
+                <p>Which information hierarchy matches user priorities? Is the flow natural?</p>
+            </div>
+            
+            <div class="criterion">
+                <h3>Interaction Style</h3>
+                <p>Which interaction patterns fit the "ultra-simple" core experience?</p>
+            </div>
+            
+            <div class="criterion">
+                <h3>Visual Weight</h3>
+                <p>Which visual density feels right - light and airy or more substantial?</p>
+            </div>
+            
+            <div class="criterion">
+                <h3>Navigation Approach</h3>
+                <p>Which navigation pattern feels most intuitive for profile management?</p>
+            </div>
+            
+            <div class="criterion">
+                <h3>Component Usage</h3>
+                <p>How well do the components support user journeys (signup → dashboard → share)?</p>
+            </div>
+            
+            <div class="criterion">
+                <h3>Brand Alignment</h3>
+                <p>Which direction best supports the emotional goals (empowered, efficient, trustworthy)?</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="design-directions">
+        <!-- Direction 1: Minimalist Dashboard -->
+        <article class="direction" id="direction-1">
+            <div class="direction-header">
+                <h2>Minimalist Dashboard</h2>
+                <span class="direction-tag">Clean & Focused</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Extreme simplicity with maximum whitespace. Focuses on one primary action at a time, reducing cognitive load. Perfect for users who value absolute simplicity over features.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Dashboard Preview</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Welcome, photographer_jamie</div>
+                                <div class="card-content">Your profile is live and ready to share. Copy your unique link below.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="input-group">
+                                <label class="input-label">Profile URL</label>
+                                <input type="text" class="input-field" value="profile.site/photographer_jamie" readonly>
+                            </div>
+                            <button class="button button-primary">Copy Link</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Direction 2: Card-Based Layout -->
+        <article class="direction" id="direction-2">
+            <div class="direction-header">
+                <h2>Card-Based Layout</h2>
+                <span class="direction-tag">Modular & Organized</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Organized content in distinct cards with clear visual separation. Each card represents a distinct function or information group. Provides structure while maintaining simplicity.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Profile Management</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Profile Information</div>
+                                <div class="card-content">Basic details about your account and online presence.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Sharing Options</div>
+                                <div class="card-content">Manage how others view and interact with your profile.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <button class="button button-primary">Edit Profile</button>
+                            <button class="button" style="margin-left: var(--spacing-sm); background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary);">View Public Profile</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Direction 3: Command-Center Approach -->
+        <article class="direction" id="direction-3">
+            <div class="direction-header">
+                <h2>Command-Center Approach</h2>
+                <span class="direction-tag">Efficient & Keyboard-First</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Keyboard-centric interface with command palette for quick actions. Inspired by productivity tools like Linear. Emphasizes speed and efficiency for power users while remaining simple.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Quick Actions</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="input-group">
+                                <label class="input-label">Quick Action (Press ⌘K)</label>
+                                <input type="text" class="input-field" placeholder="Type to search actions...">
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Common Actions</div>
+                                <div class="card-content">
+                                    • Edit profile<br>
+                                    • Share link<br>
+                                    • View analytics<br>
+                                    • Account settings
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Direction 4: One-Page Flow -->
+        <article class="direction" id="direction-4">
+            <div class="direction-header">
+                <h2>One-Page Flow</h2>
+                <span class="direction-tag">Linear & Guided</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Single-page experience where all actions happen in context. No navigation between pages - everything expands/collapses in place. Reduces context switching and keeps users focused.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Profile Editor</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="input-group">
+                                <label class="input-label">Display Name</label>
+                                <input type="text" class="input-field" value="Jamie Chen">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Bio</label>
+                                <textarea class="input-field" rows="2">Photographer specializing in landscape and nature photography</textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <button class="button button-primary">Save Changes</button>
+                            <button class="button" style="margin-left: var(--spacing-sm); background: transparent; color: var(--color-secondary);">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Direction 5: Sidebar Navigation -->
+        <article class="direction" id="direction-5">
+            <div class="direction-header">
+                <h2>Sidebar Navigation</h2>
+                <span class="direction-tag">Structured & Clear</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Persistent sidebar navigation with main content area. Clear hierarchy and predictable navigation patterns. Familiar pattern that users understand immediately, reducing learning curve.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Navigation Structure</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                                <div style="padding: var(--spacing-sm); background: var(--color-primary); color: white; border-radius: var(--border-radius-sm);">Dashboard</div>
+                                <div style="padding: var(--spacing-sm);">My Profile</div>
+                                <div style="padding: var(--spacing-sm);">Settings</div>
+                                <div style="padding: var(--spacing-sm);">Help</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Main Content Area</div>
+                                <div class="card-content">Profile content and actions appear here based on sidebar selection.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Direction 6: Mobile-First Cards -->
+        <article class="direction" id="direction-6">
+            <div class="direction-header">
+                <h2>Mobile-First Cards</h2>
+                <span class="direction-tag">Responsive & Touch-Friendly</span>
+            </div>
+            
+            <div class="direction-content">
+                <p class="direction-description">Designed for mobile interaction first with large touch targets and vertical scrolling. Cards expand to reveal details. Optimized for the growing mobile user base while working beautifully on desktop.</p>
+                
+                <div class="mockup-preview">
+                    <div class="mockup-title">Mobile Interface</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card" style="padding: var(--spacing-lg);">
+                                <div class="card-title" style="font-size: 1.2rem; margin-bottom: var(--spacing-md);">Your Profile</div>
+                                <div class="card-content" style="margin-bottom: var(--spacing-md);">Tap to edit or view details</div>
+                                <button class="button button-primary" style="width: 100%; padding: var(--spacing-md);">Edit Profile</button>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card" style="padding: var(--spacing-lg);">
+                                <div class="card-title" style="font-size: 1.2rem; margin-bottom: var(--spacing-md);">Share Your Link</div>
+                                <div class="card-content" style="margin-bottom: var(--spacing-md);">Copy your unique profile URL</div>
+                                <button class="button" style="width: 100%; padding: var(--spacing-md); background: var(--color-background); color: var(--color-primary); border: 1px solid var(--color-primary);">Copy Link</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="comparison-tools">
+        <h2>Design Direction Selection</h2>
+        
+        <div class="selection-form">
+            <div class="form-group">
+                <label for="favorite-direction">Which design direction resonates most with you?</label>
+                <select id="favorite-direction">
+                    <option value="">Select a direction...</option>
+                    <option value="1">Direction 1: Minimalist Dashboard</option>
+                    <option value="2">Direction 2: Card-Based Layout</option>
+                    <option value="3">Direction 3: Command-Center Approach</option>
+                    <option value="4">Direction 4: One-Page Flow</option>
+                    <option value="5">Direction 5: Sidebar Navigation</option>
+                    <option value="6">Direction 6: Mobile-First Cards</option>
+                    <option value="combination">Combination of elements</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="elements-liked">What specific elements do you like? (Colors, layouts, interactions, etc.)</label>
+                <textarea id="elements-liked" placeholder="Example: I like the clean whitespace of Direction 1, but prefer the card organization of Direction 2..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="modifications-needed">Any modifications or changes you'd like to see?</label>
+                <textarea id="modifications-needed" placeholder="Example: Could we make the buttons more prominent? Should we adjust the spacing?..."></textarea>
+            </div>
+            
+            <button class="button button-primary" style="width: 100%; padding: var(--spacing-md); font-size: 1.1rem;" onclick="captureSelection()">Continue with Selected Direction</button>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>Profile Design Direction Showcase | Use this tool to explore visual approaches before finalizing design direction.</p>
+        <p>Remember: The chosen direction will guide all detailed design work for the platform.</p>
+    </footer>
+
+    <script>
+        // Interactive direction selection
+        const directions = document.querySelectorAll('.direction');
+        
+        directions.forEach(direction => {
+            direction.addEventListener('click', function() {
+                // Remove active class from all directions
+                directions.forEach(d => {
+                    d.style.boxShadow = 'var(--shadow-lg)';
+                    d.style.borderColor = 'var(--color-border)';
+                });
+                
+                // Add active styling to clicked direction
+                this.style.boxShadow = '0 0 0 3px var(--color-accent), var(--shadow-lg)';
+                this.style.borderColor = 'var(--color-accent)';
+                
+                // Update selection dropdown
+                const directionId = this.id.split('-')[1];
+                document.getElementById('favorite-direction').value = directionId;
+            });
+        });
+        
+        function captureSelection() {
+            const directionSelect = document.getElementById('favorite-direction');
+            const elementsLiked = document.getElementById('elements-liked');
+            const modifications = document.getElementById('modifications-needed');
+            
+            const selectedDirection = directionSelect.options[directionSelect.selectedIndex].text;
+            
+            alert(`Design direction selection captured:\n\n` +
+                  `Selected: ${selectedDirection}\n\n` +
+                  `Liked Elements: ${elementsLiked.value || 'Not specified'}\n\n` +
+                  `Modifications: ${modifications.value || 'None requested'}\n\n` +
+                  `Please share this feedback with your UX facilitator to proceed.`);
+        }
+        
+        // Initialize first direction as selected
+        if (directions.length > 0) {
+            directions[0].style.boxShadow = '0 0 0 3px var(--color-accent), var(--shadow-lg)';
+            directions[0].style.borderColor = 'var(--color-accent)';
+            document.getElementById('favorite-direction').value = '1';
+        }
+    </script>
+</body>
+</html>

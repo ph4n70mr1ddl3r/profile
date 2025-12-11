@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Color Theme Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        body {
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eaeaea;
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .theme-section {
+            margin-bottom: 60px;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eaeaea;
+        }
+
+        .theme-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f1f1;
+        }
+
+        .theme-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .theme-tag {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .color-card {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .color-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .color-swatch {
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .color-info {
+            padding: 15px;
+            background: white;
+        }
+
+        .color-name {
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #2d3748;
+        }
+
+        .color-hex {
+            font-family: 'Courier New', monospace;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .ui-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-top: 20px;
+            border: 1px solid #eaeaea;
+        }
+
+        .preview-title {
+            margin-bottom: 20px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .ui-elements {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .ui-element {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .element-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .button-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .button-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .button-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .card-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .card-content {
+            color: #718096;
+            line-height: 1.5;
+        }
+
+        .theme-description {
+            color: #4a5568;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .instructions {
+            background: #edf2f7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #4299e1;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .instructions p {
+            color: #4a5568;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eaeaea;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            
+            .theme-section {
+                padding: 20px;
+            }
+            
+            .color-palette {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Profile Color Theme Visualizer</h1>
+        <p class="subtitle">Explore color theme options for your ultra-simple profile platform. Each theme is designed to support the core emotional goals: empowered, efficient, trustworthy, and simple.</p>
+    </header>
+
+    <div class="instructions">
+        <h3>How to Use This Visualizer</h3>
+        <p>Review each theme option below. Look at the color palette, UI element previews, and consider which theme best supports Profile's emotional goals. Think about which colors feel most "clean," "trustworthy," and "efficient" while maintaining the simplicity that defines your platform.</p>
+    </div>
+
+    <!-- Theme 1: Clean Professional -->
+    <div class="theme-section" id="theme-clean-professional">
+        <div class="theme-title">
+            <h2 class="theme-name">Clean Professional</h2>
+            <span class="theme-tag" style="background: #2c5282; color: white;">Trustworthy & Efficient</span>
+        </div>
+        
+        <p class="theme-description">A balanced, professional palette with blue as the primary trust color. Creates a sense of reliability while maintaining clean, modern aesthetics. Perfect for establishing credibility while keeping the interface feeling simple and approachable.</p>
+        
+        <div class="color-palette">
+            <div class="color-card">
+                <div class="color-swatch" style="background: #2c5282;">Primary</div>
+                <div class="color-info">
+                    <div class="color-name">Primary Blue</div>
+                    <div class="color-hex">#2c5282</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #4a5568;">Secondary</div>
+                <div class="color-info">
+                    <div class="color-name">Slate Gray</div>
+                    <div class="color-hex">#4a5568</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #38b2ac; color: #333;">Accent</div>
+                <div class="color-info">
+                    <div class="color-name">Teal Accent</div>
+                    <div class="color-hex">#38b2ac</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #f7fafc; color: #333;">Background</div>
+                <div class="color-info">
+                    <div class="color-name">Light Gray</div>
+                    <div class="color-hex">#f7fafc</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #1a202c; color: white;">Text</div>
+                <div class="color-info">
+                    <div class="color-name">Dark Charcoal</div>
+                    <div class="color-hex">#1a202c</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ui-preview">
+            <h3 class="preview-title">UI Elements Preview</h3>
+            <div class="ui-elements">
+                <div class="ui-element">
+                    <div class="element-title">Buttons</div>
+                    <button class="button button-primary" style="--primary: #2c5282;">Create Profile</button>
+                    <button class="button button-outline" style="margin-left: 10px; --primary: #2c5282;">Learn More</button>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Form Input</div>
+                    <div class="input-group">
+                        <label class="input-label">Username</label>
+                        <input type="text" class="input-field" placeholder="Enter your username" style="--primary: #2c5282;">
+                    </div>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Content Card</div>
+                    <div class="card">
+                        <div class="card-title">Welcome to Your Profile</div>
+                        <div class="card-content">Your profile is live at profile.site/username. Share this link to show others your online presence.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme 2: Minimalist Modern -->
+    <div class="theme-section" id="theme-minimalist-modern">
+        <div class="theme-title">
+            <h2 class="theme-name">Minimalist Modern</h2>
+            <span class="theme-tag" style="background: #2d3748; color: white;">Simple & Clean</span>
+        </div>
+        
+        <p class="theme-description">A monochromatic approach with subtle blue accents. Emphasizes whitespace and clean typography. Creates a sense of sophistication through restraint, perfect for a platform that values simplicity as its primary feature.</p>
+        
+        <div class="color-palette">
+            <div class="color-card">
+                <div class="color-swatch" style="background: #2d3748;">Primary</div>
+                <div class="color-info">
+                    <div class="color-name">Charcoal</div>
+                    <div class="color-hex">#2d3748</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #4a5568;">Secondary</div>
+                <div class="color-info">
+                    <div class="color-name">Gray Blue</div>
+                    <div class="color-hex">#4a5568</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #4299e1;">Accent</div>
+                <div class="color-info">
+                    <div class="color-name">Sky Blue</div>
+                    <div class="color-hex">#4299e1</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #ffffff; color: #333; border: 1px solid #e2e8f0;">Background</div>
+                <div class="color-info">
+                    <div class="color-name">Pure White</div>
+                    <div class="color-hex">#ffffff</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #1a202c; color: white;">Text</div>
+                <div class="color-info">
+                    <div class="color-name">Near Black</div>
+                    <div class="color-hex">#1a202c</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ui-preview">
+            <h3 class="preview-title">UI Elements Preview</h3>
+            <div class="ui-elements">
+                <div class="ui-element">
+                    <div class="element-title">Buttons</div>
+                    <button class="button button-primary" style="--primary: #2d3748;">Get Started</button>
+                    <button class="button button-outline" style="margin-left: 10px; --primary: #2d3748;">View Demo</button>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Form Input</div>
+                    <div class="input-group">
+                        <label class="input-label">Email (Optional)</label>
+                        <input type="email" class="input-field" placeholder="name@example.com" style="--primary: #2d3748;">
+                    </div>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Content Card</div>
+                    <div class="card">
+                        <div class="card-title">Simple Profile, Powerful Presence</div>
+                        <div class="card-content">Create your online identity in 60 seconds. No complexity, no unnecessary features—just clean, shareable profiles.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme 3: Warm Approachable -->
+    <div class="theme-section" id="theme-warm-approachable">
+        <div class="theme-title">
+            <h2 class="theme-name">Warm Approachable</h2>
+            <span class="theme-tag" style="background: #dd6b20; color: white;">Friendly & Inviting</span>
+        </div>
+        
+        <p class="theme-description">A warmer color palette that feels friendly and inviting while maintaining professionalism. Orange as primary creates energy and approachability, balancing warmth with the platform's efficiency focus.</p>
+        
+        <div class="color-palette">
+            <div class="color-card">
+                <div class="color-swatch" style="background: #dd6b20;">Primary</div>
+                <div class="color-info">
+                    <div class="color-name">Warm Orange</div>
+                    <div class="color-hex">#dd6b20</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #2d3748;">Secondary</div>
+                <div class="color-info">
+                    <div class="color-name">Charcoal</div>
+                    <div class="color-hex">#2d3748</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #38a169;">Accent</div>
+                <div class="color-info">
+                    <div class="color-name">Success Green</div>
+                    <div class="color-hex">#38a169</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #fffaf0; color: #333;">Background</div>
+                <div class="color-info">
+                    <div class="color-name">Warm White</div>
+                    <div class="color-hex">#fffaf0</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #1a202c; color: white;">Text</div>
+                <div class="color-info">
+                    <div class="color-name">Dark Charcoal</div>
+                    <div class="color-hex">#1a202c</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ui-preview">
+            <h3 class="preview-title">UI Elements Preview</h3>
+            <div class="ui-elements">
+                <div class="ui-element">
+                    <div class="element-title">Buttons</div>
+                    <button class="button button-primary" style="--primary: #dd6b20;">Create Account</button>
+                    <button class="button button-outline" style="margin-left: 10px; --primary: #dd6b20;">See Examples</button>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Form Input</div>
+                    <div class="input-group">
+                        <label class="input-label">Choose Username</label>
+                        <input type="text" class="input-field" placeholder="photographer_jamie" style="--primary: #dd6b20;">
+                    </div>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Content Card</div>
+                    <div class="card">
+                        <div class="card-title">Your Online Home, Simplified</div>
+                        <div class="card-content">No complex setup, no email verification. Just your name and a password to start building your online presence.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme 4: Cool Efficient -->
+    <div class="theme-section" id="theme-cool-efficient">
+        <div class="theme-title">
+            <h2 class="theme-name">Cool Efficient</h2>
+            <span class="theme-tag" style="background: #3182ce; color: white;">Fast & Focused</span>
+        </div>
+        
+        <p class="theme-description">A cool, focused palette that emphasizes speed and efficiency. Blue-gray tones create a sense of calm focus, supporting the "ultra-simple" value proposition with a no-nonsense, productivity-oriented aesthetic.</p>
+        
+        <div class="color-palette">
+            <div class="color-card">
+                <div class="color-swatch" style="background: #3182ce;">Primary</div>
+                <div class="color-info">
+                    <div class="color-name">Efficient Blue</div>
+                    <div class="color-hex">#3182ce</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #718096;">Secondary</div>
+                <div class="color-info">
+                    <div class="color-name">Cool Gray</div>
+                    <div class="color-hex">#718096</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #00b5d8;">Accent</div>
+                <div class="color-info">
+                    <div class="color-name">Cyan Accent</div>
+                    <div class="color-hex">#00b5d8</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #edf2f7; color: #333;">Background</div>
+                <div class="color-info">
+                    <div class="color-name">Light Blue Gray</div>
+                    <div class="color-hex">#edf2f7</div>
+                </div>
+            </div>
+            
+            <div class="color-card">
+                <div class="color-swatch" style="background: #1a202c; color: white;">Text</div>
+                <div class="color-info">
+                    <div class="color-name">Dark Blue Gray</div>
+                    <div class="color-hex">#1a202c</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ui-preview">
+            <h3 class="preview-title">UI Elements Preview</h3>
+            <div class="ui-elements">
+                <div class="ui-element">
+                    <div class="element-title">Buttons</div>
+                    <button class="button button-primary" style="--primary: #3182ce;">Start Now</button>
+                    <button class="button button-outline" style="margin-left: 10px; --primary: #3182ce;">Quick Tour</button>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Form Input</div>
+                    <div class="input-group">
+                        <label class="input-label">Create Password</label>
+                        <input type="password" class="input-field" placeholder="••••••••" style="--primary: #3182ce;">
+                    </div>
+                </div>
+                
+                <div class="ui-element">
+                    <div class="element-title">Content Card</div>
+                    <div class="card">
+                        <div class="card-title">Profile in 60 Seconds</div>
+                        <div class="card-content">Our streamlined process gets you online faster. Focus on your presence, not the setup.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Profile Color Theme Visualizer | Generated for UX Design Specification</p>
+        <p>Review these themes considering Profile's core values: simplicity, speed, trustworthiness, and efficiency.</p>
+    </footer>
+
+    <script>
+        // Simple theme comparison highlighting
+        document.querySelectorAll('.theme-section').forEach(section => {
+            section.addEventListener('click', function() {
+                document.querySelectorAll('.theme-section').forEach(s => {
+                    s.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
+                });
+                this.style.boxShadow = '0 8px 15px rgba(0, 0, 0, 0.1), 0 0 0 2px #4299e1';
+            });
+        });
+
+        // Update CSS custom properties for interactive preview
+        document.querySelectorAll('.theme-section').forEach(section => {
+            const primaryColor = section.querySelector('.color-card:first-child .color-swatch').style.backgroundColor;
+            section.style.setProperty('--primary-color', primaryColor);
+        });
+    </script>
+</body>
+</html>

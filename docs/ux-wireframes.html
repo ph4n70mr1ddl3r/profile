@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Wireframes (Minimalist Dashboard Direction)</title>
+    <style>
+        :root {
+            /* Design Tokens from Visual Foundation */
+            --color-primary: #2c5282;
+            --color-secondary: #4a5568;
+            --color-accent: #38b2ac;
+            --color-background: #f7fafc;
+            --color-text: #1a202c;
+            --color-surface: #ffffff;
+            --color-border: #e2e8f0;
+            --color-border-light: #edf2f7;
+            --color-success: #38a169;
+            --color-warning: #d69e2e;
+            --color-error: #e53e3e;
+            
+            --spacing-unit: 8px;
+            --spacing-xs: calc(var(--spacing-unit) * 0.5); /* 4px */
+            --spacing-sm: calc(var(--spacing-unit) * 1);   /* 8px */
+            --spacing-md: calc(var(--spacing-unit) * 2);   /* 16px */
+            --spacing-lg: calc(var(--spacing-unit) * 3);   /* 24px */
+            --spacing-xl: calc(var(--spacing-unit) * 4);   /* 32px */
+            --spacing-xxl: calc(var(--spacing-unit) * 6);   /* 48px */
+            
+            --border-radius-sm: 6px;
+            --border-radius-md: 8px;
+            --border-radius-lg: 12px;
+            
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            --font-family-mono: 'Roboto Mono', 'Courier New', monospace;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.6;
+            padding: var(--spacing-xl);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: var(--spacing-xxl);
+            padding-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-primary);
+        }
+        
+        .header p {
+            color: var(--color-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+        
+        .wireframe-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xxl);
+        }
+        
+        .wireframe {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--color-border);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .wireframe:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .wireframe-header {
+            padding: var(--spacing-lg);
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .wireframe-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .wireframe-tag {
+            display: inline-block;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--border-radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .wireframe-content {
+            padding: var(--spacing-lg);
+        }
+        
+        .wireframe-description {
+            color: var(--color-secondary);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        
+        .mockup {
+            background: var(--color-background);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            border: 1px solid var(--color-border);
+        }
+        
+        .mockup-title {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-sm);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        
+        .mockup-title::before {
+            content: "📱";
+            font-size: 0.9rem;
+        }
+        
+        .ui-elements {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+        
+        .ui-element {
+            background: var(--color-surface);
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--color-border-light);
+        }
+        
+        .button {
+            display: inline-block;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--border-radius-md);
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .button-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .button-primary:hover {
+            background: #2a4365;
+            transform: translateY(-2px);
+        }
+        
+        .button-secondary {
+            background: transparent;
+            color: var(--color-primary);
+            border: 1px solid var(--color-primary);
+        }
+        
+        .button-secondary:hover {
+            background: rgba(44, 82, 130, 0.05);
+        }
+        
+        .button-success {
+            background: var(--color-success);
+            color: white;
+        }
+        
+        .button-success:hover {
+            background: #2f855a;
+        }
+        
+        .input-group {
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 600;
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-md);
+            font-family: var(--font-family);
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: white;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
+        }
+        
+        .input-field.readonly {
+            background: var(--color-background);
+            color: var(--color-secondary);
+            font-family: var(--font-family-mono);
+            font-size: 0.95rem;
+        }
+        
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            border: 1px solid var(--color-border-light);
+        }
+        
+        .card-title {
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text);
+            font-size: 1.1rem;
+        }
+        
+        .card-content {
+            color: var(--color-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .profile-url-display {
+            background: var(--color-background);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            border: 1px solid var(--color-border);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .url-display-container {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+        }
+        
+        .url-text {
+            flex: 1;
+            font-family: var(--font-family-mono);
+            font-size: 1.1rem;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: white;
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-sm);
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+        
+        .icon-button {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--color-border);
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .icon-button:hover {
+            background: var(--color-background);
+            transform: translateY(-2px);
+        }
+        
+        .icon-button.primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        
+        .icon-button.success {
+            background: var(--color-success);
+            color: white;
+            border-color: var(--color-success);
+        }
+        
+        .helper-text {
+            color: var(--color-secondary);
+            font-size: 0.85rem;
+            margin-top: var(--spacing-xs);
+            text-align: center;
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .action-card {
+            background: var(--color-surface);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            border: 1px solid var(--color-border-light);
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .action-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .action-icon {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .action-title {
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text);
+        }
+        
+        .action-description {
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+            margin-bottom: var(--spacing-md);
+            line-height: 1.4;
+        }
+        
+        .profile-preview {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-xl);
+            border: 1px solid var(--color-border);
+            text-align: center;
+            margin-top: var(--spacing-md);
+        }
+        
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            margin: 0 auto var(--spacing-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .profile-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .profile-bio {
+            color: var(--color-secondary);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.5;
+        }
+        
+        .share-dialog {
+            background: white;
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-lg);
+            border: 1px solid var(--color-border);
+        }
+        
+        .share-platforms {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        }
+        
+        .platform-button {
+            padding: var(--spacing-sm);
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--color-border);
+            background: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-xs);
+            transition: all 0.2s ease;
+        }
+        
+        .platform-button:hover {
+            background: var(--color-background);
+            transform: translateY(-2px);
+        }
+        
+        .platform-icon {
+            font-size: 1.5rem;
+        }
+        
+        .platform-name {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: var(--spacing-xxl);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--color-border);
+            color: var(--color-secondary);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: var(--spacing-md);
+            }
+            
+            .wireframe-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .url-display-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Profile - Wireframes</h1>
+        <p>Interactive wireframes for key screens using the Minimalist Dashboard design direction. Based on Component Strategy defined in UX Design Specification.</p>
+    </header>
+
+    <section class="wireframe-container">
+        <!-- Landing Page Wireframe -->
+        <article class="wireframe" id="landing-page">
+            <div class="wireframe-header">
+                <h2>Landing Page</h2>
+                <span class="wireframe-tag">Public</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">The first impression that communicates the 60-second promise and triggers signup. Ultra-simple with clear value proposition and single call-to-action.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Desktop View</div>
+                    <div class="ui-elements">
+                        <div class="ui-element" style="text-align: center; padding: var(--spacing-xxl) var(--spacing-xl);">
+                            <h1 style="font-size: 3rem; margin-bottom: var(--spacing-md); color: var(--color-primary);">Create your online profile in 60 seconds</h1>
+                            <p style="color: var(--color-secondary); font-size: 1.25rem; margin-bottom: var(--spacing-xl); max-width: 600px; margin-left: auto; margin-right: auto;">
+                                No email required. No complex setup. Just a username and password.
+                            </p>
+                            <button class="button button-primary" style="padding: var(--spacing-md) var(--spacing-xxl); font-size: 1.25rem;">Get Started</button>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card" style="text-align: center;">
+                                <div class="card-title">How it works</div>
+                                <div class="card-content">
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); margin-top: var(--spacing-md);">
+                                        <div>
+                                            <div style="font-size: 2rem; margin-bottom: var(--spacing-sm);">1️⃣</div>
+                                            <div style="font-weight: 600;">Choose username</div>
+                                            <div style="font-size: 0.9rem; color: var(--color-secondary);">Pick something memorable</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 2rem; margin-bottom: var(--spacing-sm);">2️⃣</div>
+                                            <div style="font-weight: 600;">Create password</div>
+                                            <div style="font-size: 0.9rem; color: var(--color-secondary);">Keep it secure</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 2rem; margin-bottom: var(--spacing-sm);">3️⃣</div>
+                                            <div style="font-weight: 600;">Share profile</div>
+                                            <div style="font-size: 0.9rem; color: var(--color-secondary);">Immediately live</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Signup Form Wireframe -->
+        <article class="wireframe" id="signup-form">
+            <div class="wireframe-header">
+                <h2>Signup / Authentication</h2>
+                <span class="wireframe-tag">60-Second Promise</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">Ultra-simple authentication with only username and password. Real-time validation and immediate dashboard access upon success.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Signup Form</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card-title">Create your profile</div>
+                            <div class="card-content" style="margin-bottom: var(--spacing-md);">Enter a username and password to get started.</div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Username</label>
+                                <input type="text" class="input-field" placeholder="photographer_jamie">
+                                <div style="font-size: 0.85rem; color: var(--color-success); margin-top: var(--spacing-xs);">✓ Available</div>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Password</label>
+                                <input type="password" class="input-field" placeholder="••••••••">
+                                <div style="font-size: 0.85rem; color: var(--color-success); margin-top: var(--spacing-xs);">✓ Meets requirements</div>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Confirm Password</label>
+                                <input type="password" class="input-field" placeholder="••••••••">
+                            </div>
+                            
+                            <button class="button button-primary" style="width: 100%; padding: var(--spacing-md); margin-top: var(--spacing-md);">Create Profile</button>
+                            
+                            <div style="text-align: center; margin-top: var(--spacing-md); font-size: 0.9rem; color: var(--color-secondary);">
+                                Already have a profile? <a href="#" style="color: var(--color-primary); font-weight: 600;">Log in</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Dashboard Wireframe -->
+        <article class="wireframe" id="dashboard">
+            <div class="wireframe-header">
+                <h2>Dashboard</h2>
+                <span class="wireframe-tag">Minimalist Dashboard Direction</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">Primary user interface after signup. Features the Profile URL Display Component prominently along with clear next actions.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Dashboard View</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Welcome, photographer_jamie! 👋</div>
+                                <div class="card-content">Your profile is live and ready to share. Copy your unique link below.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <!-- Profile URL Display Component -->
+                            <div class="profile-url-display">
+                                <div class="input-label">Your Profile URL</div>
+                                <div class="url-display-container">
+                                    <div class="url-text">https://profile.site/photographer_jamie</div>
+                                    <div class="action-buttons">
+                                        <button class="icon-button primary">
+                                            📋 Copy
+                                        </button>
+                                        <button class="icon-button">
+                                            ↗️ Share
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="helper-text">Share this link with anyone to show your profile</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="action-grid">
+                                <!-- Action Card Components -->
+                                <div class="action-card">
+                                    <div class="action-icon">👁️</div>
+                                    <div class="action-title">View Profile</div>
+                                    <div class="action-description">See how others will view your profile</div>
+                                    <button class="button button-secondary" style="width: 100%;">View</button>
+                                </div>
+                                
+                                <div class="action-card">
+                                    <div class="action-icon">✏️</div>
+                                    <div class="action-title">Add Details</div>
+                                    <div class="action-description">Add a bio, links, and profile picture</div>
+                                    <button class="button button-secondary" style="width: 100%;">Edit</button>
+                                </div>
+                                
+                                <div class="action-card">
+                                    <div class="action-icon">⚙️</div>
+                                    <div class="action-title">Settings</div>
+                                    <div class="action-description">Manage account and preferences</div>
+                                    <button class="button button-secondary" style="width: 100%;">Configure</button>
+                                </div>
+                                
+                                <div class="action-card">
+                                    <div class="action-icon">📊</div>
+                                    <div class="action-title">Explore</div>
+                                    <div class="action-description">Discover advanced features</div>
+                                    <button class="button button-secondary" style="width: 100%;">Learn More</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Profile View Wireframe -->
+        <article class="wireframe" id="profile-view">
+            <div class="wireframe-header">
+                <h2>Public Profile View</h2>
+                <span class="wireframe-tag">Shareable Link</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">How others see the user's profile. Clean, minimal display with optional user content and sharing options.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Public Profile</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="profile-preview">
+                                <div class="avatar">JC</div>
+                                <div class="profile-name">Jamie Chen</div>
+                                <div class="profile-bio">Photographer specializing in landscape and nature photography</div>
+                                <div style="margin-bottom: var(--spacing-lg);">
+                                    <span style="display: inline-block; padding: var(--spacing-xs) var(--spacing-md); background: var(--color-background); border-radius: var(--border-radius-sm); font-size: 0.9rem; color: var(--color-secondary);">📷 Photography</span>
+                                    <span style="display: inline-block; padding: var(--spacing-xs) var(--spacing-md); background: var(--color-background); border-radius: var(--border-radius-sm); font-size: 0.9rem; color: var(--color-secondary);">🌿 Nature</span>
+                                </div>
+                                <button class="button button-primary">Follow</button>
+                                <button class="button button-secondary" style="margin-left: var(--spacing-sm);">Share Profile</button>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Links & Contact</div>
+                                <div class="card-content">
+                                    <div style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); border: 1px solid var(--color-border-light); border-radius: var(--border-radius-sm);">
+                                            <div style="font-size: 1.2rem;">🌐</div>
+                                            <div style="flex: 1;">jamiechenphotography.com</div>
+                                            <button class="button" style="padding: var(--spacing-xs) var(--spacing-sm); font-size: 0.85rem;">Visit</button>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); border: 1px solid var(--color-border-light); border-radius: var(--border-radius-sm);">
+                                            <div style="font-size: 1.2rem;">📷</div>
+                                            <div style="flex: 1;">@jamiechenphotos</div>
+                                            <button class="button" style="padding: var(--spacing-xs) var(--spacing-sm); font-size: 0.85rem;">Follow</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Share Dialog Wireframe -->
+        <article class="wireframe" id="share-dialog">
+            <div class="wireframe-header">
+                <h2>Share Dialog</h2>
+                <span class="wireframe-tag">Share Dialog Component</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">Dialog for copying profile URL and sharing to specific platforms. Includes copy confirmation and platform-specific options.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Share Your Profile</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="share-dialog">
+                                <div class="card-title">Share your profile</div>
+                                <div class="card-content" style="margin-bottom: var(--spacing-md);">Copy the link or share directly to platforms.</div>
+                                
+                                <div class="profile-url-display">
+                                    <div class="url-display-container">
+                                        <div class="url-text">https://profile.site/photographer_jamie</div>
+                                        <button class="icon-button success">
+                                            ✓ Copied!
+                                        </button>
+                                    </div>
+                                    <div class="helper-text">Link copied to clipboard</div>
+                                </div>
+                                
+                                <div style="margin-top: var(--spacing-lg);">
+                                    <div class="input-label">Share to platforms</div>
+                                    <div class="share-platforms">
+                                        <button class="platform-button">
+                                            <div class="platform-icon">🐦</div>
+                                            <div class="platform-name">Twitter</div>
+                                        </button>
+                                        <button class="platform-button">
+                                            <div class="platform-icon">📘</div>
+                                            <div class="platform-name">Facebook</div>
+                                        </button>
+                                        <button class="platform-button">
+                                            <div class="platform-icon">💼</div>
+                                            <div class="platform-name">LinkedIn</div>
+                                        </button>
+                                        <button class="platform-button">
+                                            <div class="platform-icon">📧</div>
+                                            <div class="platform-name">Email</div>
+                                        </button>
+                                        <button class="platform-button">
+                                            <div class="platform-icon">📱</div>
+                                            <div class="platform-name">SMS</div>
+                                        </button>
+                                        <button class="platform-button">
+                                            <div class="platform-icon">📋</div>
+                                            <div class="platform-name">Copy</div>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <button class="button" style="width: 100%; margin-top: var(--spacing-lg); padding: var(--spacing-md);">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Edit Profile Wireframe -->
+        <article class="wireframe" id="edit-profile">
+            <div class="wireframe-header">
+                <h2>Edit Profile Form</h2>
+                <span class="wireframe-tag">Live Preview</span>
+            </div>
+            
+            <div class="wireframe-content">
+                <p class="wireframe-description">Simple form for editing profile details with live preview. Minimal fields to maintain simplicity.</p>
+                
+                <div class="mockup">
+                    <div class="mockup-title">Edit Profile</div>
+                    <div class="ui-elements">
+                        <div class="ui-element">
+                            <div class="card-title">Edit your profile</div>
+                            <div class="card-content" style="margin-bottom: var(--spacing-md);">Update your public profile information.</div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Display Name</label>
+                                <input type="text" class="input-field" value="Jamie Chen">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Bio</label>
+                                <textarea class="input-field" rows="3">Photographer specializing in landscape and nature photography</textarea>
+                                <div style="font-size: 0.85rem; color: var(--color-secondary); margin-top: var(--spacing-xs);">Brief description about yourself</div>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="input-label">Profile Picture</label>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                                    <div class="avatar" style="width: 60px; height: 60px; font-size: 1.5rem;">JC</div>
+                                    <button class="button button-secondary">Upload Image</button>
+                                    <button class="button" style="background: transparent; color: var(--color-secondary);">Remove</button>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+                                <button class="button button-primary">Save Changes</button>
+                                <button class="button button-secondary">Cancel</button>
+                            </div>
+                        </div>
+                        
+                        <div class="ui-element">
+                            <div class="card">
+                                <div class="card-title">Live Preview</div>
+                                <div class="card-content">
+                                    <div style="text-align: center; padding: var(--spacing-md); border: 1px dashed var(--color-border); border-radius: var(--border-radius-md);">
+                                        <div style="font-size: 0.9rem; color: var(--color-secondary);">Changes appear here as you type</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <footer class="footer">
+        <p>Profile Wireframes - Minimalist Dashboard Direction | Based on Component Strategy from UX Design Specification</p>
+        <p>These wireframes demonstrate the implementation of custom components within the chosen design direction.</p>
+    </footer>
+
+    <script>
+        // Interactive copy button simulation
+        document.addEventListener('DOMContentLoaded', function() {
+            const copyButtons = document.querySelectorAll('.icon-button.primary, .platform-button:nth-child(6)');
+            
+            copyButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const originalText = this.textContent.trim();
+                    const originalClass = this.className;
+                    
+                    // Change to success state
+                    this.textContent = '✓ Copied!';
+                    this.className = originalClass.replace('primary', 'success');
+                    
+                    // Revert after 3 seconds
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.className = originalClass;
+                    }, 3000);
+                });
+            });
+            
+            // Simple platform button interaction
+            const platformButtons = document.querySelectorAll('.platform-button');
+            platformButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const platform = this.querySelector('.platform-name').textContent;
+                    alert(`Opening ${platform} share dialog...\n\nIn a real implementation, this would open the platform's native sharing interface.`);
+                });
+            });
+            
+            // Simple navigation between wireframes (optional)
+            const wireframes = document.querySelectorAll('.wireframe');
+            wireframes.forEach(wireframe => {
+                wireframe.addEventListener('click', function(e) {
+                    if (!e.target.closest('button') && !e.target.closest('input') && !e.target.closest('textarea')) {
+                        // Just a visual feedback, not actual navigation
+                        wireframes.forEach(w => w.style.boxShadow = 'var(--shadow-lg)');
+                        this.style.boxShadow = '0 0 0 3px var(--color-accent), var(--shadow-lg)';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
