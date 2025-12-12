@@ -5,13 +5,13 @@ workflowType: 'ux-design'
 lastStep: 14
 project_name: 'profile'
 user_name: 'Riddler'
-date: '2025-12-11'
+date: '2025-12-12'
 ---
 
 # UX Design Specification profile
 
 **Author:** Riddler
-**Date:** 2025-12-11
+**Date:** 2025-12-12 (updated with Profile URL Display Component text wrapping fix)
 
 ---
 
@@ -644,10 +644,11 @@ graph TD
 1. **Copy Interaction**: Explicit copy button adjacent to URL (not auto-copy on click) for clarity and better feedback
 2. **Share Features**: Simple share button that opens dialog with platform icons (Twitter, Facebook, LinkedIn, copy link)
 3. **URL Editing**: Read-only display with note "Your profile URL is based on your username" and link to edit profile
-4. **Analytics**: No view counts or analytics in MVP; keep purely functional
+4. **Text Wrapping Behavior**: URL text wraps to multiple lines instead of horizontal scrolling for better accessibility and responsive design
+5. **Analytics**: No view counts or analytics in MVP; keep purely functional
 
 **Content & Structure:**
-- **URL Display**: Large, readable monospace font (e.g., `https://profile.site/username`)
+- **URL Display**: Large, readable monospace font (e.g., `https://profile.site/username`) with text wrapping to prevent horizontal scrollbars
 - **Copy Button**: Icon button with "Copy" label, changes to "Copied!" on success
 - **Share Button**: Icon button with "Share" label, opens platform-specific share dialog
 - **Helper Text**: "Share this link with anyone to show your profile"
@@ -723,11 +724,12 @@ graph TD
 ### Design Specifications
 
 **Profile URL Display Component Specifications:**
-- **URL Text**: `font-family: 'Roboto Mono', monospace; font-size: 1.25rem;`
+- **URL Text**: `font-family: 'Roboto Mono', monospace; font-size: 1.25rem; overflow-wrap: break-word; word-break: break-all; white-space: normal;`
 - **Copy Button**: MUI `IconButton` with `ContentCopy` icon, variant="outlined"
 - **Share Button**: MUI `IconButton` with `Share` icon, variant="outlined"
 - **Container**: MUI `Paper` with `elevation={0}` and subtle border
 - **Spacing**: 16px padding, 8px between elements
+- **Text Behavior**: URL text wraps to multiple lines instead of horizontal scrolling; uses `min-width: 0` and `max-width: 100%` for flexible containers
 
 **Action Card Specifications:**
 - **Dimensions**: Minimum 200px height, flexible width
@@ -976,6 +978,7 @@ Comprehensive wireframes for all key screens have been created and are available
 - Component implementations follow design system specifications
 - Interactive elements provide appropriate feedback states
 - Layouts maintain visual hierarchy across breakpoints
+- **Profile URL Display Fix**: Updated wireframes eliminate horizontal scrollbars by implementing URL text wrapping (`overflow-wrap: break-word; word-break: break-all;`)
 
 ### Responsive Design Strategy
 
@@ -1007,9 +1010,9 @@ Comprehensive wireframes for all key screens have been created and are available
 **Component Responsive Behavior:**
 
 **Profile URL Display Component:**
-- **Mobile**: Full-width URL field, stacked buttons below
-- **Tablet**: Flexible width URL field, inline buttons
-- **Desktop**: Optimal width with inline buttons, generous spacing
+- **Mobile**: Full-width URL field, stacked buttons below, URL text wraps to multiple lines as needed
+- **Tablet**: Flexible width URL field, inline buttons, URL text wraps within container bounds
+- **Desktop**: Optimal width with inline buttons, generous spacing, URL text wraps only when necessary to avoid horizontal scrollbars
 
 **Action Card Components:**
 - **Mobile**: 1-column grid, full-width cards
