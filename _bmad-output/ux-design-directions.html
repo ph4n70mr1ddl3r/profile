@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - UX Design Directions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #f3f4f6;
+            line-height: 1.5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 12px;
+            color: #f3f4f6;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #d1d5db;
+            margin-bottom: 40px;
+        }
+
+        .directions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .direction-card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .direction-card:hover {
+            border-color: #0066CC;
+            box-shadow: 0 0 20px rgba(0, 102, 204, 0.2);
+        }
+
+        .mockup-container {
+            background: #111827;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid #374151;
+            overflow: hidden;
+        }
+
+        .mockup-title {
+            background: #0066CC;
+            padding: 8px 16px;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .mockup-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .mockup-lobby {
+            width: 200px;
+            background: #1f2937;
+            border-right: 1px solid #374151;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .mockup-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #111827;
+        }
+
+        .mockup-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 12px;
+        }
+
+        .mockup-composer {
+            background: #1f2937;
+            border-top: 1px solid #374151;
+            padding: 8px 12px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .user-item {
+            padding: 6px 12px;
+            color: #d1d5db;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-item:hover {
+            background: #374151;
+        }
+
+        .user-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+
+        .message {
+            margin-bottom: 4px;
+            padding: 2px 0;
+            font-family: "Consolas", monospace;
+            color: #9ca3af;
+            font-size: 10px;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .verified-badge {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        .composer-input {
+            flex: 1;
+            background: #111827;
+            border: 1px solid #374151;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #d1d5db;
+            border-radius: 2px;
+        }
+
+        .composer-send {
+            background: #0066CC;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            font-size: 10px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .composer-send:hover {
+            background: #0052a3;
+        }
+
+        .card-info {
+            padding: 16px;
+            background: #1f2937;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f3f4f6;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            font-size: 12px;
+            color: #d1d5db;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .card-highlights {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .card-highlights li {
+            margin-left: 16px;
+            margin-bottom: 4px;
+        }
+
+        .evaluation-framework {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+
+        .evaluation-framework h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #f3f4f6;
+        }
+
+        .evaluation-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .eval-item {
+            background: #111827;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #0066CC;
+        }
+
+        .eval-item strong {
+            color: #22c55e;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .eval-item p {
+            font-size: 12px;
+            color: #d1d5db;
+        }
+
+        @media (max-width: 1024px) {
+            .directions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .evaluation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .direction-label {
+            display: inline-block;
+            background: #0066CC;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Profile - UX Design Directions</h1>
+        <p class="subtitle">Exploring six visual design approaches for cryptographically verified messaging</p>
+
+        <div class="evaluation-framework">
+            <h2>Evaluation Framework</h2>
+            <p style="margin-bottom: 16px; color: #d1d5db; font-size: 13px;">As you explore each design direction, consider these criteria:</p>
+            <div class="evaluation-grid">
+                <div class="eval-item">
+                    <strong>✓ Layout Intuitiveness</strong>
+                    <p>Does the information hierarchy match user priorities? Is the flow natural?</p>
+                </div>
+                <div class="eval-item">
+                    <strong>✓ Interaction Style</strong>
+                    <p>Does the interaction style support the core "send message with automatic signing" experience?</p>
+                </div>
+                <div class="eval-item">
+                    <strong>✓ Visual Weight</strong>
+                    <p>Does the density feel right? Is it information-dense without being cluttered?</p>
+                </div>
+                <div class="eval-item">
+                    <strong>✓ Trust & Confidence</strong>
+                    <p>Do the visual choices support cryptographic trust and user confidence in verification?</p>
+                </div>
+                <div class="eval-item">
+                    <strong>✓ Component Usage</strong>
+                    <p>Do the components effectively support the two user archetypes (Alex & Sam)?</p>
+                </div>
+                <div class="eval-item">
+                    <strong>✓ Desktop Efficiency</strong>
+                    <p>Does the design support keyboard-first power users? Are shortcuts obvious?</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="directions-grid">
+            <!-- Direction 1: Compact Dense -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C... [DIRECTION 1: COMPACT DENSE]</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby">
+                            <div class="user-item"><span class="user-status"></span>3A8F2E1C</div>
+                            <div class="user-item"><span class="user-status"></span>7B4D9C2A</div>
+                            <div class="user-item"><span class="user-status"></span>E2C5F1B8</div>
+                            <div class="user-item"><span class="user-status"></span>9K3L6M1N</div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages">
+                                <div class="message">[12:34:56] 3A8F2E1C hello <span class="verified-badge">✓</span></div>
+                                <div class="message">[12:35:01] 7B4D9C2A hi there <span class="verified-badge">✓</span></div>
+                                <div class="message">[12:35:08] 3A8F2E1C testing signatures <span class="verified-badge">✓</span></div>
+                                <div class="message">[12:35:12] 3A8F2E1C same message again <span class="verified-badge">✓</span></div>
+                                <div class="message" style="color: #f59e0b;">[12:35:15] SYSTEM offline notification</div>
+                            </div>
+                            <div class="mockup-composer">
+                                <input class="composer-input" placeholder="Type message..." value="">
+                                <button class="composer-send">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">DENSE LAYOUT</div>
+                    <div class="card-title">Compact Dense</div>
+                    <div class="card-description">Maximum information density with minimal whitespace. All data visible at once. Monospace throughout. Built for technical power users.</div>
+                    <ul class="card-highlights">
+                        <li>All messages fit without scrolling (when possible)</li>
+                        <li>Monospace keys, timestamps, signatures visible</li>
+                        <li>Minimal padding, efficient use of space</li>
+                        <li>Strong for Sam's deterministic testing</li>
+                        <li>May feel overwhelming for Alex</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Direction 2: Breathing Room -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C... [DIRECTION 2: BREATHING ROOM]</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby">
+                            <div style="padding: 12px 12px; color: #9ca3af; font-size: 10px; border-bottom: 1px solid #374151;">Online Users</div>
+                            <div class="user-item" style="padding: 12px 12px; margin: 4px 8px; border-radius: 4px; background: #374151;"><span class="user-status"></span>3A8F2E1C</div>
+                            <div class="user-item" style="padding: 12px 12px; margin: 4px 8px;"><span class="user-status"></span>7B4D9C2A</div>
+                            <div class="user-item" style="padding: 12px 12px; margin: 4px 8px;"><span class="user-status"></span>E2C5F1B8</div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages">
+                                <div class="message" style="margin-bottom: 12px; padding: 8px; background: #1f2937; border-radius: 4px; font-size: 11px;"><strong style="color: #0066CC;">12:34:56</strong><br><span style="color: #9ca3af;">3A8F2E1C</span><br><span style="color: #f3f4f6;">Hello, is anyone here?</span><br><span class="verified-badge">✓</span></div>
+                                <div class="message" style="margin-bottom: 12px; padding: 8px; background: #1f2937; border-radius: 4px; font-size: 11px;"><strong style="color: #0066CC;">12:35:01</strong><br><span style="color: #9ca3af;">7B4D9C2A</span><br><span style="color: #f3f4f6;">Yes! I'm here</span><br><span class="verified-badge">✓</span></div>
+                            </div>
+                            <div class="mockup-composer">
+                                <input class="composer-input" placeholder="Type your message..." value="" style="padding: 8px 12px;">
+                                <button class="composer-send" style="padding: 8px 16px;">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">SPACIOUS LAYOUT</div>
+                    <div class="card-title">Breathing Room</div>
+                    <div class="card-description">Generous spacing and breathing room. Each message is a clear card. Larger fonts. More visually accessible for new users.</div>
+                    <ul class="card-highlights">
+                        <li>Cards around each message (clear visual separation)</li>
+                        <li>Larger fonts for readability</li>
+                        <li>More whitespace between elements</li>
+                        <li>Strong for Alex's first-time experience</li>
+                        <li>May feel wasteful for Sam's edge case testing</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Direction 3: Minimalist Focus -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C...</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby" style="width: 150px; padding: 16px 0;">
+                            <div class="user-item" style="padding: 8px 12px; margin: 2px; color: #22c55e; font-weight: 600;">●</div>
+                            <div class="user-item" style="padding: 8px 12px; margin: 2px; color: #22c55e; font-weight: 600;">●</div>
+                            <div class="user-item" style="padding: 8px 12px; margin: 2px; color: #22c55e; font-weight: 600;">●</div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages" style="padding: 24px;">
+                                <div class="message" style="margin-bottom: 16px; font-size: 13px; color: #f3f4f6;"><span style="color: #0066CC;">12:34</span> hello <span class="verified-badge">✓</span></div>
+                                <div class="message" style="margin-bottom: 16px; font-size: 13px; color: #f3f4f6;"><span style="color: #0066CC;">12:35</span> hi there <span class="verified-badge">✓</span></div>
+                                <div class="message" style="font-size: 13px; color: #f3f4f6;"><span style="color: #0066CC;">12:36</span> testing <span class="verified-badge">✓</span></div>
+                            </div>
+                            <div class="mockup-composer" style="padding: 16px; gap: 8px;">
+                                <input class="composer-input" placeholder="Type..." value="" style="font-size: 13px;">
+                                <button class="composer-send">↵</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">MINIMAL APPROACH</div>
+                    <div class="card-title">Minimalist Focus</div>
+                    <div class="card-description">Extreme minimalism. Only essentials visible. No borders or decorations. Focus on content. Enter key only for send.</div>
+                    <ul class="card-highlights">
+                        <li>Minimal UI chrome, maximum content</li>
+                        <li>Large message text, readable at distance</li>
+                        <li>Enter key symbol instead of button label</li>
+                        <li>Strong for "message first" philosophy</li>
+                        <li>May hide too much verification detail</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Direction 4: Verification Center -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C... [DIRECTION 4: VERIFICATION CENTER]</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby">
+                            <div style="padding: 12px; border-bottom: 1px solid #374151; color: #9ca3af; font-size: 10px; font-weight: 600;">LOBBY</div>
+                            <div class="user-item"><span class="user-status"></span>3A8F2E1C</div>
+                            <div class="user-item"><span class="user-status"></span>7B4D9C2A</div>
+                            <div class="user-item"><span class="user-status"></span>E2C5F1B8</div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages" style="padding: 12px; font-size: 11px;">
+                                <div style="background: #0066CC; padding: 8px; margin-bottom: 8px; border-radius: 3px; color: white;"><strong>12:34:56</strong></div>
+                                <div style="background: #374151; padding: 8px; margin-bottom: 8px; border-radius: 3px; font-family: monospace; color: #d1d5db; font-size: 9px;">From: 3A8F2E1C</div>
+                                <div style="background: #1f2937; padding: 8px; margin-bottom: 8px; border-radius: 3px;">Hello!</div>
+                                <div style="background: #22c55e; color: white; padding: 6px 8px; border-radius: 3px; font-size: 10px; text-align: center; margin-bottom: 12px;"><strong>✓ VERIFIED</strong></div>
+                            </div>
+                            <div class="mockup-composer" style="padding: 8px; gap: 4px;">
+                                <input class="composer-input" placeholder="msg..." value="" style="font-size: 10px;">
+                                <button class="composer-send" style="padding: 4px 10px;">→</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">VERIFICATION FOCUS</div>
+                    <div class="card-title">Verification Center</div>
+                    <div class="card-description">Verification is the hero. Large verified badge. Sender key visible above message. Stacked layout emphasizes proof.</div>
+                    <ul class="card-highlights">
+                        <li>Large ✓ VERIFIED badge is prominent</li>
+                        <li>Sender key displayed separately (emphasis)</li>
+                        <li>Message stacked vertically for clarity</li>
+                        <li>Color-coded sections (key/message/verification)</li>
+                        <li>Strong emotional emphasis on proof</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Direction 5: Chat-First Traditional -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C...</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby" style="width: 220px;">
+                            <div style="padding: 12px 12px; border-bottom: 1px solid #374151; font-size: 12px; font-weight: 600; color: #f3f4f6;">People Online</div>
+                            <div class="user-item" style="padding: 10px 12px; flex-wrap: wrap;"><span class="user-status"></span><span>3A8F2E...</span></div>
+                            <div class="user-item" style="padding: 10px 12px; flex-wrap: wrap;"><span class="user-status"></span><span>7B4D9C...</span></div>
+                            <div class="user-item" style="padding: 10px 12px; flex-wrap: wrap;"><span class="user-status"></span><span>E2C5F1...</span></div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages" style="padding: 12px;">
+                                <div class="message" style="margin-bottom: 8px; color: #f3f4f6; font-size: 12px;"><span style="color: #0066CC; font-weight: 600;">3A8F2E1C</span> <span style="color: #22c55e;">✓</span> hello<br><span style="font-size: 10px; color: #9ca3af;">12:34:56</span></div>
+                                <div class="message" style="margin-bottom: 8px; color: #f3f4f6; font-size: 12px;"><span style="color: #0066CC; font-weight: 600;">7B4D9C2A</span> <span style="color: #22c55e;">✓</span> hi there<br><span style="font-size: 10px; color: #9ca3af;">12:35:01</span></div>
+                                <div class="message" style="color: #f3f4f6; font-size: 12px;"><span style="color: #0066CC; font-weight: 600;">3A8F2E1C</span> <span style="color: #22c55e;">✓</span> testing<br><span style="font-size: 10px; color: #9ca3af;">12:35:08</span></div>
+                            </div>
+                            <div class="mockup-composer" style="padding: 12px;">
+                                <input class="composer-input" placeholder="Type message..." value=""></input>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">TRADITIONAL CHAT</div>
+                    <div class="card-title">Chat-First Traditional</div>
+                    <div class="card-description">Like Slack/Discord. Familiar chat pattern. Key + badge + message inline. Traditional info hierarchy. Comfortable for most users.</div>
+                    <ul class="card-highlights">
+                        <li>Familiar chat interface (user ID → message → time)</li>
+                        <li>Badge inline next to sender name</li>
+                        <li>Timestamp below message (like Discord)</li>
+                        <li>Comfortable for users coming from other chat apps</li>
+                        <li>Balances Alex and Sam's needs well</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Direction 6: Key-Prominent -->
+            <div class="direction-card">
+                <div class="mockup-container">
+                    <div class="mockup-title">PROFILE - 3A8F2E1C...</div>
+                    <div class="mockup-content">
+                        <div class="mockup-lobby" style="width: 180px; padding: 8px;">
+                            <div class="user-item" style="padding: 8px; font-size: 10px; background: #374151; margin: 4px 0; border-radius: 3px; color: #d1d5db; font-family: monospace;">3A8F2E1C <span class="verified-badge">✓</span></div>
+                            <div class="user-item" style="padding: 8px; font-size: 10px; background: transparent; margin: 4px 0; border-radius: 3px; color: #9ca3af; font-family: monospace;">7B4D9C2A</div>
+                            <div class="user-item" style="padding: 8px; font-size: 10px; background: transparent; margin: 4px 0; border-radius: 3px; color: #9ca3af; font-family: monospace;">E2C5F1B8</div>
+                        </div>
+                        <div class="mockup-chat">
+                            <div class="mockup-messages">
+                                <div class="message" style="margin-bottom: 10px; padding: 0; color: #d1d5db;"><span style="font-family: monospace; color: #0066CC; font-size: 9px;">3A8F2E1C</span></div>
+                                <div class="message" style="margin-bottom: 10px; padding: 6px 0; color: #f3f4f6; font-size: 12px;">Hello!</div>
+                                <div class="message" style="margin-bottom: 16px; color: #22c55e; font-size: 10px;">✓ Verified</div>
+
+                                <div class="message" style="margin-bottom: 10px; padding: 0; color: #d1d5db;"><span style="font-family: monospace; color: #0066CC; font-size: 9px;">7B4D9C2A</span></div>
+                                <div class="message" style="margin-bottom: 10px; padding: 6px 0; color: #f3f4f6; font-size: 12px;">Hi there!</div>
+                                <div class="message" style="margin-bottom: 16px; color: #22c55e; font-size: 10px;">✓ Verified</div>
+                            </div>
+                            <div class="mockup-composer">
+                                <input class="composer-input" placeholder="Type..."></input>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <div class="direction-label">KEY PROMINENT</div>
+                    <div class="card-title">Key-Prominent Identity</div>
+                    <div class="card-description">Keys are the hero. Each message leads with sender's full key (monospace). Identity ownership is visual centerpiece.</div>
+                    <ul class="card-highlights">
+                        <li>Sender key prominent and separate (visual emphasis)</li>
+                        <li>All keys in monospace (consistency)</li>
+                        <li>Message text follows key</li>
+                        <li>Strong emphasis on identity ownership</li>
+                        <li>Aligns with "Identity as Hero" principle</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 24px; margin-top: 40px;">
+            <h2 style="font-size: 18px; margin-bottom: 16px;">Next Steps</h2>
+            <p style="color: #d1d5db; margin-bottom: 16px; line-height: 1.6;">
+                Review each design direction using the evaluation criteria above. Consider which direction best:
+            </p>
+            <ul style="color: #d1d5db; margin-left: 20px; line-height: 1.8;">
+                <li>Supports the core "send message with automatic signing" experience</li>
+                <li>Balances Alex's simplicity needs with Sam's technical validation needs</li>
+                <li>Communicates trust and confidence in cryptographic verification</li>
+                <li>Leverages keyboard shortcuts and desktop efficiency</li>
+                <li>Makes identity ownership visible and central</li>
+            </ul>
+            <p style="color: #d1d5db; margin-top: 16px; font-size: 12px;">
+                <strong>Ready?</strong> Share which direction resonates most, or suggest elements you'd like to combine from different approaches.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
