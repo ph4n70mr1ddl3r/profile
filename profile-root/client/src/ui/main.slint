@@ -1,0 +1,70 @@
+import { WelcomeScreen } from "welcome_screen.slint";
+import { KeyDisplay } from "key_display.slint";
+
+export component AppWindow inherits Window {
+    title: "Profile - Cryptographic Messaging";
+    width: 800px;
+    height: 600px;
+    
+    // Application state properties (updated from Rust)
+    in property <bool> key_generated: false;
+    in property <string> public_key_display: "";
+    in property <string> status_message: "";
+    
+    // Callbacks that trigger Rust handlers
+    callback generate_key_pressed;
+    callback import_key_pressed;
+    callback copy_public_key;
+
+    Rectangle {
+        background: #1a1a2e;
+
+        // Show welcome screen before key is generated
+        WelcomeScreen {
+            visible: !root.key_generated;
+            status_message: root.status_message;
+            generate_key_pressed => {
+                root.generate_key_pressed();
+            }
+            import_key_pressed => {
+                root.import_key_pressed();
+            }
+        }
+
+        // Show key display after successful generation
+        VerticalLayout {
+            visible: root.key_generated;
+            padding: 32px;
+            spacing: 16px;
+
+            Text {
+                text: "Your Cryptographic Identity";
+                font-size: 24px;
+                color: #ffffff;
+                font-weight: 700;
+            }
+
+            KeyDisplay {
+                public_key: root.public_key_display;
+                show_label: true;
+                allow_copy: true;
+                copy_pressed => {
+                    root.copy_public_key();
+                }
+            }
+
+            Text {
+                visible: root.status_message != "";
+                text: root.status_message;
+                font-size: 12px;
+                color: #4cd137;
+            }
+
+            Text {
+                text: "Ready to connect and send messages";
+                font-size: 12px;
+                color: #999999;
+            }
+        }
+    }
+}

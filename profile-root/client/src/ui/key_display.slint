@@ -1,0 +1,53 @@
+export component KeyDisplay {
+    in property <string> public_key;
+    in property <bool> show_copy_feedback: false;
+    in property <bool> show_label: true;
+    in property <bool> allow_copy: true;
+    in property <color> key_color: #0066cc;
+    in property <int> font_size: 11;
+    
+    callback copy_pressed;
+    
+    VerticalLayout {
+        spacing: 8px;
+        
+        Text {
+            visible: show_label;
+            text: "Your Public Key";
+            font-size: 12px;
+            color: #888888;
+            font-weight: 700;
+        }
+        
+        HorizontalLayout {
+            spacing: 8px;
+            
+            // Key display with accessibility
+            Text {
+                text: public_key;
+                color: key_color;
+                font-family: "Consolas, Monaco, monospace";
+                font-size: font_size * 1px;
+            }
+            
+            // Copy button (optional)
+            Rectangle {
+                visible: allow_copy;
+                width: 70px;
+                height: 30px;
+                background: #333333;
+                border-radius: 6px;
+
+                Text { text: show_copy_feedback ? "Copied!" : "Copy"; color: #ffffff; }
+                TouchArea { clicked => { root.copy_pressed(); } }
+            }
+        }
+        
+        // Help text
+        Text {
+            text: "This is your identity. Your public key can be shared with anyone.";
+            font-size: 12px;
+            color: #666666;
+        }
+    }
+}

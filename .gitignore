@@ -1,0 +1,10 @@
+tmp/
+.codex/
+
+# BMAD generated artifacts (keep tracked story files, ignore transient reports)
+_bmad-output/tmp/
+_bmad-output/STORY_*_COMPLETION_SUMMARY.md
+_bmad-output/sprint-artifacts/validation-report-*.md
+
+# Local IDE profiles
+_bmad/_config/ides/

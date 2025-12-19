@@ -1,0 +1,24 @@
+[package]
+name = "profile-client"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "profile"
+path = "src/main.rs"
+
+[dependencies]
+profile-shared = { path = "../shared" }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+slint = { workspace = true }
+zeroize = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[build-dependencies]
+slint-build = { workspace = true }
