@@ -25,18 +25,40 @@ impl KeyState {
     }
 
     /// Get a reference to the stored private key (if any)
+    /// 
+    /// # Usage
+    /// - Story 1.5: Used for authentication signature generation
+    /// - Story 3.x: Used for message signing
+    /// 
+    /// Currently only used in tests. The `#[allow(dead_code)]` will be removed
+    /// when Story 1.5 is implemented.
     #[allow(dead_code)]
     pub fn private_key(&self) -> Option<&PrivateKey> {
         self.private_key.as_ref()
     }
 
     /// Get a reference to the stored public key (if any)
+    /// 
+    /// # Usage
+    /// - Throughout the application for key display
+    /// - Story 1.3: Public key display and copying
+    /// - Story 2.x: Lobby user identification
+    /// 
+    /// Currently only used in tests. The `#[allow(dead_code)]` will be removed
+    /// when Story 1.3 is implemented.
     #[allow(dead_code)]
     pub fn public_key(&self) -> Option<&PublicKey> {
         self.public_key.as_ref()
     }
 
     /// Check if both private and public keys are set
+    /// 
+    /// # Usage
+    /// - Determines if user has completed key setup flow
+    /// - Guards operations that require authenticated state
+    /// 
+    /// Currently only used in tests. The `#[allow(dead_code)]` will be removed
+    /// when key-dependent features are implemented.
     #[allow(dead_code)]
     pub fn is_key_set(&self) -> bool {
         self.private_key.is_some() && self.public_key.is_some()
