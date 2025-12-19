@@ -38,7 +38,7 @@ development_status:
   # ==================
   epic-1: in-progress
   1-1-generate-new-256-bit-private-key: done
-  1-2-import-existing-256-bit-private-key: review
+  1-2-import-existing-256-bit-private-key: done
   1-3-display-user-s-public-key-clearly: backlog
   1-4-securely-store-private-key-in-memory-zeroize-protected: backlog
   1-5-authenticate-to-server-with-signature-proof: backlog

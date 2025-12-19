@@ -1,6 +1,6 @@
 # Story 1.2: Import Existing 256-Bit Private Key
 
-**Status:** review
+**Status:** done
 
 ---
 
@@ -1298,13 +1298,13 @@ Mark this story "done" when:
 
 ---
 
-**Story Status:** review  
+**Story Status:** done  
 **Created:** 2025-12-19  
 **Completed:** 2025-12-19  
 **Epic:** 1 - Foundation  
 **Dependencies:** Story 1.1 (Generate New 256-Bit Private Key)  
 **Enables:** Stories 1.3, 1.5, and all future features (import path complete)  
-**Review Notes:** All 15 code review issues resolved (8 high, 4 medium, 3 low)
+**Review Notes:** All code review issues resolved. Final fixes applied: docstring step count corrected (7→10), defense-in-depth validation comments added, security note improved with callback names.
 
 ---
 

@@ -17,7 +17,10 @@ export component AppWindow inherits Window {
     
     // Import screen state
     // Security note: This stores user input temporarily as a Slint string.
-    // It is cleared immediately after import in main.rs (line 84, 129, 151).
+    // It is cleared immediately after import in main.rs callbacks:
+    //   - show_import_screen (clears on navigation to import view)
+    //   - import_key_attempt (clears after successful import)
+    //   - cancel_import (clears on return to welcome screen)
     // Cannot be cryptographically zeroized (Slint string limitation).
     // The decoded key IS zeroized in Rust after hex::decode().
     in-out property <string> import_key_input: "";

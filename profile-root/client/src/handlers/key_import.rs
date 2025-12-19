@@ -6,7 +6,7 @@ use zeroize::Zeroizing;
 
 /// Handle the "Import Key" button press
 /// 
-/// Validates user input through 7 steps, then imports the key into session state.
+/// Validates user input through 10 steps, then imports the key into session state.
 /// Returns the derived public key as hex for UI display.
 /// 
 /// # Validation Steps
@@ -81,20 +81,23 @@ pub async fn handle_import_key(
     // Convert to hex for display
     let public_key_hex = hex::encode(&public_key);
     
-    // Validate hex encoding (same pattern as session.rs from Story 1.1)
+    // Defense-in-depth: Validate hex encoding (paranoid checks that should never fail)
+    // These checks defend against hypothetical bugs in derive_public_key() or hex::encode()
+    // In practice: derive_public_key() always returns 32 bytes, hex::encode() always produces valid hex
+    // Kept for consistency with Story 1.1 (session.rs) and defense-in-depth security principle
     if public_key_hex.len() != 64 {
         return Err(format!(
-            "Invalid public key length: {} hex chars (expected 64 for 32-byte key)",
+            "Internal validation error: Public key hex length is {} (expected 64). This indicates a bug in key derivation.",
             public_key_hex.len()
         ));
     }
     
     if !public_key_hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err("Invalid public key encoding: contains non-hex characters".into());
+        return Err("Internal validation error: Public key contains non-hex characters. This indicates a bug in hex encoding.".into());
     }
     
     if public_key_hex.chars().all(|c| c == '0') {
-        return Err("Invalid public key: All-zero key detected".into());
+        return Err("Internal validation error: Public key is all zeros (should have been caught earlier). This indicates a bug.".into());
     }
     
     // Lock the state and store the imported key
