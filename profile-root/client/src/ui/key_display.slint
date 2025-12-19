@@ -1,12 +1,34 @@
+// KeyDisplay Component
+// Displays a public key with copy-to-clipboard functionality
+//
+// Properties:
+//   - public_key: The public key string to display (typically 64 hex characters)
+//   - show_copy_feedback: When true, shows "Copied!" instead of "Copy" button text
+//   - show_label: When true, shows "Your Public Key" label above the key
+//   - allow_copy: When true, shows the copy button
+//   - key_color: Color for the key text (default: #0066CC - identity blue)
+//   - font_size: Font size for the key text (default: 12px, aligned with 8px grid)
+//
+// Callbacks:
+//   - copy_pressed: Triggered when user clicks copy button or presses Ctrl+C
+//
+// Usage:
+//   KeyDisplay {
+//       public_key: "a1b2c3d4...";
+//       copy_pressed => { /* handle clipboard copy */ }
+//   }
 export component KeyDisplay {
     in property <string> public_key;
     in property <bool> show_copy_feedback: false;
     in property <bool> show_label: true;
     in property <bool> allow_copy: true;
-    in property <color> key_color: #0066cc;
-    in property <int> font_size: 11;
+    in property <color> key_color: #0066CC;
+    in property <int> font_size: 12;
     
     callback copy_pressed;
+    
+    // Focus handling for keyboard support
+    forward-focus: key_container;
     
     VerticalLayout {
         spacing: 8px;
@@ -22,24 +44,73 @@ export component KeyDisplay {
         HorizontalLayout {
             spacing: 8px;
             
-            // Key display with accessibility
-            Text {
-                text: public_key;
-                color: key_color;
-                font-family: "Consolas, Monaco, monospace";
-                font-size: font_size * 1px;
+            // Key display container with keyboard support
+            key_container := FocusScope {
+                width: parent.width - 78px;
+                
+                // Keyboard event handling (Ctrl+C support)
+                // Note: Ctrl+C generates ASCII control character 0x03 (ETX - End of Text)
+                // This is the raw control code sent before OS clipboard shortcuts are processed
+                key-pressed(event) => {
+                    if (event.text == "\u{0003}") { // Ctrl+C produces ETX character (0x03)
+                        root.copy_pressed();
+                        return accept;
+                    }
+                    return reject;
+                }
+                
+                // Key text with accessibility and overflow handling
+                Text {
+                    text: public_key;
+                    color: key_color;
+                    font-family: "Consolas, Monaco, monospace";
+                    font-size: font_size * 1px;
+                    wrap: word-wrap;
+                    horizontal-alignment: left;
+                    accessible-role: text;
+                    accessible-label: "Public key: " + public_key;
+                    accessible-description: "Your cryptographic public key for identity verification. Press Ctrl+C to copy.";
+                }
             }
             
-            // Copy button (optional)
-            Rectangle {
+            // Copy button (optional) - Tab-accessible with focus support
+            copy_button := FocusScope {
                 visible: allow_copy;
                 width: 70px;
                 height: 30px;
-                background: #333333;
-                border-radius: 6px;
+                
+                Rectangle {
+                    width: parent.width;
+                    height: parent.height;
+                    background: copy_button.has-focus ? #4444AA : #333333;
+                    border-radius: 6px;
+                    border-width: copy_button.has-focus ? 2px : 0px;
+                    border-color: #0066CC;
 
-                Text { text: show_copy_feedback ? "Copied!" : "Copy"; color: #ffffff; }
-                TouchArea { clicked => { root.copy_pressed(); } }
+                    Text {
+                        text: show_copy_feedback ? "Copied!" : "Copy";
+                        color: #ffffff;
+                    }
+                    
+                    TouchArea {
+                        clicked => {
+                            root.copy_pressed();
+                        }
+                    }
+                }
+                
+                accessible-role: button;
+                accessible-label: show_copy_feedback ? "Copied to clipboard" : "Copy public key to clipboard";
+                accessible-description: "Click or press Enter to copy your public key to the system clipboard";
+                
+                // Keyboard support for button (Enter/Space)
+                key-pressed(event) => {
+                    if (event.text == "\n" || event.text == " ") {
+                        root.copy_pressed();
+                        return accept;
+                    }
+                    return reject;
+                }
             }
         }
         

@@ -9,6 +9,31 @@ use std::time::Duration;
 
 slint::include_modules!();
 
+/// Parse common clipboard error codes into user-friendly messages
+fn parse_clipboard_error(error: &str) -> String {
+    // Windows HRESULT error codes
+    if error.contains("0x80040155") || error.contains("CLIPBRD_E_CANT_OPEN") {
+        return "Clipboard is busy. Please try again.".to_string();
+    }
+    if error.contains("0x800401D0") || error.contains("CLIPBRD_E_CANT_EMPTY") {
+        return "Could not clear clipboard. Please try again.".to_string();
+    }
+    if error.contains("0x800401D1") || error.contains("CLIPBRD_E_CANT_SET") {
+        return "Could not write to clipboard. Please try again.".to_string();
+    }
+    if error.contains("0x80040154") || error.contains("REGDB_E_CLASSNOTREG") {
+        return "Clipboard service not available.".to_string();
+    }
+    
+    // Generic clipboard errors
+    if error.contains("clipboard") || error.contains("Clipboard") {
+        return "Clipboard operation failed. Please try again.".to_string();
+    }
+    
+    // Fallback: return simplified version of error
+    "Copy operation failed. Please try again.".to_string()
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -165,14 +190,30 @@ fn main() -> Result<(), slint::PlatformError> {
                 match clipboard.set_text(&public_key) {
                     Ok(_) => {
                         ui.set_status_message("Public key copied to clipboard!".into());
+                        ui.set_copy_feedback_visible(true);
+                        
+                        // Reset feedback after 2 seconds
+                        let ui_weak_feedback = ui.as_weak();
+                        let _ = slint::spawn_local(async move {
+                            slint::Timer::single_shot(Duration::from_secs(2), move || {
+                                if let Some(ui) = ui_weak_feedback.upgrade() {
+                                    ui.set_copy_feedback_visible(false);
+                                }
+                            });
+                        });
                     }
                     Err(e) => {
-                        ui.set_status_message(format!("Failed to copy: {}", e).into());
+                        // Parse common Windows clipboard errors into user-friendly messages
+                        let user_message = parse_clipboard_error(&e.to_string());
+                        ui.set_status_message(user_message.into());
+                        ui.set_copy_feedback_visible(false);
                     }
                 }
             }
             Err(e) => {
-                ui.set_status_message(format!("Clipboard unavailable: {}", e).into());
+                let user_message = parse_clipboard_error(&e.to_string());
+                ui.set_status_message(format!("Clipboard unavailable: {}", user_message).into());
+                ui.set_copy_feedback_visible(false);
             }
         }
     });

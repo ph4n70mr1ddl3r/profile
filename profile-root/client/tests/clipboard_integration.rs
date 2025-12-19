@@ -2,14 +2,21 @@
 //!
 //! Tests clipboard functionality for public key copying
 //!
-//! NOTE: These tests use the system clipboard, which is shared state.
-//! They include small delays (10ms) to handle platform timing issues.
+//! NOTE: These tests use the system clipboard, which is shared state across processes.
+//! The 10ms delays handle platform clipboard timing issues (Windows clipboard async behavior).
+//! Test isolation is achieved via std::sync::Mutex to serialize clipboard access.
 
 use arboard::Clipboard;
+use std::sync::Mutex;
+
+// Global mutex to serialize clipboard access across tests
+// Required because system clipboard is shared state - parallel tests would interfere
+static CLIPBOARD_LOCK: Mutex<()> = Mutex::new(());
 
 /// Test that clipboard API is available and functional
 #[test]
 fn integration_test_clipboard_available() {
+    let _lock = CLIPBOARD_LOCK.lock().unwrap();
     let clipboard_result = Clipboard::new();
     
     // On headless CI, clipboard might not be available - that's okay
@@ -30,6 +37,8 @@ fn integration_test_clipboard_available() {
 /// Test clipboard set/get roundtrip with sample public key
 #[test]
 fn integration_test_clipboard_roundtrip() {
+    let _lock = CLIPBOARD_LOCK.lock().unwrap();
+    
     // Try to get clipboard
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
@@ -61,6 +70,8 @@ fn integration_test_clipboard_roundtrip() {
 /// Test clipboard preserves full 64-character hex keys without truncation
 #[test]
 fn integration_test_clipboard_no_truncation() {
+    let _lock = CLIPBOARD_LOCK.lock().unwrap();
+    
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
         Err(_) => {
@@ -103,6 +114,8 @@ fn integration_test_clipboard_no_truncation() {
 /// Test clipboard handles whitespace correctly (user might paste with trailing newlines)
 #[test]
 fn integration_test_clipboard_exact_content() {
+    let _lock = CLIPBOARD_LOCK.lock().unwrap();
+    
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
         Err(_) => {
@@ -133,6 +146,8 @@ fn integration_test_clipboard_exact_content() {
 /// Test clipboard error handling when clipboard is locked by another process
 #[test]
 fn integration_test_clipboard_error_handling() {
+    let _lock = CLIPBOARD_LOCK.lock().unwrap();
+    
     // This test just verifies the error handling pattern exists
     // Actual failure requires clipboard to be locked by another process (hard to simulate)
     

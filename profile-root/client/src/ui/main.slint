@@ -11,6 +11,7 @@ export component AppWindow inherits Window {
     in property <bool> key_generated: false;
     in property <string> public_key_display: "";
     in property <string> status_message: "";
+    in property <bool> copy_feedback_visible: false;
     
     // View state: "welcome", "import", "key-display"
     in-out property <string> current_view: "welcome";
@@ -80,6 +81,7 @@ export component AppWindow inherits Window {
                 public_key: root.public_key_display;
                 show_label: true;
                 allow_copy: true;
+                show_copy_feedback: root.copy_feedback_visible;
                 copy_pressed => {
                     root.copy_public_key();
                 }
