@@ -1,0 +1,147 @@
+import { LineEdit } from "std-widgets.slint";
+
+export component ImportKeyScreen {
+    width: 100%;
+    height: 100%;
+    
+    // State properties
+    in-out property <string> key_input: "";
+    in property <string> error_message: "";
+    in property <bool> show_error: false;
+    
+    // Callbacks
+    callback import_pressed(string);
+    callback cancel_pressed();
+    
+    Rectangle {
+        background: #1a1a2e;
+        
+        VerticalLayout {
+        padding: 32px;
+        spacing: 16px;
+        
+        // Header
+        Text {
+            text: "Import Private Key";
+            font-size: 24px;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        
+        Text {
+            text: "Paste your existing 256-bit private key (64 hexadecimal characters)";
+            font-size: 14px;
+            color: #999999;
+            wrap: word-wrap;
+        }
+        
+        // Input field section
+        VerticalLayout {
+            spacing: 8px;
+            
+            Text {
+                text: "Private Key (hex):";
+                font-size: 12px;
+                color: #cccccc;
+            }
+            
+            LineEdit {
+                placeholder-text: "Enter 64 hex characters (0-9, a-f)";
+                text <=> root.key_input;
+                
+                // Submit on Enter key
+                accepted => {
+                    root.import_pressed(self.text);
+                }
+            }
+        }
+        
+        // Error display (conditional)
+        Rectangle {
+            visible: root.show_error;
+            background: #3d1f1f;
+            border-color: #ff4444;
+            border-width: 1px;
+            border-radius: 4px;
+            
+            VerticalLayout {
+                padding: 12px;
+                spacing: 4px;
+                
+                Text {
+                    text: "⚠️ Import Failed";
+                    font-size: 12px;
+                    color: #ff6666;
+                    font-weight: 700;
+                }
+                
+                Text {
+                    text: root.error_message;
+                    font-size: 11px;
+                    color: #ffcccc;
+                    wrap: word-wrap;
+                }
+            }
+        }
+        
+        // Help text box
+        Rectangle {
+            background: #1f2937;
+            border-radius: 4px;
+            
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                
+                Text {
+                    text: "Format Requirements:";
+                    font-size: 11px;
+                    color: #88ccff;
+                    font-weight: 700;
+                }
+                
+                Text {
+                    text: "• Exactly 64 characters\n• Only 0-9 and a-f (case insensitive)\n• Example: 3a8f2e1c4b9d7a6f1e8c3d5b7a9f2e4c1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e";
+                    font-size: 10px;
+                    color: #aaaaaa;
+                    wrap: word-wrap;
+                }
+            }
+        }
+        
+        // Action buttons
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            
+            Rectangle {
+                width: 80px;
+                height: 36px;
+                background: #333333;
+                border-radius: 6px;
+                
+                Text { text: "Cancel"; color: #ffffff; }
+                TouchArea { 
+                    clicked => { root.cancel_pressed(); }
+                }
+            }
+            
+            Rectangle {
+                width: 80px;
+                height: 36px;
+                background: root.key_input != "" ? #2f80ed : #555555;
+                border-radius: 6px;
+                
+                Text { 
+                    text: "Import"; 
+                    color: root.key_input != "" ? #ffffff : #999999;
+                }
+                TouchArea { 
+                    enabled: root.key_input != "";
+                    clicked => { root.import_pressed(root.key_input); }
+                }
+            }
+        }
+        }
+    }
+}

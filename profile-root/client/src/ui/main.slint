@@ -1,5 +1,6 @@
 import { WelcomeScreen } from "welcome_screen.slint";
 import { KeyDisplay } from "key_display.slint";
+import { ImportKeyScreen } from "import_key_screen.slint";
 
 export component AppWindow inherits Window {
     title: "Profile - Cryptographic Messaging";
@@ -11,29 +12,53 @@ export component AppWindow inherits Window {
     in property <string> public_key_display: "";
     in property <string> status_message: "";
     
+    // View state: "welcome", "import", "key-display"
+    in-out property <string> current_view: "welcome";
+    
+    // Import screen state
+    in-out property <string> import_key_input: "";
+    in property <string> import_error_message: "";
+    in property <bool> show_import_error: false;
+    
     // Callbacks that trigger Rust handlers
     callback generate_key_pressed;
-    callback import_key_pressed;
+    callback show_import_screen;
+    callback import_key_attempt(string);
+    callback cancel_import;
     callback copy_public_key;
 
     Rectangle {
         background: #1a1a2e;
 
-        // Show welcome screen before key is generated
+        // Welcome screen (initial view)
         WelcomeScreen {
-            visible: !root.key_generated;
+            visible: root.current_view == "welcome";
             status_message: root.status_message;
             generate_key_pressed => {
                 root.generate_key_pressed();
             }
             import_key_pressed => {
-                root.import_key_pressed();
+                root.show_import_screen();
             }
         }
 
-        // Show key display after successful generation
+        // Import key screen
+        ImportKeyScreen {
+            visible: root.current_view == "import";
+            key_input <=> root.import_key_input;
+            error_message: root.import_error_message;
+            show_error: root.show_import_error;
+            import_pressed(key) => {
+                root.import_key_attempt(key);
+            }
+            cancel_pressed => {
+                root.cancel_import();
+            }
+        }
+
+        // Key display (after successful generation or import)
         VerticalLayout {
-            visible: root.key_generated;
+            visible: root.current_view == "key-display";
             padding: 32px;
             spacing: 16px;
 
