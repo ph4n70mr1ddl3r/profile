@@ -1,11 +1,12 @@
 //! Profile shared cryptographic library.
 
 pub mod crypto;
+pub mod errors;
 
 pub use crypto::{
-    derive_public_key, generate_private_key, sign_message, verify_signature, CryptoError,
-    PrivateKey, PublicKey,
+    derive_public_key, generate_private_key, sign_message, verify_signature, PrivateKey, PublicKey,
 };
+pub use errors::CryptoError;
 
 #[cfg(test)]
 mod tests {

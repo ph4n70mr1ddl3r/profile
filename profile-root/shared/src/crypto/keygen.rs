@@ -1,6 +1,6 @@
 //! Key generation and derivation using ed25519-dalek
 
-use crate::crypto::error::CryptoError;
+use crate::errors::CryptoError;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use rand::RngCore;

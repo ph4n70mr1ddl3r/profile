@@ -9,7 +9,7 @@
 //! throughout the application.
 
 use profile_shared::{generate_private_key, derive_public_key, PrivateKey};
-use profile_client::state::{create_shared_key_state, SharedKeyState};
+use profile_client::state::create_shared_key_state;
 use profile_client::handlers::handle_import_key;
 
 #[test]
