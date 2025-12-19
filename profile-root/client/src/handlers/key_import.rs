@@ -11,12 +11,15 @@ use zeroize::Zeroizing;
 /// 
 /// # Validation Steps
 /// 1. Trim whitespace (users paste with trailing newlines)
-/// 2. Check length BEFORE decode (64 hex chars = 32 bytes)
-/// 3. Check content (only 0-9, a-f, A-F allowed)
-/// 4. Decode hex to bytes
-/// 5. Validate decoded length (defense in depth)
-/// 6. Check for degenerate keys (all zeros)
-/// 7. Verify key derivation works (calls derive_public_key)
+/// 2. Check for empty input (better error message)
+/// 3. Check length BEFORE decode (64 hex chars = 32 bytes)
+/// 4. Check content (only 0-9, a-f, A-F allowed)
+/// 5. Decode hex to bytes
+/// 6. Validate decoded length (defense in depth)
+/// 7. Check for degenerate keys (all zeros)
+/// 8. Wrap in zeroize-protected container
+/// 9. Verify key derivation works (calls derive_public_key)
+/// 10. Verify public key doesn't equal private key (sanity check)
 pub async fn handle_import_key(
     key_state: &SharedKeyState,
     user_input: String,
@@ -24,7 +27,12 @@ pub async fn handle_import_key(
     // Step 1: Trim whitespace
     let trimmed = user_input.trim();
     
-    // Step 2: Check length BEFORE attempting decode
+    // Step 2a: Check for empty input (better error message)
+    if trimmed.is_empty() {
+        return Err("No private key entered. Please paste your 64-character hexadecimal key.".into());
+    }
+    
+    // Step 2b: Check length BEFORE attempting decode
     if trimmed.len() != 64 {
         return Err(format!(
             "Expected 64 hexadecimal characters (256 bits), received {}. Example: 3a8f2e1c9b4d6f7a...",
@@ -56,12 +64,19 @@ pub async fn handle_import_key(
         return Err("All-zero keys are not cryptographically valid. Please use a different key.".into());
     }
     
-    // Step 7: Wrap in zeroize-protected container
+    // Wrap in zeroize-protected container (security step before validation)
     let private_key: PrivateKey = Zeroizing::new(key_bytes);
     
-    // Verify key derivation works (validates key is usable)
+    // Step 7: Verify key derivation works (validates key is usable)
     let public_key = derive_public_key(&private_key)
         .map_err(|e| format!("Cannot derive public key from this private key: {}", e))?;
+    
+    // Defense-in-depth: Verify public key doesn't equal private key (same check as Story 1.1)
+    if public_key.as_slice() == private_key.as_slice() {
+        return Err(
+            "Invalid key: Public key cannot equal private key. This indicates a cryptographic error.".into()
+        );
+    }
     
     // Convert to hex for display
     let public_key_hex = hex::encode(&public_key);
@@ -79,7 +94,7 @@ pub async fn handle_import_key(
     }
     
     if public_key_hex.chars().all(|c| c == '0') {
-        return Err("Invalid public key: all-zero key detected".into());
+        return Err("Invalid public key: All-zero key detected".into());
     }
     
     // Lock the state and store the imported key
@@ -224,6 +239,22 @@ mod tests {
         assert!(
             !err.contains(invalid_key),
             "Error message should not leak user's key input for security"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_import_rejects_empty_input() {
+        let key_state = create_shared_key_state();
+        let empty = "    \n\n   ";  // Whitespace only
+        
+        let result = handle_import_key(&key_state, empty.to_string()).await;
+        
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("No private key entered"),
+            "Should have specific empty input message, got: {}",
+            err
         );
     }
 }

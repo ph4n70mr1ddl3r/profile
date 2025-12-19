@@ -56,9 +56,8 @@ export component ImportKeyScreen {
             }
         }
         
-        // Error display (conditional)
-        Rectangle {
-            visible: root.show_error;
+        // Error display (conditional - only renders when error exists)
+        if root.show_error : Rectangle {
             background: #3d1f1f;
             border-color: #ff4444;
             border-width: 1px;
