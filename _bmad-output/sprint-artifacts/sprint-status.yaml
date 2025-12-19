@@ -41,7 +41,7 @@ development_status:
   1-2-import-existing-256-bit-private-key: done
   1-3-display-user-s-public-key-clearly: done
   1-4-securely-store-private-key-in-memory-zeroize-protected: done
-  1-5-authenticate-to-server-with-signature-proof: done
+  1-5-authenticate-to-server-with-signature-proof: review
   1-6-handle-authentication-failure-disconnection: backlog
   epic-1-retrospective: optional
 

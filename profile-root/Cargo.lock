@@ -3697,6 +3697,7 @@ name = "profile-client"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "futures-util",
  "hex",
  "profile-shared",
  "serde",
