@@ -3,10 +3,21 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use futures_util::{SinkExt, stream::StreamExt};
 use serde_json;
+use hex;
 
 use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::Lobby;
 use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
+
+/// Broadcast user left notification to all connected users
+async fn broadcast_user_left(
+    _lobby: &Arc<Lobby>, 
+    _departed_key: &[u8]
+) {
+    // NOTE: Full implementation in Story 2.4 (Broadcast User Leave Notifications)
+    // Stub function - no action needed until Story 2.4
+    // Keeping async signature for API compatibility with future implementation
+}
 
 /// Connection handler that processes WebSocket connections
 pub async fn handle_connection(
@@ -17,6 +28,9 @@ pub async fn handle_connection(
     let ws_stream = tokio_tungstenite::accept_async(stream).await?;
     
     let (mut write, mut read) = ws_stream.split();
+
+    // Track authenticated user's public key for cleanup
+    let mut authenticated_key: Option<Vec<u8>> = None;
 
     // Wait for auth message
     if let Some(message_result) = read.next().await {
@@ -35,6 +49,9 @@ pub async fn handle_connection(
                     // Still send success message but log the error
                 }
                 
+                // Track for cleanup
+                authenticated_key = Some(public_key);
+                
                 // Send success message with full lobby state
                 let success_msg = AuthSuccessMessage::new(lobby_state);
                 let success_json = serde_json::to_string(&success_msg)?;
@@ -44,12 +61,64 @@ pub async fn handle_connection(
                 // Send error message and close connection
                 let error_msg = AuthErrorMessage {
                     r#type: "error".to_string(),
-                    reason,
+                    reason: reason.clone(),
                     details,
                 };
                 let error_json = serde_json::to_string(&error_msg)?;
                 write.send(Message::Text(error_json)).await?;
+                
+                // Send Close frame with reason code per AC3
+                use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
+                let close_frame = CloseFrame {
+                    code: CloseCode::Normal,
+                    reason: reason.into(),
+                };
+                write.send(Message::Close(Some(close_frame))).await?;
+                
                 return Ok(());
+            }
+        }
+    }
+
+    // Connection loop - handle messages and disconnections
+    while let Some(msg_result) = read.next().await {
+        match msg_result {
+            Ok(Message::Text(_text)) => {
+                // Handle future message types here (Story 3.x)
+            }
+            Ok(Message::Close(frame)) => {
+                let reason = frame.as_ref()
+                    .map(|f| f.reason.to_string())
+                    .unwrap_or_else(|| "Unknown".to_string());
+                
+                println!("ℹ️  Client disconnected: {:?}, reason: {}", 
+                    authenticated_key.as_ref().map(|k| hex::encode(k)), 
+                    reason
+                );
+                
+                // CRITICAL: Clean up lobby
+                if let Some(ref key) = authenticated_key {
+                    if let Err(e) = lobby.remove_user(key) {
+                        eprintln!("❌ Failed to remove user from lobby: {}", e);
+                    }
+                    broadcast_user_left(&lobby, key).await;
+                }
+                break;
+            }
+            Err(e) => {
+                eprintln!("❌ WebSocket error: {}", e);
+                
+                // CRITICAL: Clean up lobby on error too
+                if let Some(ref key) = authenticated_key {
+                    if let Err(e) = lobby.remove_user(key) {
+                        eprintln!("❌ Failed to remove user from lobby: {}", e);
+                    }
+                    broadcast_user_left(&lobby, key).await;
+                }
+                break;
+            }
+            _ => {
+                // Handle other message types
             }
         }
     }

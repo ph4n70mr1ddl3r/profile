@@ -39,6 +39,36 @@ pub struct ErrorMessage {
     pub reason: String,
 }
 
+/// Close frame reason codes
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CloseReason {
+    AuthFailed,
+    ServerShutdown,
+    Timeout,
+    ClientDisconnect,
+}
+
+impl CloseReason {
+    pub fn as_str(&self) -> &str {
+        match self {
+            CloseReason::AuthFailed => "auth_failed",
+            CloseReason::ServerShutdown => "server_shutdown",
+            CloseReason::Timeout => "timeout",
+            CloseReason::ClientDisconnect => "client_disconnect",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "auth_failed" => Some(CloseReason::AuthFailed),
+            "server_shutdown" => Some(CloseReason::ServerShutdown),
+            "timeout" => Some(CloseReason::Timeout),
+            "client_disconnect" => Some(CloseReason::ClientDisconnect),
+            _ => None,
+        }
+    }
+}
+
 impl AuthMessage {
     /// Create a new authentication message
     pub fn new(public_key: String, signature: String) -> Self {
@@ -126,5 +156,19 @@ mod tests {
         assert_eq!(original.r#type, deserialized.r#type);
         assert_eq!(original.public_key, deserialized.public_key);
         assert_eq!(original.signature, deserialized.signature);
+    }
+
+    #[test]
+    fn test_close_reason_conversions() {
+        assert_eq!(CloseReason::AuthFailed.as_str(), "auth_failed");
+        assert_eq!(CloseReason::ServerShutdown.as_str(), "server_shutdown");
+        assert_eq!(CloseReason::Timeout.as_str(), "timeout");
+        assert_eq!(CloseReason::ClientDisconnect.as_str(), "client_disconnect");
+
+        assert_eq!(CloseReason::from_str("auth_failed"), Some(CloseReason::AuthFailed));
+        assert_eq!(CloseReason::from_str("server_shutdown"), Some(CloseReason::ServerShutdown));
+        assert_eq!(CloseReason::from_str("timeout"), Some(CloseReason::Timeout));
+        assert_eq!(CloseReason::from_str("client_disconnect"), Some(CloseReason::ClientDisconnect));
+        assert_eq!(CloseReason::from_str("unknown"), None);
     }
 }

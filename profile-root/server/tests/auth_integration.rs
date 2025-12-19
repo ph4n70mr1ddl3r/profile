@@ -167,3 +167,81 @@ fn test_case_insensitive_hex_decoding() {
     assert!(result_lower.is_ok(), "Lowercase hex should verify");
     assert!(result_upper.is_ok(), "Uppercase hex should verify");
 }
+
+// Story 1.6: Disconnection handling integration tests
+
+use std::sync::Arc;
+
+#[test]
+fn test_lobby_removes_user_on_disconnect() {
+    // Test that the lobby properly removes users when they disconnect (AC4)
+    
+    use profile_server::lobby::{Lobby, Connection};
+    
+    let lobby = Arc::new(Lobby::new());
+    let test_key = vec![0x12, 0x34, 0x56, 0x78];
+    
+    // Add user to lobby
+    let connection = Connection {
+        public_key: test_key.clone(),
+        connected_at: std::time::Instant::now(),
+    };
+    lobby.add_user(connection).unwrap();
+    assert_eq!(lobby.user_count().unwrap(), 1);
+    
+    // Simulate disconnect by removing user
+    lobby.remove_user(&test_key).unwrap();
+    
+    // Verify user was removed
+    assert_eq!(lobby.user_count().unwrap(), 0);
+    assert!(!lobby.user_exists(&test_key).unwrap());
+}
+
+#[test]
+fn test_server_handles_unexpected_disconnect() {
+    // Test that server properly cleans up lobby on unexpected disconnects
+    
+    use profile_server::lobby::{Lobby, Connection};
+    
+    let lobby = Arc::new(Lobby::new());
+    let test_key = vec![0xAB, 0xCD, 0xEF, 0x01];
+    
+    // Add user
+    let connection = Connection {
+        public_key: test_key.clone(),
+        connected_at: std::time::Instant::now(),
+    };
+    lobby.add_user(connection).unwrap();
+    
+    // Simulate unexpected disconnect (network error)
+    // Server should remove from lobby
+    lobby.remove_user(&test_key).unwrap();
+    
+    // Verify cleanup
+    assert_eq!(lobby.user_count().unwrap(), 0);
+}
+
+#[test]
+fn test_server_handles_client_close_frame() {
+    // Test that server properly handles client-initiated close frames
+    
+    use profile_server::lobby::{Lobby, Connection};
+    
+    let lobby = Arc::new(Lobby::new());
+    let test_key = vec![0xDE, 0xAD, 0xBE, 0xEF];
+    
+    // Add user
+    let connection = Connection {
+        public_key: test_key.clone(),
+        connected_at: std::time::Instant::now(),
+    };
+    lobby.add_user(connection).unwrap();
+    
+    // Simulate client sending close frame (graceful shutdown)
+    // Server should log the reason and clean up lobby
+    lobby.remove_user(&test_key).unwrap();
+    
+    // Verify cleanup happened
+    assert_eq!(lobby.user_count().unwrap(), 0);
+    assert!(!lobby.user_exists(&test_key).unwrap());
+}

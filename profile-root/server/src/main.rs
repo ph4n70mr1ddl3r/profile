@@ -1,16 +1,12 @@
-//! Profile server implementation
+//! Profile server binary entry point
 //!
 //! This server handles WebSocket connections and user authentication
 //! for the Profile secure messaging application.
 
-pub mod protocol;
-pub mod lobby;
-pub mod auth;
-pub mod connection;
-
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use crate::lobby::Lobby;
+use profile_server::lobby::Lobby;
+use profile_server::connection;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
