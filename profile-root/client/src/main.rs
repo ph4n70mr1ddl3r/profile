@@ -155,7 +155,26 @@ fn main() -> Result<(), slint::PlatformError> {
         let Some(ui) = ui_weak_copy.upgrade() else {
             return;
         };
-        ui.set_status_message("Copy not implemented yet (Story 1.3).".into());
+        
+        // Get the current public key from UI
+        let public_key = ui.get_public_key_display().to_string();
+        
+        // Copy to clipboard
+        match arboard::Clipboard::new() {
+            Ok(mut clipboard) => {
+                match clipboard.set_text(&public_key) {
+                    Ok(_) => {
+                        ui.set_status_message("Public key copied to clipboard!".into());
+                    }
+                    Err(e) => {
+                        ui.set_status_message(format!("Failed to copy: {}", e).into());
+                    }
+                }
+            }
+            Err(e) => {
+                ui.set_status_message(format!("Clipboard unavailable: {}", e).into());
+            }
+        }
     });
 
     ui.run()
