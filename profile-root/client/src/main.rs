@@ -1,7 +1,6 @@
 //! Profile client application (Slint UI + core crypto functionality).
 
-mod state;
-mod handlers;
+use profile_client::{state, handlers};
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
