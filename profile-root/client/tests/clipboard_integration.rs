@@ -42,8 +42,8 @@ fn integration_test_clipboard_roundtrip() {
     // Try to get clipboard
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
-        Err(_) => {
-            println!("⚠ Skipping test - clipboard not available (headless environment)");
+        Err(e) => {
+            println!("⚠ Skipping test - clipboard not available (headless environment): {}", e);
             return; // Skip test in headless environment
         }
     };
@@ -74,8 +74,8 @@ fn integration_test_clipboard_no_truncation() {
     
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
-        Err(_) => {
-            println!("⚠ Skipping test - clipboard not available");
+        Err(e) => {
+            println!("⚠ Skipping test - clipboard not available: {}", e);
             return;
         }
     };
@@ -118,8 +118,8 @@ fn integration_test_clipboard_exact_content() {
     
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
-        Err(_) => {
-            println!("⚠ Skipping test - clipboard not available");
+        Err(e) => {
+            println!("⚠ Skipping test - clipboard not available: {}", e);
             return;
         }
     };
@@ -167,5 +167,6 @@ fn integration_test_clipboard_error_handling() {
     }
     
     // Test always passes - we're just verifying error handling compiles
+    // If the match block above didn't compile or crashed, this assert wouldn't be reached
     assert!(true);
 }

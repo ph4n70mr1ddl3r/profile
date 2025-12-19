@@ -85,12 +85,14 @@ fn main() -> Result<(), slint::PlatformError> {
             }.await;
 
             match result {
-                Ok(public_key_hex) => {
+                    Ok(public_key_hex) => {
                     ui.set_public_key_display(public_key_hex.into());
                     ui.set_current_view("key-display".into());
+                    ui.set_status_is_error(false);
                     ui.set_status_message("Your key has been generated. This is your identity. Keep your private key secure.".into());
                 }
                 Err(err) => {
+                    ui.set_status_is_error(true);
                     ui.set_status_message(err.into());
                 }
             }
@@ -151,6 +153,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     // Success - show key display
                     ui.set_public_key_display(public_key_hex.into());
                     ui.set_current_view("key-display".into());
+                    ui.set_status_is_error(false);
                     ui.set_status_message("Your key has been imported successfully.".into());
                 }
                 Err(err) => {
@@ -189,6 +192,7 @@ fn main() -> Result<(), slint::PlatformError> {
             Ok(mut clipboard) => {
                 match clipboard.set_text(&public_key) {
                     Ok(_) => {
+                        ui.set_status_is_error(false);
                         ui.set_status_message("Public key copied to clipboard!".into());
                         ui.set_copy_feedback_visible(true);
                         
@@ -205,6 +209,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     Err(e) => {
                         // Parse common Windows clipboard errors into user-friendly messages
                         let user_message = parse_clipboard_error(&e.to_string());
+                        ui.set_status_is_error(true);
                         ui.set_status_message(user_message.into());
                         ui.set_copy_feedback_visible(false);
                     }
@@ -212,6 +217,7 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             Err(e) => {
                 let user_message = parse_clipboard_error(&e.to_string());
+                ui.set_status_is_error(true);
                 ui.set_status_message(format!("Clipboard unavailable: {}", user_message).into());
                 ui.set_copy_feedback_visible(false);
             }

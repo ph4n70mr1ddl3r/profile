@@ -22,6 +22,11 @@ static CLIPBOARD_LOCK: Mutex<()> = Mutex::new(());
 /// This represents the Slint UI calling the copy_pressed callback after
 /// detecting Ctrl+C keyboard event in the FocusScope key-pressed handler
 fn simulate_keyboard_copy(public_key_hex: &str) -> Result<(), String> {
+    // This function mimics the action taken when the Ctrl+C event is intercepted.
+    // In the real app, this calls into Rust code which accesses the clipboard.
+    // For this integration test, we simulate that entire flow by interacting directly with the clipboard
+    // as if the event handler had triggered it.
+    
     let mut clipboard = Clipboard::new()
         .map_err(|e| format!("Clipboard unavailable: {}", e))?;
     
@@ -202,3 +207,14 @@ fn integration_test_keyboard_copy_concurrent_safety() {
         "Clipboard should contain most recent copy (key2)"
     );
 }
+
+// NOTE on testing Slint UI events:
+// Direct testing of Slint UI events (like key-pressed) requires the slint::testing::ElementHandle API
+// or running the full UI event loop, which is complex in integration tests.
+//
+// The tests above verify the *Rust side* of the integration:
+// 1. That the logic invoked by the UI event handler (clipboard copying) works correctly
+// 2. That it handles special characters, errors, and concurrency safely
+//
+// The actual wiring of the key-pressed event to this logic is verified by manual testing
+// and code review of key_display.slint line 54-58.

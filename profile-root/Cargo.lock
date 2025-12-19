@@ -3698,7 +3698,6 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "hex",
- "lazy_static",
  "profile-shared",
  "serde",
  "serde_json",

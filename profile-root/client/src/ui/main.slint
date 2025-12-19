@@ -12,6 +12,7 @@ export component AppWindow inherits Window {
     in property <string> public_key_display: "";
     in property <string> status_message: "";
     in property <bool> copy_feedback_visible: false;
+    in property <bool> status_is_error: false;
     
     // View state: "welcome", "import", "key-display"
     in-out property <string> current_view: "welcome";
@@ -91,7 +92,7 @@ export component AppWindow inherits Window {
                 visible: root.status_message != "";
                 text: root.status_message;
                 font-size: 12px;
-                color: #4cd137;
+                color: root.status_is_error ? #ff4444 : #4cd137;
             }
 
             Text {

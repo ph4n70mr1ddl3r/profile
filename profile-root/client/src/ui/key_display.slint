@@ -49,10 +49,14 @@ export component KeyDisplay {
                 width: parent.width - 78px;
                 
                 // Keyboard event handling (Ctrl+C support)
-                // Note: Ctrl+C generates ASCII control character 0x03 (ETX - End of Text)
-                // This is the raw control code sent before OS clipboard shortcuts are processed
                 key-pressed(event) => {
-                    if (event.text == "\u{0003}") { // Ctrl+C produces ETX character (0x03)
+                    // Check for Ctrl+C using modifiers and key code
+                    if (event.modifiers.control && event.text == "c") {
+                        root.copy_pressed();
+                        return accept;
+                    }
+                    // Fallback for some platforms/terminals sending ETX (0x03)
+                    if (event.text == "\u{0003}") {
                         root.copy_pressed();
                         return accept;
                     }
@@ -63,20 +67,20 @@ export component KeyDisplay {
                 Text {
                     text: public_key;
                     color: key_color;
-                    font-family: "Consolas, Monaco, monospace";
+                    font-family: "monospace";
                     font-size: font_size * 1px;
                     wrap: word-wrap;
                     horizontal-alignment: left;
                     accessible-role: text;
-                    accessible-label: "Public key: " + public_key;
-                    accessible-description: "Your cryptographic public key for identity verification. Press Ctrl+C to copy.";
+                    accessible-label: "Public key";
+                    accessible-description: public_key + ". Press Control C to copy.";
                 }
             }
             
             // Copy button (optional) - Tab-accessible with focus support
             copy_button := FocusScope {
                 visible: allow_copy;
-                width: 70px;
+                width: allow_copy ? 70px : 0px;
                 height: 30px;
                 
                 Rectangle {

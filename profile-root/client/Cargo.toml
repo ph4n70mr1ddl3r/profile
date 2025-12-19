@@ -20,7 +20,7 @@ arboard = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
-lazy_static = "1.5"
+
 
 [build-dependencies]
 slint-build = { workspace = true }
