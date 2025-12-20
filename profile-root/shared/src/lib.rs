@@ -2,11 +2,13 @@
 
 pub mod crypto;
 pub mod errors;
+pub mod protocol;
 
 pub use crypto::{
     derive_public_key, generate_private_key, sign_message, verify_signature, PrivateKey, PublicKey,
 };
-pub use errors::CryptoError;
+pub use errors::{CryptoError, LobbyError};
+pub use protocol::{Message, LobbyUser};
 
 #[cfg(test)]
 mod tests {

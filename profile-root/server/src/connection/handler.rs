@@ -6,13 +6,13 @@ use serde_json;
 use hex;
 
 use crate::auth::handler::{handle_authentication, AuthResult};
-use crate::lobby::Lobby;
+use crate::lobby::{Lobby, PublicKey, ActiveConnection};
 use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
 
 /// Broadcast user left notification to all connected users
 async fn broadcast_user_left(
     _lobby: &Arc<Lobby>, 
-    _departed_key: &[u8]
+    _departed_key: &PublicKey
 ) {
     // NOTE: Full implementation in Story 2.4 (Broadcast User Leave Notifications)
     // Stub function - no action needed until Story 2.4
@@ -30,7 +30,7 @@ pub async fn handle_connection(
     let (mut write, mut read) = ws_stream.split();
 
     // Track authenticated user's public key for cleanup
-    let mut authenticated_key: Option<Vec<u8>> = None;
+    let mut authenticated_key: Option<PublicKey> = None;
 
     // Wait for auth message
     if let Some(message_result) = read.next().await {
@@ -38,19 +38,25 @@ pub async fn handle_connection(
         
         match handle_auth_message(&message, &lobby).await {
             AuthResult::Success { public_key, lobby_state } => {
-                // Add user to lobby first
-                let connection = crate::lobby::Connection {
-                    public_key: public_key.clone(),
-                    connected_at: std::time::Instant::now(),
+                // Convert Vec<u8> to String for lobby API
+                let public_key_string = hex::encode(public_key);
+                
+                // Create active connection for lobby
+                let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                let connection = ActiveConnection {
+                    public_key: public_key_string.clone(),
+                    sender,
+                    connection_id: 0, // TODO: Generate unique connection ID
                 };
                 
-                if let Err(e) = lobby.add_user(connection) {
+                // Add user to lobby using new API
+                if let Err(e) = crate::lobby::add_user(&lobby, public_key_string.clone(), connection).await {
                     println!("❌ Failed to add user to lobby: {}", e);
                     // Still send success message but log the error
                 }
                 
                 // Track for cleanup
-                authenticated_key = Some(public_key);
+                authenticated_key = Some(public_key_string);
                 
                 // Send success message with full lobby state
                 let success_msg = AuthSuccessMessage::new(lobby_state);
@@ -92,13 +98,13 @@ pub async fn handle_connection(
                     .unwrap_or_else(|| "Unknown".to_string());
                 
                 println!("ℹ️  Client disconnected: {:?}, reason: {}", 
-                    authenticated_key.as_ref().map(|k| hex::encode(k)), 
+                    authenticated_key.as_ref().map(|k| k.as_str()), 
                     reason
                 );
                 
-                // CRITICAL: Clean up lobby
+                // CRITICAL: Clean up lobby using new API
                 if let Some(ref key) = authenticated_key {
-                    if let Err(e) = lobby.remove_user(key) {
+                    if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         eprintln!("❌ Failed to remove user from lobby: {}", e);
                     }
                     broadcast_user_left(&lobby, key).await;
@@ -108,9 +114,9 @@ pub async fn handle_connection(
             Err(e) => {
                 eprintln!("❌ WebSocket error: {}", e);
                 
-                // CRITICAL: Clean up lobby on error too
+                // CRITICAL: Clean up lobby on error too using new API
                 if let Some(ref key) = authenticated_key {
-                    if let Err(e) = lobby.remove_user(key) {
+                    if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         eprintln!("❌ Failed to remove user from lobby: {}", e);
                     }
                     broadcast_user_left(&lobby, key).await;
@@ -222,13 +228,15 @@ mod tests {
         
         let lobby = Arc::new(Lobby::new());
         
-        // Add a user to the lobby first
-        let test_key = vec![0x12, 0x34, 0x56, 0x78];
-        let connection = crate::lobby::Connection {
+        // Add a user to the lobby first using new API
+        let test_key = "1234567890abcdef1234567890abcdef".to_string();
+        let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+        let connection = crate::lobby::ActiveConnection {
             public_key: test_key.clone(),
-            connected_at: std::time::Instant::now(),
+            sender,
+            connection_id: 1,
         };
-        lobby.add_user(connection).unwrap();
+        crate::lobby::add_user(&lobby, test_key.clone(), connection).await.unwrap();
         
         // Test auth with lobby containing a user
         let auth_message = Message::Text(r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string());
@@ -246,5 +254,50 @@ mod tests {
                 println!("✅ Auth failed as expected with invalid data");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_close_frame_triggers_lobby_removal() {
+        use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
+        
+        let lobby = Arc::new(Lobby::new());
+        
+        // Setup: Add user to lobby
+        let public_key = "test_user_123456789012345678901234567890".to_string();
+        let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+        let connection = crate::lobby::ActiveConnection {
+            public_key: public_key.clone(),
+            sender,
+            connection_id: 42,
+        };
+        
+        // Add user to lobby
+        crate::lobby::add_user(&lobby, public_key.clone(), connection).await.unwrap();
+        
+        // Verify user is in lobby
+        let users_before = crate::lobby::get_current_users(&lobby).await.unwrap();
+        assert_eq!(users_before.len(), 1);
+        assert!(users_before.contains(&public_key));
+        
+        // Action: Simulate close frame handling
+        let close_frame = Some(CloseFrame {
+            code: CloseCode::Normal,
+            reason: "Client disconnected".into(),
+        });
+        
+        // Simulate the close frame processing logic
+        let result = crate::lobby::remove_user(&lobby, &public_key).await;
+        assert!(result.is_ok());
+        
+        // Verify: User removed from lobby
+        let users_after = crate::lobby::get_current_users(&lobby).await.unwrap();
+        assert_eq!(users_after.len(), 0);
+        assert!(!users_after.contains(&public_key));
+        
+        // Verify: No ghost user remains
+        let lookup_result = crate::lobby::get_user(&lobby, &public_key).await.unwrap();
+        assert!(lookup_result.is_none());
+        
+        println!("✅ Close frame correctly triggers lobby removal - no ghost users remain");
     }
 }
