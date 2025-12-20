@@ -43,9 +43,7 @@ so that I can inform clients who is available to message and route messages to o
 **When** the server validates their authentication signature  
 **Then** the server adds their entry to the active lobby with structure: `{publicKey: "...", activeConnection: WebSocketHandle}`  
 **And** the user entry remains in the lobby as long as the WebSocket connection is open  
-**And** each user appears exactly once in the lobby (no duplicate entries)  
-
-**Implementation Detail:** Use `HashMap<PublicKey, ActiveConnection>` stored in `Arc<RwLock<>>` for thread-safe access [Source: architecture.md#Pattern-5-State-Management]
+**And** each user appears exactly once in the lobby (no duplicate entries)
 
 ---
 
@@ -55,9 +53,7 @@ so that I can inform clients who is available to message and route messages to o
 **When** they authenticate again with the same public key from a different WebSocket connection  
 **Then** the server updates their connection reference (replaces old with new)  
 **And** treats it as a single user in the lobby (no duplicate)  
-**And** broadcasts the reconnection as a leave→join delta (old connection removed, new connection added)  
-
-**Implementation Detail:** Use `lobby.update_or_insert()` pattern. Emit leave notification for old connection, join notification for new connection [Source: epics.md#Story-2.1-AC2]
+**And** broadcasts the reconnection as a leave→join delta (old connection removed, new connection added)
 
 ---
 
@@ -67,11 +63,9 @@ so that I can inform clients who is available to message and route messages to o
 **When** the server detects the disconnection via `Message::Close` frame  
 **Then** the server removes their entry from the lobby  
 **And** the lobby becomes the source of truth for who is online  
-**And** the user no longer receives messages or appears in other clients' lobby lists  
+**And** the user no longer receives messages or appears in other clients' lobby lists
 
-**Critical:** This depends on story 1.6 properly capturing WebSocket close frames [Source: 1-6-handle-authentication-failure-disconnection.md#Critical-Implementation-Warning-1]
-
-**Implementation Detail:** In connection handler's message loop, when `Message::Close` received, call `lobby.remove(&public_key)` and broadcast leave notification [Source: architecture.md#Integration-Points]
+**Critical:** This depends on story 1.6 properly capturing WebSocket close frames. See Story 1.6 close frame contract before implementing.
 
 ---
 
@@ -80,10 +74,8 @@ so that I can inform clients who is available to message and route messages to o
 **Given** a message sender wants to send to a specific recipient  
 **When** the message routing logic (story 3.2) queries the lobby  
 **Then** the server checks: is `recipient_public_key` in the lobby?  
-**And** returns `Some(ActiveConnection)` if online or `None` if offline  
-**And** routes message accordingly (deliver if online, offline notification if not)  
-
-**Implementation Detail:** Provide query interface `lobby.get(&public_key) -> Option<&ActiveConnection>` [Source: epics.md#Story-2.1-AC4]
+**And** returns `Some(&ActiveConnection)` if online or `None` if offline  
+**And** routes message accordingly (deliver if online, offline notification if not)
 
 ---
 
@@ -94,9 +86,7 @@ so that I can inform clients who is available to message and route messages to o
 **Then** the lobby state remains consistent with no race conditions  
 **And** no ghost users remain after disconnection  
 **And** no duplicate users appear after reconnection  
-**And** all clients receive consistent lobby state eventually  
-
-**Implementation Detail:** Thread-safe data structure (`Arc<RwLock<HashMap>>`) with atomic operations [Source: architecture.md#Implementation-Patterns]
+**And** all clients receive consistent lobby state eventually
 
 ---
 
@@ -104,55 +94,61 @@ so that I can inform clients who is available to message and route messages to o
 
 ### Task 1: Define Lobby Data Structure (AC1, AC2, AC5)
 - [ ] Create `server/src/lobby/state.rs` with:
-  - [ ] `type PublicKey = String;` type alias
-  - [ ] `pub struct ActiveConnection { websocket_sender: mpsc::UnboundedSender<Message>, ... }`
+  - [ ] `pub type PublicKey = String;` type alias (exported for use in routing)
+  - [ ] `pub struct ActiveConnection { pub_key: PublicKey, sender: mpsc::UnboundedSender<Message> }`
   - [ ] `type Lobby = Arc<RwLock<HashMap<PublicKey, ActiveConnection>>>;`
   - [ ] Add inline unit tests for struct construction
 - [ ] Implement thread-safe access pattern using `Arc<RwLock<T>>`
-- [ ] Ensure no Clone issues with WebSocket sender
+- [ ] **CRITICAL:** Ensure `ActiveConnection.sender` is `mpsc::UnboundedSender<Message>` (not TODO comment)
 
 ### Task 2: Implement Lobby Add Operation (AC1, AC2)
 - [ ] Create `server/src/lobby/manager.rs` with:
-  - [ ] `pub async fn add_user(lobby: &Lobby, key: PublicKey, conn: ActiveConnection) -> Result<()>`
-  - [ ] Check for existing user (reconnection case from AC2)
-  - [ ] If exists: broadcast leave for old, then add new
+  - [ ] `pub async fn add_user(lobby: &Lobby, key: PublicKey, conn: ActiveConnection) -> Result<(), LobbyError>`
+  - [ ] **CRITICAL:** Check for existing user (reconnection case from AC2)
+  - [ ] If exists: call `broadcast_user_left()` for old connection, then replace entry
   - [ ] If new: simply add to HashMap
-  - [ ] Call broadcast helper to notify all other users
-  - [ ] Add unit tests for add operation
+  - [ ] Call `broadcast_user_joined()` to notify all other users
+  - [ ] Return `LobbyError::InvalidPublicKey` for malformed keys
+  - [ ] Add unit tests: `test_add_user_new_entry`, `test_add_user_reconnection_replaces`
 - [ ] Integrate with `server/src/connection/auth.rs` to call after signature validation succeeds
-- [ ] Handle errors gracefully (malformed keys, etc.)
+- [ ] Use typed errors (`LobbyError` enum, not string errors)
 
 ### Task 3: Implement Lobby Remove Operation (AC3, AC5)
 - [ ] Create `server/src/lobby/manager.rs` (continued):
-  - [ ] `pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<()>`
+  - [ ] `pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError>`
   - [ ] Remove entry from HashMap
-  - [ ] Call broadcast helper to notify all remaining users
-  - [ ] Handle errors (key not found, etc.)
-  - [ ] Add unit tests for remove operation
+  - [ ] Call `broadcast_user_left()` to notify all remaining users
+  - [ ] Return `Ok(())` if key not found (idempotent operation)
+  - [ ] Add unit tests: `test_remove_user_deletes_entry`, `test_remove_nonexistent_user_safe`
 - [ ] Integrate with `server/src/connection/handler.rs` message loop:
-  - [ ] **CRITICAL:** Capture `Message::Close` frame (don't ignore it)
-  - [ ] Call `lobby.remove_user(&public_key)` on close
-  - [ ] Prevents ghost users from remaining in lobby
-  - [ ] Add comment: "Close frame handling required by story 1.6 learnings"
+  - [ ] **CRITICAL:** Capture `Message::Close` frame (don't ignore it - see Story 1.6 learnings)
+  - [ ] Call `lobby.remove_user(&public_key).await` on close frame
+  - [ ] Add explicit test: `test_close_frame_triggers_lobby_removal()`
+  - [ ] Prevents ghost users from remaining in lobby after disconnection
 
 ### Task 4: Implement Lobby Query Operation (AC4)
 - [ ] Create in `server/src/lobby/manager.rs`:
-  - [ ] `pub async fn get_user(lobby: &Lobby, key: &PublicKey) -> Option<Arc<ActiveConnection>>`
+  - [ ] `pub async fn get_user(lobby: &Lobby, key: &PublicKey) -> Option<&ActiveConnection>`
+  - [ ] **CRITICAL:** Return `Option<&ActiveConnection>` (NOT clone, NOT Arc) for zero-copy access
   - [ ] Used by story 3.2 for message routing (recipient online check)
-  - [ ] Add unit tests for query operation
+  - [ ] Add unit tests: `test_get_user_returns_existing`, `test_get_user_returns_none_for_missing`
 - [ ] Create snapshot method for story 2.2:
   - [ ] `pub async fn get_current_users(lobby: &Lobby) -> Vec<PublicKey>`
   - [ ] Returns list of all currently online public keys
+  - [ ] Pre-allocate Vec with capacity: `Vec::with_capacity(lobby.read().await.len())`
   - [ ] Used by story 2.2 for initial lobby display
 
 ### Task 5: Implement Broadcast Helpers (AC1, AC2, AC3)
 - [ ] Create in `server/src/lobby/manager.rs`:
-  - [ ] `pub async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey)`
-  - [ ] Sends `{type: "lobby_update", joined: [{publicKey: "..."}]}` to all others
-  - [ ] `pub async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey)`
-  - [ ] Sends `{type: "lobby_update", left: [{publicKey: "..."}]}` to all others
-  - [ ] Send delta (only changed users), not full lobby each time
-  - [ ] Add unit tests for broadcast functions
+  - [ ] `async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError>`
+  - [ ] Construct message: `{"type": "lobby_update", "joined": [{"publicKey": "..."}]}`
+  - [ ] Iterate through all lobby entries, send to each WebSocket sender
+  - [ ] Skip failed sends (user may have disconnected during broadcast)
+  - [ ] `async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError>`
+  - [ ] Construct message: `{"type": "lobby_update", "left": [{"publicKey": "..."}]}`
+  - [ ] Send delta (only changed user), not full lobby snapshot
+  - [ ] Add unit test: `test_broadcast_sends_delta_format()` verifying JSON structure
+  - [ ] Add integration test: `test_message_routing_uses_sender()` verifying WebSocket delivery
 
 ### Task 6: Integration with Connection Handler (AC1, AC3)
 - [ ] Update `server/src/connection/handler.rs`:
@@ -175,24 +171,74 @@ so that I can inform clients who is available to message and route messages to o
 
 ### Task 8: Testing Suite
 - [ ] Unit tests in `server/src/lobby/manager.rs`:
-  - [ ] `test_add_user_new_entry`
-  - [ ] `test_add_user_reconnection_replaces`
-  - [ ] `test_remove_user_deletes_entry`
-  - [ ] `test_remove_nonexistent_user_safe`
-  - [ ] `test_get_user_returns_existing`
-  - [ ] `test_get_user_returns_none_for_missing`
-  - [ ] `test_concurrent_add_remove_safe` (10 concurrent operations)
+  - [ ] `test_add_user_new_entry` - Basic addition
+  - [ ] `test_add_user_reconnection_replaces` - AC2: Same key replaces old connection
+  - [ ] `test_remove_user_deletes_entry` - Basic removal
+  - [ ] `test_remove_nonexistent_user_safe` - Idempotent removal
+  - [ ] `test_get_user_returns_existing` - Query returns Some
+  - [ ] `test_get_user_returns_none_for_missing` - Query returns None
+  - [ ] `test_concurrent_add_remove_safe` - AC5: 10+ concurrent operations, no race conditions
+  - [ ] `test_close_frame_triggers_lobby_removal` - AC3: Close frame detection (Story 1.6)
+  - [ ] `test_broadcast_sends_delta_format` - Verify delta JSON structure
+  - [ ] `test_ghost_user_prevention` - Disconnect → user removed, doesn't linger
 - [ ] Integration tests in `server/tests/lobby_sync.rs`:
-  - [ ] `test_multiple_clients_lobby_consistency`
-  - [ ] `test_user_add_triggers_broadcast`
-  - [ ] `test_user_remove_triggers_broadcast`
-  - [ ] `test_reconnection_updates_not_duplicates`
+  - [ ] `test_multiple_clients_lobby_consistency` - AC5: Eventual consistency
+  - [ ] `test_user_add_triggers_broadcast` - AC1: Join notification sent
+  - [ ] `test_user_remove_triggers_broadcast` - AC3: Leave notification sent
+  - [ ] `test_reconnection_updates_not_duplicates` - AC2: No duplicate entries
+  - [ ] `test_message_routing_uses_sender` - AC4: WebSocket sender works for routing
 - [ ] E2E test in `server/tests/integration_multiclient.rs` (from architecture.md):
   - [ ] Spawn real server
   - [ ] Spawn 3 real client processes with different keys
   - [ ] All authenticate → verify all appear in each other's lobby
   - [ ] One disconnects → verify removed from all lobbies
   - [ ] One reconnects → verify not duplicated
+
+## Test Specification
+
+### Close Frame Detection Test (AC3, Story 1.6 Integration)
+```rust
+#[tokio::test]
+async fn test_close_frame_triggers_lobby_removal() {
+    // Setup: Create lobby, add user with WebSocket connection
+    let lobby = Arc::new(RwLock::new(HashMap::new()));
+    let public_key = "test_key_123".to_string();
+    // Add user to lobby
+    
+    // Action: Simulate Message::Close frame received in connection handler
+    // Verify: lobby.remove_user() called
+    // Verify: User no longer in lobby
+    
+    // Expected: User entry removed, no ghost user remains
+}
+```
+
+### Reconnection Test (AC2)
+```rust
+#[tokio::test]
+async fn test_add_user_reconnection_replaces() {
+    // Setup: Add user once to lobby
+    let lobby = Arc::new(RwLock::new(HashMap::new()));
+    let public_key = "reconnect_user".to_string();
+    
+    // Action: Add same public_key with different connection
+    // Verify: Old connection replaced (not duplicated)
+    // Verify: Lobby size remains 1
+    // Verify: broadcast_user_left() called for old
+    // Verify: broadcast_user_joined() called for new
+}
+```
+
+### Concurrent Operations Test (AC5)
+```rust
+#[tokio::test]
+async fn test_concurrent_add_remove_safe() {
+    // Setup: Create lobby, spawn 20 tasks
+    // Action: 10 tasks add users, 10 tasks remove users concurrently
+    // Verify: No panics, no race conditions
+    // Verify: Final lobby state consistent with operations
+}
+```
 
 ---
 
@@ -204,12 +250,13 @@ so that I can inform clients who is available to message and route messages to o
 
 ```rust
 // server/src/lobby/state.rs
-pub type PublicKey = String;
+pub type PublicKey = String;  // Type alias for clarity
 
+#[must_use]
 pub struct ActiveConnection {
     public_key: PublicKey,
-    sender: mpsc::UnboundedSender<Message>,
-    // For future: last_activity timestamp for Phase 2 timeouts
+    sender: mpsc::UnboundedSender<Message>,  // CRITICAL: Must be actual sender, not TODO
+    // For Phase 2: last_activity: Instant (timeout detection)
 }
 
 pub type Lobby = Arc<RwLock<HashMap<PublicKey, ActiveConnection>>>;
@@ -220,27 +267,38 @@ pub type Lobby = Arc<RwLock<HashMap<PublicKey, ActiveConnection>>>;
 - `RwLock` = multiple readers (queries) can run simultaneously, exclusive writer (add/remove)
 - `HashMap` = O(1) lookup for message routing (story 3.2 critical path)
 - `mpsc::UnboundedSender` = efficient broadcast to specific client
+- `PublicKey` type alias = improves readability throughout codebase
 
 **Do NOT use:**
 - ❌ Flags or booleans for state (use enums) [Source: architecture.md#Anti-Pattern]
 - ❌ Direct `Mutex` if you have many readers (use `RwLock`)
 - ❌ `Vec` for user list (use HashMap for O(1) lookup)
 - ❌ Polling for lobby changes (use push notifications)
+- ❌ String errors (use typed `LobbyError` enum)
+- ❌ println! debugging (use `tracing` crate with structured logging)
 
 ### Source Tree Components to Modify
 
 **Files to Create:**
-- `server/src/lobby/state.rs` - Data structures (ActiveConnection, Lobby type)
+- `server/src/lobby/state.rs` - Data structures (ActiveConnection, Lobby type, PublicKey alias)
 - `server/src/lobby/manager.rs` - Operations (add, remove, get, broadcast)
+- `server/src/lobby/mod.rs` - Module exports
 
 **Files to Modify:**
 - `server/src/connection/auth.rs` - Call `lobby.add_user()` after signature validation (story 1.5 integration)
-- `server/src/connection/handler.rs` - Capture `Message::Close` and call `lobby.remove_user()`
+- `server/src/connection/handler.rs` - **CRITICAL:** Capture `Message::Close` frame and call `lobby.remove_user()` (see Story 1.6 close frame contract)
 - `server/src/connection/manager.rs` - Ensure lobby is passed to all connection handlers
+- `server/src/lib.rs` - Export lobby module publicly
 
 **Files to Reference (Don't Modify):**
 - `shared/src/protocol/types.rs` - Message definitions for `lobby_update` format
-- `shared/src/errors/` - Error type definitions
+- `shared/src/errors/` - Error type definitions (add `LobbyError` enum here)
+
+**Integration Points:**
+- **From Story 1.5:** After `auth::validate_signature()` succeeds → call `lobby.add_user()`
+- **From Story 1.6:** When `Message::Close` received → call `lobby.remove_user()` (prevents ghost users)
+- **For Story 2.2:** Provide `get_current_users()` for initial lobby snapshot
+- **For Story 3.2:** Provide `get_user()` for message routing recipient lookup
 
 ### Testing Standards Summary
 
@@ -252,6 +310,20 @@ This story MUST handle concurrent operations safely. Test with:
 - Mix of add/remove/query operations
 - No race conditions, no panics, no data corruption
 
+**Metrics & Observability:**
+
+Add basic metrics for Phase 2 monitoring:
+- Counter: `lobby_users_total` (current count)
+- Counter: `lobby_joins_total` (incremented on add)
+- Counter: `lobby_leaves_total` (incremented on remove)
+- Histogram: `lobby_operation_duration_ms` (add/remove/get timing)
+
+Use `tracing` crate for structured logging:
+```rust
+tracing::info!(user_count = lobby.len(), "User added to lobby");
+tracing::warn!(public_key = %key, "Reconnection detected, replacing old connection");
+```
+
 **Determinism Testing:**
 
 While this story doesn't involve cryptography, ensure:
@@ -261,10 +333,11 @@ While this story doesn't involve cryptography, ensure:
 **Edge Cases:**
 
 Test these specific scenarios:
-- User authenticates, immediately disconnects (close frame) → removed
-- User authenticates twice from different connections → replaces, not duplicates
-- 100+ rapid joins/leaves → no ghost users, no duplicates
-- Query during add/remove operations → consistent results
+- User authenticates, immediately disconnects (close frame) → removed (no ghost user)
+- User authenticates twice from different connections → replaces, not duplicates (AC2)
+- 100+ rapid joins/leaves → no ghost users, no duplicates, stable state
+- Query during add/remove operations → consistent results (RwLock guarantees)
+- Broadcast during user disconnect → skip failed sends, don't panic
 
 ### Project Structure Notes
 
@@ -279,100 +352,107 @@ server/src/lobby/
 
 **Naming Conventions:**
 - Functions: `add_user()`, `remove_user()`, `get_user()`, `broadcast_user_joined()`
-- Types: `ActiveConnection`, `Lobby`, `PublicKey`
+- Types: `ActiveConnection`, `Lobby`, `PublicKey` (type alias)
 - Variables: `public_key`, `ws_sender`, `lobby_state`
+- Errors: `LobbyError::DuplicateUser`, `LobbyError::UserNotFound`, `LobbyError::InvalidPublicKey`
 
 **No Conflicts:** This is new functionality (no existing files to refactor)
 
 ### Critical Implementation Warnings
 
-#### ⚠️ WARNING 1: WebSocket Close Frame Handling
+**See Story 1.6 for Close Frame Contract:** This story depends on proper WebSocket close frame detection. Review [Story 1.6 - Handle Authentication Failure/Disconnection] for close frame handling patterns before implementing Task 3.
 
-**WRONG:** Ignoring close frames
-```rust
-match msg {
-    Message::Text(text) => { /* handle */ },
-    _ => { /* ignore close frames */ }  // ❌ GHOST USERS!
-}
-```
+---
 
-**CORRECT:** Capture close frames
+#### ⚠️ WARNING 1: WebSocket Close Frame Handling (AC3)
+
+The connection handler MUST capture `Message::Close` frames to remove users from lobby. Ignoring close frames creates "ghost users" who appear online but can't receive messages.
+
+**Implementation Location:** `server/src/connection/handler.rs` message loop
+
 ```rust
+// CORRECT implementation:
 match msg {
     Message::Text(text) => { /* process */ },
     Message::Close(frame) => {
+        tracing::info!(public_key = %public_key, "Close frame received");
         lobby.remove_user(&public_key).await?;
-        return Ok(()); // Exit connection handler cleanly
+        return Ok(()); // Exit handler cleanly
     },
     _ => {}
 }
 ```
 
-**Where:** `server/src/connection/handler.rs` message loop  
-**Why:** Missing this creates ghost users that can't receive messages (AC3 failure)
+**Required Test:** `test_close_frame_triggers_lobby_removal()` - See Task 8
 
 ---
 
-#### ⚠️ WARNING 2: Reconnection Race Condition
+#### ⚠️ WARNING 2: Reconnection Must Replace, Not Duplicate (AC2)
 
-**WRONG:** Blindly adding without checking duplicates
-```rust
-lobby.insert(public_key.clone(), new_connection);  // ❌ Could be duplicate
-```
+When a user connects with a public key already in the lobby, you MUST replace the old connection (not create duplicate). This handles network interruptions and prevents multiple entries for the same user.
 
-**CORRECT:** Handle reconnection explicitly (AC2)
+**Implementation Location:** `server/src/lobby/manager.rs::add_user()`
+
 ```rust
-if let Some(old_conn) = lobby.remove(&public_key) {
-    // Old user is being replaced
-    // Broadcast leave for old connection
-    broadcast_user_left(&lobby, &public_key).await;
+// CORRECT reconnection handling:
+pub async fn add_user(lobby: &Lobby, key: PublicKey, new_conn: ActiveConnection) -> Result<(), LobbyError> {
+    let mut guard = lobby.write().await;
+    
+    if let Some(old_conn) = guard.remove(&key) {
+        tracing::warn!(public_key = %key, "Reconnection: replacing old connection");
+        drop(guard); // Release lock before broadcast
+        broadcast_user_left(&lobby, &key).await?;
+    }
+    
+    lobby.write().await.insert(key.clone(), new_conn);
+    broadcast_user_joined(&lobby, &key).await?;
+    Ok(())
 }
-// Now add the new connection
-lobby.insert(public_key.clone(), new_connection);
-broadcast_user_joined(&lobby, &public_key).await;
 ```
 
-**Where:** `server/src/lobby/manager.rs::add_user()`  
-**Why:** Without this, rapid reconnects could create duplicates or race conditions (AC2, AC5 failure)
+**Required Test:** `test_add_user_reconnection_replaces()` - Verify lobby size remains 1
 
 ---
 
-#### ⚠️ WARNING 3: Delta Broadcasts (Not Full Lobby)
+#### ⚠️ WARNING 3: Broadcast Deltas, Not Full Lobby (AC1, AC3)
 
-**WRONG:** Sending entire lobby on every change
-```rust
-async fn broadcast_lobby_update(lobby: &Lobby) {
-    let all_users: Vec<_> = lobby.read().await.keys().collect();
-    // Send all 1000 users to all 1000 clients
-    // = 1,000,000 user entries transmitted per update
-    send_to_all_clients(all_users).await;  // ❌ SCALES TERRIBLY
-}
-```
+Performance Requirement: When a user joins/leaves, broadcast ONLY the changed user (delta), not the entire lobby. Full lobby broadcasts don't scale beyond ~50 users.
 
-**CORRECT:** Send only changed users (delta)
+**Implementation Location:** `server/src/lobby/manager.rs::broadcast_*()`
+
 ```rust
-async fn broadcast_user_joined(lobby: &Lobby, joined_key: &PublicKey) {
+// CORRECT delta broadcast:
+async fn broadcast_user_joined(lobby: &Lobby, joined_key: &PublicKey) -> Result<(), LobbyError> {
     let update = json!({
         "type": "lobby_update",
-        "joined": [{"publicKey": joined_key}]
+        "joined": [{"publicKey": joined_key}]  // Only the new user
     });
-    // Send only the new user, not all 1000
-    send_to_all_clients(update).await;  // ✅ EFFICIENT
+    
+    let guard = lobby.read().await;
+    let recipients: Vec<_> = guard.iter()
+        .filter(|(k, _)| *k != joined_key)  // Don't send to the user who just joined
+        .map(|(_, conn)| &conn.sender)
+        .collect();
+    drop(guard);  // Release lock before network I/O
+    
+    for sender in recipients {
+        let _ = sender.send(Message::Text(update.to_string()));  // Ignore send failures
+    }
+    Ok(())
 }
 ```
 
-**Where:** `server/src/lobby/manager.rs::broadcast_*()` functions  
-**Why:** Delta updates scale to thousands of users (AC1, AC3 efficiency)
+**Scalability:** Delta broadcasts = O(n) messages total. Full lobby = O(n²) messages.
+
+**Required Test:** `test_broadcast_sends_delta_format()` - Verify JSON contains only `joined`/`left` array
 
 ### References
 
-- **Functional Requirements:** [Source: epics.md#Story-2.1-Server-Maintains-Active-User-Lobby] lines 593-628
-- **Architecture Decisions:** [Source: architecture.md#Decision-2-Server-Side-Validation-Routing] lines 301-333 (lobby state management)
-- **Component Boundaries:** [Source: architecture.md#Component-Boundaries-Server-Architecture] lines 1287-1307 (Lobby Manager component)
-- **Project Structure:** [Source: architecture.md#Project-Structure-Boundaries] lines 1106-1109 (lobby/ directory structure)
-- **Implementation Patterns:** [Source: architecture.md#Pattern-5-State-Management] lines 850-925 (enum-based state, thread safety)
-- **Previous Stories:** [Source: 1-5-authenticate-to-server-with-signature-proof.md] (integration point), [Source: 1-6-handle-authentication-failure-disconnection.md#Critical-Implementation-Warning-1] (close frame handling)
-- **Data Format:** [Source: architecture.md#WebSocket-Protocol-Definition] lines 366-418 (lobby message format)
+For complete architectural context and implementation patterns, see:
+- **Functional Requirements:** `_bmad-output/epics.md` - Story 2.1 specification (lines 593-628)
+- **Architecture Decisions:** `_bmad-output/architecture.md` - Lobby state management patterns (lines 301-333), Component boundaries (lines 1287-1307), Implementation patterns (lines 850-925)
+- **Previous Stories:** Story 1.5 (auth integration point), Story 1.6 (close frame contract)
+- **WebSocket Protocol:** `_bmad-output/architecture.md` - Message format specification (lines 366-418)
 
 ## Dev Agent Record
 
