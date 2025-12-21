@@ -1,6 +1,6 @@
 # Story 2.1: Server Maintains Active User Lobby
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -202,6 +202,14 @@ let lobby: Lobby = Arc::new(RwLock::new(HashMap::new()));
 - [ ] **5.4** Verify thread safety with concurrent access tests
 - [ ] **5.5** Ensure test coverage matches Epic 1 standards (139+ tests passing)
 
+### **Review Follow-ups (AI)**
+- [ ] **[AI-Review][HIGH]** Story File List section is completely empty despite 11 files being modified - Update Dev Agent Record with accurate file list [story:380-381]
+- [ ] **[AI-Review][HIGH]** AC2 reconnection logic missing in state.rs add_user() - Implementation should check for existing users before insert [lobby/state.rs:39-43]
+- [ ] **[AI-Review][HIGH]** WebSocket sender in connection handler creates dead-end channel - Messages won't reach client [connection/handler.rs:45]
+- [ ] **[AI-Review][MEDIUM]** Inconsistent error handling between state.rs (String errors) and manager.rs (LobbyError) - Use consistent error types [lobby/state.rs:39, manager.rs:26]
+- [ ] **[AI-Review][LOW]** Test duplication between state.rs and manager.rs - Consolidate overlapping test coverage [lobby/state.rs:125, manager.rs:184]
+- [ ] **[AI-Review][LOW]** Connection ID generation TODO in handler - Implement unique connection ID generation [connection/handler.rs:49]
+
 ## Dev Notes
 
 ### **Source Citations & Requirements Traceability**
@@ -378,4 +386,22 @@ profile-root/
 ### Completion Notes List
 
 ### File List
+
+**Core Implementation:**
+- `profile-root/server/src/lobby/mod.rs` - Extended lobby module with exports
+- `profile-root/server/src/lobby/state.rs` - Core lobby data structures and basic operations  
+- `profile-root/server/src/lobby/manager.rs` - High-level lobby operations with reconnection handling
+- `profile-root/server/src/connection/handler.rs` - Integrated lobby management with WebSocket handling
+
+**Error Handling:**
+- `profile-root/shared/src/errors/lobby_error.rs` - Lobby-specific error types
+- `profile-root/shared/src/errors/mod.rs` - Updated error module exports
+- `profile-root/shared/src/protocol/mod.rs` - Updated protocol exports
+
+**Testing:**
+- `profile-root/server/tests/lobby_state_isolated_test.rs` - Isolated lobby state tests
+
+**Documentation:**
+- `_bmad-output/sprint-artifacts/2-1-server-maintains-active-user-lobby.md` - This story file
+- `_bmad-output/sprint-artifacts/sprint-status.yaml` - Sprint tracking updates
 
