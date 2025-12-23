@@ -63,23 +63,42 @@ pub async fn handle_connection(
                 // Currently messages to clients are sent directly via 'write' sink.
                 // The sender will be used when implementing broadcast notifications
                 // (Stories 2.3, 2.4) to route messages through the lobby.
-                let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                // Receiver is intentionally dropped here - will be connected when
+                // implementing broadcast helpers in Story 2.3.
+                let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),
                     sender,
                     connection_id: generate_connection_id(),
                 };
-                
+
                 // Add user to lobby FIRST (critical for correct lobby state)
-                if let Err(e) = crate::lobby::add_user(&lobby, public_key_string.clone(), connection).await {
-                    eprintln!("❌ Failed to add user to lobby: {}", e);
-                    // Still try to send success with available state
-                }
-                
-                // Track for cleanup - only if user was successfully added
-                let user_in_lobby = lobby.user_exists(&public_key_string).await.unwrap_or(false);
-                if user_in_lobby {
-                    authenticated_key = Some(public_key_string.clone());
+                // If this fails, we should NOT send auth success - user is not in lobby
+                match crate::lobby::add_user(&lobby, public_key_string.clone(), connection).await {
+                    Ok(()) => {
+                        // User successfully added to lobby, proceed with auth success
+                        authenticated_key = Some(public_key_string.clone());
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to add user to lobby: {}", e);
+                        // Send error and close connection - user cannot be authenticated
+                        let error_msg = AuthErrorMessage {
+                            r#type: "error".to_string(),
+                            reason: "lobby_error".to_string(),
+                            details: format!("Failed to join lobby: {}", e),
+                        };
+                        let error_json = serde_json::to_string(&error_msg)?;
+                        write.send(Message::Text(error_json)).await?;
+
+                        // Send Close frame
+                        use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
+                        let close_frame = CloseFrame {
+                            code: CloseCode::Away,
+                            reason: "Lobby error - please retry".into(),
+                        };
+                        let _ = write.send(Message::Close(Some(close_frame))).await;
+                        return Ok(());
+                    }
                 }
                 
                 // Refetch lobby state AFTER adding user to include self

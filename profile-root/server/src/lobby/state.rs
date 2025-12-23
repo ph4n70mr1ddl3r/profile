@@ -8,7 +8,7 @@ use hex;
 ///
 /// This limit prevents memory exhaustion DoS attacks where an attacker
 /// could rapidly create many connections to exhaust server memory.
-/// Adjust based on expected usage patterns and server resources.
+/// Value is fixed at 10,000 users for MVP - can be made configurable in future phases.
 pub const MAX_LOBBY_SIZE: usize = 10_000;
 
 /// Type alias for public keys for clarity and type safety
