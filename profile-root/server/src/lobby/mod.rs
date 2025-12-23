@@ -13,11 +13,3 @@ pub mod manager;
 
 pub use state::{PublicKey, ActiveConnection, Lobby};
 pub use manager::{add_user, remove_user, get_user, get_current_users};
-
-/// Compatibility alias for existing code
-/// This will be deprecated in favor of ActiveConnection
-#[derive(Debug, Clone)]
-pub struct Connection {
-    pub public_key: Vec<u8>,
-    pub connected_at: std::time::Instant,
-}

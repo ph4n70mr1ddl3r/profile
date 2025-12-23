@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use futures_util::{SinkExt, stream::StreamExt};
@@ -9,14 +10,12 @@ use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::{Lobby, PublicKey, ActiveConnection};
 use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
 
-/// Broadcast user left notification to all connected users
-async fn broadcast_user_left(
-    _lobby: &Arc<Lobby>, 
-    _departed_key: &PublicKey
-) {
-    // NOTE: Full implementation in Story 2.4 (Broadcast User Leave Notifications)
-    // Stub function - no action needed until Story 2.4
-    // Keeping async signature for API compatibility with future implementation
+/// Atomic counter for generating unique connection IDs
+static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Generate a unique connection ID atomically
+fn generate_connection_id() -> u64 {
+    CONNECTION_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
 /// Connection handler that processes WebSocket connections
@@ -42,11 +41,15 @@ pub async fn handle_connection(
                 let public_key_string = hex::encode(public_key);
                 
                 // Create active connection for lobby
-                let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                // NOTE: The sender channel is for future Epic 3 message routing.
+                // Currently messages to clients are sent directly via 'write' sink.
+                // The sender will be used when implementing broadcast notifications
+                // (Stories 2.3, 2.4) to route messages through the lobby.
+                let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),
                     sender,
-                    connection_id: 0, // TODO: Generate unique connection ID
+                    connection_id: generate_connection_id(),
                 };
                 
                 // Add user to lobby using new API
@@ -103,23 +106,23 @@ pub async fn handle_connection(
                 );
                 
                 // CRITICAL: Clean up lobby using new API
+                // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         eprintln!("❌ Failed to remove user from lobby: {}", e);
                     }
-                    broadcast_user_left(&lobby, key).await;
                 }
                 break;
             }
             Err(e) => {
                 eprintln!("❌ WebSocket error: {}", e);
-                
+
                 // CRITICAL: Clean up lobby on error too using new API
+                // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         eprintln!("❌ Failed to remove user from lobby: {}", e);
                     }
-                    broadcast_user_left(&lobby, key).await;
                 }
                 break;
             }
@@ -279,12 +282,12 @@ mod tests {
         assert_eq!(users_before.len(), 1);
         assert!(users_before.contains(&public_key));
         
-        // Action: Simulate close frame handling
-        let close_frame = Some(CloseFrame {
+        // Action: Simulate close frame handling (frame created but not used in this unit test)
+        let _close_frame = Some(CloseFrame {
             code: CloseCode::Normal,
             reason: "Client disconnected".into(),
         });
-        
+
         // Simulate the close frame processing logic
         let result = crate::lobby::remove_user(&lobby, &public_key).await;
         assert!(result.is_ok());

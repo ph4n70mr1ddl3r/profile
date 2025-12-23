@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
-use profile_shared::Message;
+use profile_shared::{Message, LobbyError};
 use hex;
 
 /// Type alias for public keys for clarity and type safety
@@ -36,81 +36,69 @@ impl Lobby {
     }
 
     /// Add a user to the lobby
-    pub async fn add_user(&self, connection: ActiveConnection) -> Result<(), String> {
+    pub async fn add_user(&self, connection: ActiveConnection) -> Result<(), LobbyError> {
         let mut users = self.users.write().await;
         users.insert(connection.public_key.clone(), connection);
         Ok(())
     }
 
-    /// Add user with Connection type (compatibility method for existing code)
-    pub async fn add_user_connection(&self, connection: crate::lobby::Connection) -> Result<(), String> {
-        let key_str = hex::encode(&connection.public_key);
-        let (sender, _) = mpsc::unbounded_channel::<Message>();
-        let active_connection = ActiveConnection {
-            public_key: key_str,
-            sender,
-            connection_id: 0, // Default ID for compatibility
-        };
-        self.add_user(active_connection).await
-    }
-
     /// Remove a user from the lobby
-    pub async fn remove_user(&self, public_key: &PublicKey) -> Result<(), String> {
+    pub async fn remove_user(&self, public_key: &PublicKey) -> Result<(), LobbyError> {
         let mut users = self.users.write().await;
         users.remove(public_key);
         Ok(())
     }
 
     /// Get the full lobby state as public keys
-    pub async fn get_full_lobby_state(&self) -> Result<Vec<String>, String> {
+    pub async fn get_full_lobby_state(&self) -> Result<Vec<String>, LobbyError> {
         let users = self.users.read().await;
         let online_users: Vec<String> = users.keys().cloned().collect();
         Ok(online_users)
     }
 
     /// Check if a user is in the lobby
-    pub async fn user_exists(&self, public_key: &PublicKey) -> Result<bool, String> {
+    pub async fn user_exists(&self, public_key: &PublicKey) -> Result<bool, LobbyError> {
         let users = self.users.read().await;
         Ok(users.contains_key(public_key))
     }
 
     /// Get the number of online users
-    pub async fn user_count(&self) -> Result<usize, String> {
+    pub async fn user_count(&self) -> Result<usize, LobbyError> {
         let users = self.users.read().await;
         Ok(users.len())
     }
 
     /// Get a specific user's connection (for broadcasting)
-    pub async fn get_connection(&self, public_key: &PublicKey) -> Result<Option<ActiveConnection>, String> {
+    pub async fn get_connection(&self, public_key: &PublicKey) -> Result<Option<ActiveConnection>, LobbyError> {
         let users = self.users.read().await;
         Ok(users.get(public_key).map(|conn| conn.clone()))
     }
 
     /// Get all current connections (for broadcasting)
-    pub async fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, String> {
+    pub async fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, LobbyError> {
         let users = self.users.read().await;
         Ok(users.values().cloned().collect())
     }
 
     // Compatibility methods for existing code that uses Vec<u8> public keys
-    
+
     /// Remove user by Vec<u8> key (compatibility method)
-    pub async fn remove_user_vec(&self, public_key: &[u8]) -> Result<(), String> {
+    pub async fn remove_user_vec(&self, public_key: &[u8]) -> Result<(), LobbyError> {
         let key_str = hex::encode(public_key);
         self.remove_user(&key_str).await
     }
 
-    /// Check if user exists by Vec<u8> key (compatibility method)  
-    pub async fn user_exists_vec(&self, public_key: &[u8]) -> Result<bool, String> {
+    /// Check if user exists by Vec<u8> key (compatibility method)
+    pub async fn user_exists_vec(&self, public_key: &[u8]) -> Result<bool, LobbyError> {
         let key_str = hex::encode(public_key);
         self.user_exists(&key_str).await
     }
 
     /// Get full lobby state as Vec<u8> keys (compatibility method)
-    pub async fn get_full_lobby_state_vec(&self) -> Result<Vec<Vec<u8>>, String> {
+    pub async fn get_full_lobby_state_vec(&self) -> Result<Vec<Vec<u8>>, LobbyError> {
         let users = self.users.read().await;
         let online_users: Vec<Vec<u8>> = users.keys()
-            .map(|key| hex::decode(key).map_err(|_| "Invalid hex key".to_string()))
+            .map(|key| hex::decode(key).map_err(|_| LobbyError::InvalidPublicKey))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(online_users)
     }
@@ -162,11 +150,11 @@ mod tests {
     async fn test_add_and_remove_user() {
         let lobby = Lobby::new();
         let public_key = "test_key".to_string();
-        
+
         // Test basic lobby state before adding user
         assert_eq!(lobby.user_count().await.unwrap(), 0);
         assert!(!lobby.user_exists(&public_key).await.unwrap());
-        
+
         // Add user
         let (sender, _) = mpsc::unbounded_channel::<Message>();
         let connection = ActiveConnection {
@@ -174,11 +162,11 @@ mod tests {
             sender,
             connection_id: 1,
         };
-        
+
         lobby.add_user(connection).await.unwrap();
         assert_eq!(lobby.user_count().await.unwrap(), 1);
         assert!(lobby.user_exists(&public_key).await.unwrap());
-        
+
         // Remove user
         lobby.remove_user(&public_key).await.unwrap();
         assert_eq!(lobby.user_count().await.unwrap(), 0);

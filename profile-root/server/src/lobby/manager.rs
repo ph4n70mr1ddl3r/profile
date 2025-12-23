@@ -43,13 +43,19 @@ pub async fn add_user(
     // Always insert the new connection
     users.insert(key.clone(), conn);
     drop(users); // Release lock before potential async broadcast
-    
-    // Broadcast events
+
+    // Broadcast events for lobby synchronization
+    // Note: On reconnection, we broadcast BOTH "left" then "joined" to ensure clients
+    // properly update their local state. This handles edge cases where:
+    // 1. Client A was in the process of sending a message to the reconnecting user
+    // 2. Client's WebSocket connection dropped but lobby hadn't been updated yet
+    // 3. User reconnects with a new connection reference
+    // By sending both events, clients can cleanly transition without ghost users.
     if is_reconnection {
         // This was a reconnection - broadcast both leave and join
         broadcast_user_left(lobby, &key).await.map_err(|_| LobbyError::BroadcastFailed)?;
     }
-    
+
     broadcast_user_joined(lobby, &key).await.map_err(|_| LobbyError::BroadcastFailed)?;
     
     Ok(())
