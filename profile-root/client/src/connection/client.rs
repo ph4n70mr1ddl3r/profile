@@ -20,13 +20,15 @@ struct ServerMessage {
 
 #[derive(Debug, Deserialize)]
 struct AuthSuccessMessage {
-    r#type: String,
+    #[serde(default)]
+    _type: String,
     users: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct AuthErrorMessage {
-    r#type: String,
+    #[serde(default)]
+    _type: String,
     reason: String,
     details: String,
 }

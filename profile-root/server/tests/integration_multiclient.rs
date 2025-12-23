@@ -260,9 +260,9 @@ async fn test_e2e_concurrent_lobby_consistency() {
         .collect();
 
     // Count how many clients stayed (didn't remove themselves)
-    let stayed_count: usize = results.iter().map(|x| *x as usize).sum();
     // Clients that removed themselves: 0, 3, 6, 9 = 4 clients
     // Clients that stayed: 1, 2, 4, 5, 7, 8 = 6 clients
+    let _stayed_count: usize = results.iter().map(|x| *x as usize).sum();
 
     // Verify lobby state is consistent
     let users = get_current_users(&lobby).await.unwrap();
