@@ -25,8 +25,8 @@ pub async fn add_user(
     key: PublicKey, 
     conn: ActiveConnection
 ) -> Result<(), LobbyError> {
-    // Validate public key format (basic validation - could be enhanced)
-    if key.is_empty() || key.len() < 32 {
+    // Validate public key format (must be valid hex, exactly 64 chars = 32 bytes)
+    if key.len() != 64 || hex::decode(&key).is_err() {
         return Err(LobbyError::InvalidPublicKey);
     }
 
@@ -187,16 +187,23 @@ mod tests {
     fn create_test_connection(key: &str) -> ActiveConnection {
         use std::sync::atomic::{AtomicU64, Ordering};
         static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
-        
+
         let (sender, _) = mpsc::unbounded_channel::<SharedMessage>();
-        // Ensure key is at least 32 characters for validation
-        let padded_key = if key.len() < 32 {
-            format!("{:0<32}", key)
+        // Ensure key is exactly 64 characters (32 bytes hex-encoded) for validation
+        // Use the input key as a seed to generate consistent hex
+        let padded_key = if key.len() >= 64 {
+            key[..64].to_string()
         } else {
-            key.to_string()
+            // Hash the key to get 64 hex chars
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            key.hash(&mut hasher);
+            let hash = hasher.finish();
+            format!("{:016x}{:016x}{:016x}{:016x}", hash, hash >> 16, hash >> 32, hash >> 48)
         };
         let connection_id = CONNECTION_COUNTER.fetch_add(1, Ordering::SeqCst);
-        
+
         ActiveConnection {
             public_key: padded_key,
             sender,
@@ -263,14 +270,26 @@ mod tests {
     async fn test_add_user_invalid_key() {
         let lobby = create_test_lobby();
         let connection = create_test_connection("test");
-        
+
         // Test empty key
         let result = add_user(&lobby, "".to_string(), connection.clone()).await;
         assert_eq!(result, Err(LobbyError::InvalidPublicKey));
-        
-        // Test short key
-        let result = add_user(&lobby, "short".to_string(), connection).await;
+
+        // Test too short key (less than 64 chars)
+        let result = add_user(&lobby, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde".to_string(), connection.clone()).await;
         assert_eq!(result, Err(LobbyError::InvalidPublicKey));
+
+        // Test valid length but invalid hex characters (zzz is not valid hex)
+        let result = add_user(&lobby, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890zzzzyy".to_string(), connection.clone()).await;
+        assert_eq!(result, Err(LobbyError::InvalidPublicKey));
+
+        // Test 63 chars - should fail
+        let result = add_user(&lobby, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde".to_string(), connection.clone()).await;
+        assert_eq!(result, Err(LobbyError::InvalidPublicKey));
+
+        // Test exactly 64 chars of valid hex should succeed
+        let result = add_user(&lobby, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(), connection).await;
+        assert!(result.is_ok(), "Valid 64-char hex key should be accepted");
     }
 
     #[tokio::test]
@@ -367,26 +386,26 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_sends_delta_format() {
         let lobby = create_test_lobby();
-        let key = "test_user_123456789012345678901234567890".to_string();
-        let connection = create_test_connection(&key);
+        // Use create_test_connection to get proper 64-char hex key
+        let connection = create_test_connection("test_user_123456789012345678901234567890");
         let connection_key = connection.public_key.clone();
-        
+
         // Create a test message receiver to capture broadcast messages
         let (test_sender, mut test_receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
-        
-        // Create a mock connection that uses our test receiver
+
+        // Create a mock connection that uses our test receiver - also use 64-char key (valid hex only)
         let mock_connection = ActiveConnection {
-            public_key: "mock_user_123456789012345678901234567890".to_string(),
+            public_key: "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab".to_string(),
             sender: test_sender,
             connection_id: 999,
         };
-        
+
         // Add mock user to lobby first (so they receive the broadcast)
         crate::lobby::add_user(&lobby, mock_connection.public_key.clone(), mock_connection).await.unwrap();
-        
+
         // Add the actual user (this should trigger broadcast)
         crate::lobby::add_user(&lobby, connection_key.clone(), connection).await.unwrap();
-        
+
         // Receive the broadcast message
         let received_msg = tokio::time::timeout(std::time::Duration::from_millis(100), test_receiver.recv())
             .await
@@ -421,16 +440,16 @@ mod tests {
         // Create test channels to simulate WebSocket communication
         let (sender1, mut receiver1) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
         let (sender2, mut receiver2) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
-        
-        // Create connections with our test senders
+
+        // Create connections with our test senders - use 64-char hex keys (valid hex only)
         let connection1 = ActiveConnection {
-            public_key: "user1_123456789012345678901234567890".to_string(),
+            public_key: "aabb1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab".to_string(),
             sender: sender1,
             connection_id: 1,
         };
-        
+
         let connection2 = ActiveConnection {
-            public_key: "user2_123456789012345678901234567890".to_string(), 
+            public_key: "ccdd1234567890abcdef1234567890abcdef1234567890abcdef1234567890cd".to_string(),
             sender: sender2,
             connection_id: 2,
         };
@@ -532,12 +551,13 @@ mod tests {
         // Remove every other user (even indices: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18 = 10 users removed)
         for i in (0..20).filter(|x| x % 2 == 0) {
             let key = format!("mixed_user_{:03}", i);
-            // Use the same padding logic as create_test_connection
-            let padded_key = if key.len() < 32 {
-                format!("{:0<32}", key)
-            } else {
-                key.clone()
-            };
+            // Use the same hash-based key generation as create_test_connection
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            key.hash(&mut hasher);
+            let hash = hasher.finish();
+            let padded_key = format!("{:016x}{:016x}{:016x}{:016x}", hash, hash >> 16, hash >> 32, hash >> 48);
             let remove_result = crate::lobby::remove_user(&lobby, &padded_key).await;
             assert!(remove_result.is_ok(), "Mixed remove operation {} failed", i);
         }

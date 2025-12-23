@@ -228,11 +228,12 @@ mod tests {
     #[tokio::test]
     async fn test_lobby_integration() {
         // Test that lobby is properly integrated with auth handling
-        
+
         let lobby = Arc::new(Lobby::new());
-        
+
         // Add a user to the lobby first using new API
-        let test_key = "1234567890abcdef1234567890abcdef".to_string();
+        // Use exactly 64 hex chars (32 bytes) for valid public key
+        let test_key = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string();
         let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
         let connection = crate::lobby::ActiveConnection {
             public_key: test_key.clone(),
@@ -240,11 +241,11 @@ mod tests {
             connection_id: 1,
         };
         crate::lobby::add_user(&lobby, test_key.clone(), connection).await.unwrap();
-        
+
         // Test auth with lobby containing a user
         let auth_message = Message::Text(r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string());
         let result = handle_auth_message(&auth_message, &lobby).await;
-        
+
         match result {
             AuthResult::Success { lobby_state, .. } => {
                 // If auth succeeded, lobby state should contain users
@@ -262,26 +263,27 @@ mod tests {
     #[tokio::test]
     async fn test_close_frame_triggers_lobby_removal() {
         use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
-        
+
         let lobby = Arc::new(Lobby::new());
-        
+
         // Setup: Add user to lobby
-        let public_key = "test_user_123456789012345678901234567890".to_string();
+        // Use exactly 64 hex chars (32 bytes) for valid public key - valid hex only
+        let public_key = "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd".to_string();
         let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
         let connection = crate::lobby::ActiveConnection {
             public_key: public_key.clone(),
             sender,
             connection_id: 42,
         };
-        
+
         // Add user to lobby
         crate::lobby::add_user(&lobby, public_key.clone(), connection).await.unwrap();
-        
+
         // Verify user is in lobby
         let users_before = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_before.len(), 1);
         assert!(users_before.contains(&public_key));
-        
+
         // Action: Simulate close frame handling (frame created but not used in this unit test)
         let _close_frame = Some(CloseFrame {
             code: CloseCode::Normal,
@@ -291,16 +293,16 @@ mod tests {
         // Simulate the close frame processing logic
         let result = crate::lobby::remove_user(&lobby, &public_key).await;
         assert!(result.is_ok());
-        
+
         // Verify: User removed from lobby
         let users_after = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_after.len(), 0);
         assert!(!users_after.contains(&public_key));
-        
+
         // Verify: No ghost user remains
         let lookup_result = crate::lobby::get_user(&lobby, &public_key).await.unwrap();
         assert!(lookup_result.is_none());
-        
+
         println!("✅ Close frame correctly triggers lobby removal - no ghost users remain");
     }
 }

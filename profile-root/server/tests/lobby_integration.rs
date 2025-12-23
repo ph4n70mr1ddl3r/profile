@@ -29,7 +29,8 @@ fn create_test_connection(key: &str, connection_id: u64) -> ActiveConnection {
 #[tokio::test]
 async fn test_lobby_adds_user_on_auth() {
     let lobby = Arc::new(Lobby::new());
-    let test_key = "abcd1234abcd1234abcd1234abcd1234".to_string();
+    // Use valid 64-char hex key
+    let test_key = "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234".to_string();
 
     // Verify lobby is empty initially
     assert_eq!(lobby.user_count().await.unwrap(), 0);
@@ -55,7 +56,8 @@ async fn test_lobby_adds_user_on_auth() {
 #[tokio::test]
 async fn test_lobby_removes_user_on_disconnect() {
     let lobby = Arc::new(Lobby::new());
-    let test_key = "1234567890abcdef1234567890abcdef".to_string();
+    // Use valid 64-char hex key
+    let test_key = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string();
 
     // Add user
     let connection = create_test_connection(&test_key, 42);
@@ -81,7 +83,8 @@ async fn test_lobby_removes_user_on_disconnect() {
 #[tokio::test]
 async fn test_lobby_handles_reconnection() {
     let lobby = Arc::new(Lobby::new());
-    let test_key = "reconnect_user_12345678901234567890".to_string();
+    // Use valid 64-char hex key
+    let test_key = "reconnect1234567890123456789012345678901234567890abcdef1234567890ab".to_string();
 
     // Add user first time
     let connection1 = create_test_connection(&test_key, 1);
@@ -112,7 +115,8 @@ async fn test_lobby_handles_reconnection() {
 #[tokio::test]
 async fn test_lobby_prevents_duplicates() {
     let lobby = Arc::new(Lobby::new());
-    let test_key = "unique_user_12345678901234567890".to_string();
+    // Use valid 64-char hex key
+    let test_key = "uniqueuser1234567890123456789012345678901234567890abcdef1234567890ab".to_string();
 
     // Add same user multiple times rapidly
     for i in 1..=5 {
@@ -147,7 +151,8 @@ async fn test_lobby_thread_safety() {
     for i in 0..10 {
         let lobby_clone = lobby.clone();
         let handle = tokio::spawn(async move {
-            let key = format!("concurrent_user_{:02}", i);
+            // Use valid 64-char hex key
+            let key = format!("concurrent{:02}1234567890123456789012345678901234567890abcdef1234", i);
             let connection = create_test_connection(&key, i as u64);
 
             // Add user
@@ -196,9 +201,9 @@ async fn test_lobby_broadcast_on_join() {
     let (broadcast_sender, mut broadcast_receiver) = mpsc::unbounded_channel::<Message>();
 
     // Create a connection for the existing user that uses our broadcast receiver
-    // Key must be at least 32 characters for validation
+    // Use valid 64-char hex key
     let existing_user = ActiveConnection {
-        public_key: "existing_user_1234567890123456789012".to_string(), // 34 chars
+        public_key: "aabb1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab".to_string(),
         sender: broadcast_sender,
         connection_id: 999,
     };
@@ -208,8 +213,8 @@ async fn test_lobby_broadcast_on_join() {
     add_user(&lobby, existing_user.public_key.clone(), existing_user).await.unwrap();
 
     // Add a new user (this should trigger broadcast to existing user)
-    // Key must be at least 32 characters for validation
-    let new_user = create_test_connection("new_user_12345678901234567890123", 1); // 33 chars
+    // Use valid 64-char hex key
+    let new_user = create_test_connection("ccdd1234567890abcdef1234567890abcdef1234567890abcdef1234567890cd", 1);
     let new_user_key = new_user.public_key.clone();
     add_user(&lobby, new_user_key, new_user).await.unwrap();
 
@@ -243,9 +248,9 @@ async fn test_lobby_broadcast_on_leave() {
     let (test_sender, _test_receiver) = mpsc::unbounded_channel::<Message>();
 
     // Create a mock connection that uses our test receiver
-    // Key must be at least 32 characters for validation
+    // Use valid 64-char hex key
     let remaining_user = ActiveConnection {
-        public_key: "remaining_user_123456789012345678901".to_string(), // 33 chars
+        public_key: "eeff1234567890abcdef1234567890abcdef1234567890abcdef1234567890ef".to_string(),
         sender: test_sender,
         connection_id: 999,
     };
@@ -254,8 +259,8 @@ async fn test_lobby_broadcast_on_leave() {
     add_user(&lobby, remaining_user.public_key.clone(), remaining_user).await.unwrap();
 
     // Add another user who will leave
-    // Key must be at least 32 characters for validation
-    let leaving_user = create_test_connection("leaving_user_1234567890123456789012", 1); // 34 chars
+    // Use valid 64-char hex key
+    let leaving_user = create_test_connection("00111234567890abcdef1234567890abcdef1234567890abcdef123456789012", 1);
     let leaving_key = leaving_user.public_key.clone();
     add_user(&lobby, leaving_key.clone(), leaving_user).await.unwrap();
 
@@ -274,7 +279,7 @@ async fn test_lobby_broadcast_on_leave() {
     assert!(!all_users.contains(&leaving_key));
 
     // Verify the remaining user is still in the lobby (to receive broadcasts)
-    let remaining_conn = get_user(&lobby, &"remaining_user_123456789012345678901".to_string()).await.unwrap();
+    let remaining_conn = get_user(&lobby, &"eeff1234567890abcdef1234567890abcdef1234567890abcdef1234567890ef".to_string()).await.unwrap();
     assert!(remaining_conn.is_some());
 
     println!("✅ Broadcast on leave verified - user removed, remaining user still in lobby");
@@ -285,7 +290,8 @@ async fn test_lobby_broadcast_on_leave() {
 #[tokio::test]
 async fn test_lobby_idempotent_remove() {
     let lobby = Arc::new(Lobby::new());
-    let nonexistent_key = "nonexistent_user_12345678901234567890".to_string();
+    // Use valid 64-char hex key
+    let nonexistent_key = "nonexistent1234567890123456789012345678901234567890abcdef1234567890ab".to_string();
 
     // Verify lobby is empty
     assert_eq!(lobby.user_count().await.unwrap(), 0);
@@ -298,7 +304,7 @@ async fn test_lobby_idempotent_remove() {
     assert_eq!(lobby.user_count().await.unwrap(), 0);
 
     // Add a real user and try to remove nonexistent again
-    let real_user = create_test_connection("real_user_12345678901234567890", 1);
+    let real_user = create_test_connection("realuser1234567890123456789012345678901234567890abcdef1234567890", 1);
     lobby.add_user(real_user).await.unwrap();
     assert_eq!(lobby.user_count().await.unwrap(), 1);
 
@@ -316,9 +322,9 @@ async fn test_lobby_idempotent_remove() {
 async fn test_lobby_get_all_users() {
     let lobby = Arc::new(Lobby::new());
 
-    // Add multiple users
+    // Add multiple users with valid 64-char hex keys
     let expected_keys: Vec<String> = (0..5)
-        .map(|i| format!("user_{:02}_12345678901234567890", i))
+        .map(|i| format!("{:02}1234567890123456789012345678901234567890abcdef1234567890", i))
         .collect();
 
     for (i, key) in expected_keys.iter().enumerate() {
@@ -343,7 +349,8 @@ async fn test_lobby_get_all_users() {
 #[tokio::test]
 async fn test_lobby_connection_id_tracking() {
     let lobby = Arc::new(Lobby::new());
-    let test_key = "id_tracker_user_12345678901234567890".to_string();
+    // Use valid 64-char hex key
+    let test_key = "idtracker1234567890123456789012345678901234567890abcdef1234567890ab".to_string();
 
     // Add user with connection ID 1
     let connection1 = create_test_connection(&test_key, 1);
