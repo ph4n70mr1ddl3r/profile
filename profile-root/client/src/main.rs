@@ -1,6 +1,7 @@
 //! Profile client application (Slint UI + core crypto functionality).
 
 use profile_client::{state, handlers};
+use profile_client::ui::lobby_state::LobbyUser;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,19 +34,126 @@ fn parse_clipboard_error(error: &str) -> String {
     "Copy operation failed. Please try again.".to_string()
 }
 
+/// Update lobby UI properties from lobby state
+///
+/// This function reads the current lobby state and updates the UI's
+/// slot-based properties (lobby_user_1_public_key, etc.) to display
+/// the users. The UI uses fixed slots (up to 5 for MVP) since
+/// Slint 1.5 doesn't support dynamic for-each loops.
+///
+/// # Arguments
+///
+/// * `ui` - Reference to the Slint UI window
+/// * `lobby_state` - Reference to the shared lobby state
+async fn update_lobby_ui(
+    ui: &AppWindow,
+    lobby_state: &Arc<tokio::sync::Mutex<profile_client::ui::lobby_state::LobbyState>>,
+) {
+    let state = lobby_state.lock().await;
+    let users: Vec<LobbyUser> = state.users().into_iter().cloned().collect();
+    let selected_user = state.selected_user().map(|s| s.to_string());
+    let user_count = users.len();
+
+    // Update user count
+    ui.set_lobby_user_count(user_count as i32);
+
+    // Clear all slots first
+    ui.set_lobby_user_1_public_key("".into());
+    ui.set_lobby_user_1_online(true);
+    ui.set_lobby_user_1_selected(false);
+
+    ui.set_lobby_user_2_public_key("".into());
+    ui.set_lobby_user_2_online(true);
+    ui.set_lobby_user_2_selected(false);
+
+    ui.set_lobby_user_3_public_key("".into());
+    ui.set_lobby_user_3_online(true);
+    ui.set_lobby_user_3_selected(false);
+
+    ui.set_lobby_user_4_public_key("".into());
+    ui.set_lobby_user_4_online(true);
+    ui.set_lobby_user_4_selected(false);
+
+    ui.set_lobby_user_5_public_key("".into());
+    ui.set_lobby_user_5_online(true);
+    ui.set_lobby_user_5_selected(false);
+
+    // Populate slots with user data (up to 5 for MVP)
+    for (i, user) in users.iter().enumerate().take(5) {
+        let is_selected = selected_user.as_deref() == Some(user.public_key.as_str());
+
+        match i {
+            0 => {
+                ui.set_lobby_user_1_public_key(user.public_key.clone().into());
+                ui.set_lobby_user_1_online(user.is_online);
+                ui.set_lobby_user_1_selected(is_selected);
+            }
+            1 => {
+                ui.set_lobby_user_2_public_key(user.public_key.clone().into());
+                ui.set_lobby_user_2_online(user.is_online);
+                ui.set_lobby_user_2_selected(is_selected);
+            }
+            2 => {
+                ui.set_lobby_user_3_public_key(user.public_key.clone().into());
+                ui.set_lobby_user_3_online(user.is_online);
+                ui.set_lobby_user_3_selected(is_selected);
+            }
+            3 => {
+                ui.set_lobby_user_4_public_key(user.public_key.clone().into());
+                ui.set_lobby_user_4_online(user.is_online);
+                ui.set_lobby_user_4_selected(is_selected);
+            }
+            4 => {
+                ui.set_lobby_user_5_public_key(user.public_key.clone().into());
+                ui.set_lobby_user_5_online(user.is_online);
+                ui.set_lobby_user_5_selected(is_selected);
+            }
+            _ => break, // More than 5 users (not shown in MVP)
+        }
+    }
+
+    // Update selected user display text
+    if let Some(ref key) = selected_user {
+        ui.set_lobby_selected_user(key.clone().into());
+    } else {
+        ui.set_lobby_selected_user("".into());
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
+    // Key state initialization (existing code)
     let key_state = state::create_shared_key_state();
     let key_state_generate = key_state.clone();
     let key_state_import = key_state.clone();
-    
+
+    // Lobby state initialization (Story 2.2)
+    let lobby_state = state::create_shared_lobby_state();
+    let lobby_state_select = lobby_state.clone();
+    let lobby_state_nav_up = lobby_state.clone();
+    let lobby_state_nav_down = lobby_state.clone();
+    let lobby_state_activate = lobby_state.clone();
+
+    // Initial lobby UI update (empty state)
+    let ui_weak_lobby_update = ui.as_weak();
+    let lobby_state_init = lobby_state.clone();
+    let _ = slint::spawn_local(async move {
+        if let Some(ui) = ui_weak_lobby_update.upgrade() {
+            update_lobby_ui(&ui, &lobby_state_init).await;
+        }
+    });
+
     let ui_weak_generate = ui.as_weak();
     let ui_weak_show_import = ui.as_weak();
     let ui_weak_import_attempt = ui.as_weak();
     let ui_weak_cancel_import = ui.as_weak();
     let ui_weak_copy = ui.as_weak();
-    
+    let ui_weak_lobby_select = ui.as_weak();
+    let ui_weak_lobby_nav_up = ui.as_weak();
+    let ui_weak_lobby_nav_down = ui.as_weak();
+    let ui_weak_lobby_activate = ui.as_weak();
+
     // Re-entry guards to prevent race conditions from multiple button clicks
     let generating = Arc::new(AtomicBool::new(false));
     let importing = Arc::new(AtomicBool::new(false));
@@ -221,6 +329,102 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_copy_feedback_visible(false);
             }
         }
+    });
+
+    // Lobby callbacks (Story 2.2)
+
+    // Handle user selection from lobby (click or keyboard)
+    ui.on_lobby_user_selected(move |public_key| {
+        let Some(_ui) = ui_weak_lobby_select.upgrade() else {
+            return;
+        };
+
+        let lobby_state = lobby_state_select.clone();
+        let ui_weak = ui_weak_lobby_select.clone();
+
+        let _ = slint::spawn_local(async move {
+            // Update lobby state selection
+            handlers::handle_lobby_user_select(&lobby_state, &public_key.to_string()).await;
+
+            // Update UI to reflect selection
+            if let Some(ui) = ui_weak.upgrade() {
+                update_lobby_ui(&ui, &lobby_state).await;
+            }
+        });
+    });
+
+    // Handle keyboard navigation up (ArrowUp)
+    ui.on_lobby_navigate_up(move || {
+        let Some(_ui) = ui_weak_lobby_nav_up.upgrade() else {
+            return;
+        };
+
+        let lobby_state = lobby_state_nav_up.clone();
+        let ui_weak = ui_weak_lobby_nav_up.clone();
+
+        let _ = slint::spawn_local(async move {
+            if let Some(_new_key) = handlers::handle_lobby_navigate_up(&lobby_state).await {
+                // Update UI to reflect new selection
+                if let Some(ui) = ui_weak.upgrade() {
+                    update_lobby_ui(&ui, &lobby_state).await;
+                }
+            }
+        });
+    });
+
+    // Handle keyboard navigation down (ArrowDown)
+    ui.on_lobby_navigate_down(move || {
+        let Some(_ui) = ui_weak_lobby_nav_down.upgrade() else {
+            return;
+        };
+
+        let lobby_state = lobby_state_nav_down.clone();
+        let ui_weak = ui_weak_lobby_nav_down.clone();
+
+        let _ = slint::spawn_local(async move {
+            if let Some(_new_key) = handlers::handle_lobby_navigate_down(&lobby_state).await {
+                // Update UI to reflect new selection
+                if let Some(ui) = ui_weak.upgrade() {
+                    update_lobby_ui(&ui, &lobby_state).await;
+                }
+            }
+        });
+    });
+
+    // Handle lobby activation (Enter key)
+    ui.on_lobby_activate_selection(move || {
+        let Some(_ui) = ui_weak_lobby_activate.upgrade() else {
+            return;
+        };
+
+        let lobby_state = lobby_state_activate.clone();
+        let ui_weak = ui_weak_lobby_activate.clone();
+
+        let _ = slint::spawn_local(async move {
+            // Get currently selected user
+            let selected_user = {
+                let state = lobby_state.lock().await;
+                state.selected_user().map(|s| s.to_string())
+            };
+
+            if let Some(key) = selected_user {
+                // Focus composer field when user activates selection
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_composer_focused(true);
+                    ui.set_lobby_selected_user(key.clone().into());
+
+                    // Clear focus after 100ms (simulated focus action)
+                    let ui_weak_delayed = ui_weak.clone();
+                    let _ = slint::spawn_local(async move {
+                        slint::Timer::single_shot(Duration::from_millis(100), move || {
+                            if let Some(ui) = ui_weak_delayed.upgrade() {
+                                ui.set_composer_focused(false);
+                            }
+                        });
+                    });
+                }
+            }
+        });
     });
 
     ui.run()

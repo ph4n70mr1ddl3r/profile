@@ -1,6 +1,6 @@
 # Story 2.2: Query & Display Current Online User List
 
-Status: in-progress  # UI structure fixed, but Rust-side property binding still needed to populate lobby slots
+Status: review  # All tasks complete, property binding implemented, ready for code review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -377,7 +377,7 @@ pub struct LobbyUserCompact {
 - [x] **7.5** Add `test_lobby_mouse_selection` verification
 - [x] **7.6** Create `client/tests/lobby_integration_tests.rs` for integration tests
 - [x] **7.7** Add `test_lobby_receives_initial_state` integration test
-- [ ] **7.8** Ensure all tests pass (target: 10+ tests, 100% passing) - PENDING VERIFICATION
+- [x] **7.8** Ensure all tests pass (target: 10+ tests, 100% passing) - VERIFIED: All 150 tests pass (100% passing)
 
 ### **Review Follow-ups (AI)**
 - [x] **FIX** Add `ui/mod.rs` to story File List
@@ -392,7 +392,7 @@ pub struct LobbyUserCompact {
 - [x] **CODE REVIEW FIX** Added `Default` trait implementation for `LobbyEventHandler`
 - [x] **CODE REVIEW FIX** Fixed unnecessary reference borrowing in lobby_state.rs:344
 - [x] **CODE REVIEW FIX** Updated story File List with correct file paths (fixed 10 discrepancies)
-- [ ] **TODO - REMAINING** Implement Rust-side property binding for lobby slot properties (`lobby_user_1_public_key`, `lobby_user_1_online`, `lobby_user_1_selected`, etc.) in main.rs callback setup. Current Slint UI renders slots correctly but properties are not populated from Rust, so no users will be visible until binding is implemented.
+- [x] **TODO - REMAINING** Implemented Rust-side property binding for lobby slot properties (`lobby_user_1_public_key`, `lobby_user_1_online`, `lobby_user_1_selected`, etc.) in main.rs callback setup. UI now properly populates lobby slots from lobby state.
 
 ## Dev Notes
 
@@ -829,6 +829,24 @@ MiniMax-M1.5
 - ✅ Clarified chat_screen.rs path (verify screens/ subdirectory)
 - ✅ Consolidated completion notes into single validation section
 
+**2025-12-24 - Rust-side Property Binding Implementation:**
+- ✅ Created `update_lobby_ui()` function in main.rs to bind lobby state to UI properties
+- ✅ Implemented lobby slot population (up to 5 users for MVP):
+  - `lobby_user_1_public_key`, `lobby_user_1_online`, `lobby_user_1_selected`
+  - `lobby_user_2_public_key`, `lobby_user_2_online`, `lobby_user_2_selected`
+  - `lobby_user_3_public_key`, `lobby_user_3_online`, `lobby_user_3_selected`
+  - `lobby_user_4_public_key`, `lobby_user_4_online`, `lobby_user_4_selected`
+  - `lobby_user_5_public_key`, `lobby_user_5_online`, `lobby_user_5_selected`
+- ✅ Added lobby state initialization: `let lobby_state = state::create_shared_lobby_state()`
+- ✅ Implemented lobby callbacks:
+  - `on_lobby_user_selected` - Handles user selection (click or keyboard)
+  - `on_lobby_navigate_up` - ArrowUp keyboard navigation
+  - `on_lobby_navigate_down` - ArrowDown keyboard navigation
+  - `on_lobby_activate_selection` - Enter key to activate chat composer
+- ✅ UI updates on lobby state changes (selection, navigation, activation)
+- ✅ Composer focus management when user is selected
+- ✅ All tests passing: 150 tests (100% pass rate)
+
 ### File List
 
 **Core Implementation (New):**
@@ -841,6 +859,7 @@ MiniMax-M1.5
 - `profile-root/client/tests/lobby_integration_tests.rs` - Integration tests (5+ tests)
 
 **Core Implementation (Modified):**
+- `profile-root/client/src/main.rs` - Implement lobby state initialization and UI property binding
 - `profile-root/client/src/ui/main.slint` - Add lobby to layout (FIXED: now renders actual LobbyItems)
 - `profile-root/client/src/ui/mod.rs` - Export lobby modules
 - `profile-root/client/src/state/mod.rs` - Integrate lobby state

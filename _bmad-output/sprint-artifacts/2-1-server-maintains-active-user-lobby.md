@@ -618,8 +618,29 @@ Not yet generated - populate after implementation
 
 ---
 
+## Review Follow-ups (Round 16 - Action Items Added)
+
+### 🔴 HIGH (1)
+60. **[AI-Review][HIGH]** Action item: Update `get_user` return type to `Arc<ActiveConnection>` per story specification - Current implementation returns `Option<ActiveConnection>` which violates AC4 and Story 2.2 requirements [manager.rs:108-111]
+
+### 🟡 MEDIUM (1)
+61. **[AI-Review][MEDIUM]** Action item: Export `get_full_lobby_state` from `lobby/mod.rs` - Story 2.2 depends on this method for initial lobby display but it's not exported [mod.rs:15]
+
+### 🟢 LOW (2)
+62. **[AI-Review][LOW]** Action item: Update story File List accuracy - `server/src/auth/handler.rs` appears modified but git history shows change was made in Story 1.5, not Story 2.1 [story.md:415]
+
+63. **[AI-Review][LOW]** Action item: Consider removing dead code in `state.rs` - `add_user` and `remove_user` methods duplicate functionality in `manager.rs` and are not used [state.rs:49-60]
+
+---
+
 ## Change Log
 
+- **2025-12-24** - Round 16 Code Review: 4 action items added (1 HIGH, 1 MEDIUM, 2 LOW)
+  - Added: API return type correction for `get_user`
+  - Added: Export `get_full_lobby_state` for Story 2.2 compatibility
+  - Added: Documentation accuracy fix for File List
+  - Added: Dead code cleanup consideration
+  - Story status remains "done" (issues are follow-up items)
 - **2025-12-23** - Round 15 Code Review (Final): All issues resolved
   - Fixed: Dead code in client message structs [client.rs:24, 31]
   - Fixed: Unused variable in integration test [integration_multiclient.rs:263]
