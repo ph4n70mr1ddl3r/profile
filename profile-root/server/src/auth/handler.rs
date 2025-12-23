@@ -60,7 +60,7 @@ pub async fn handle_authentication(
     match verification_result {
         Ok(_) => {
             // Signature is valid - user authenticated successfully
-            match lobby.get_full_lobby_state() {
+            match lobby.get_full_lobby_state().await {
                 Ok(lobby_state) => {
                     AuthResult::Success {
                         public_key,

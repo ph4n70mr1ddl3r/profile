@@ -172,76 +172,94 @@ fn test_case_insensitive_hex_decoding() {
 
 use std::sync::Arc;
 
-#[test]
-fn test_lobby_removes_user_on_disconnect() {
+#[tokio::test]
+async fn test_lobby_removes_user_on_disconnect() {
     // Test that the lobby properly removes users when they disconnect (AC4)
     
-    use profile_server::lobby::{Lobby, Connection};
+    use profile_server::lobby::{Lobby, ActiveConnection};
+    use tokio::sync::mpsc;
+    use profile_shared::Message;
     
     let lobby = Arc::new(Lobby::new());
-    let test_key = vec![0x12, 0x34, 0x56, 0x78];
+    let test_key = "1234567890abcdef1234567890abcdef".to_string(); // 32 char hex string
+    
+    // Create sender channel for the connection
+    let (sender, _) = mpsc::unbounded_channel::<Message>();
     
     // Add user to lobby
-    let connection = Connection {
+    let connection = ActiveConnection {
         public_key: test_key.clone(),
-        connected_at: std::time::Instant::now(),
+        sender,
+        connection_id: 0,
     };
-    lobby.add_user(connection).unwrap();
-    assert_eq!(lobby.user_count().unwrap(), 1);
+    lobby.add_user(connection).await.unwrap();
+    assert_eq!(lobby.user_count().await.unwrap(), 1);
     
     // Simulate disconnect by removing user
-    lobby.remove_user(&test_key).unwrap();
+    lobby.remove_user(&test_key).await.unwrap();
     
     // Verify user was removed
-    assert_eq!(lobby.user_count().unwrap(), 0);
-    assert!(!lobby.user_exists(&test_key).unwrap());
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+    assert!(!lobby.user_exists(&test_key).await.unwrap());
 }
 
-#[test]
-fn test_server_handles_unexpected_disconnect() {
+#[tokio::test]
+async fn test_server_handles_unexpected_disconnect() {
     // Test that server properly cleans up lobby on unexpected disconnects
     
-    use profile_server::lobby::{Lobby, Connection};
+    use profile_server::lobby::{Lobby, ActiveConnection};
+    use tokio::sync::mpsc;
+    use profile_shared::Message;
     
     let lobby = Arc::new(Lobby::new());
-    let test_key = vec![0xAB, 0xCD, 0xEF, 0x01];
+    let test_key = "abcdef1234567890abcdef1234567890".to_string();
+    
+    // Create sender channel for the connection
+    let (sender, _) = mpsc::unbounded_channel::<Message>();
     
     // Add user
-    let connection = Connection {
+    let connection = ActiveConnection {
         public_key: test_key.clone(),
-        connected_at: std::time::Instant::now(),
+        sender,
+        connection_id: 0,
     };
-    lobby.add_user(connection).unwrap();
+    lobby.add_user(connection).await.unwrap();
     
     // Simulate unexpected disconnect (network error)
     // Server should remove from lobby
-    lobby.remove_user(&test_key).unwrap();
+    lobby.remove_user(&test_key).await.unwrap();
     
     // Verify cleanup
-    assert_eq!(lobby.user_count().unwrap(), 0);
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
 }
 
-#[test]
-fn test_server_handles_client_close_frame() {
+#[tokio::test]
+async fn test_server_handles_client_close_frame() {
     // Test that server properly handles client-initiated close frames
     
-    use profile_server::lobby::{Lobby, Connection};
+    use profile_server::lobby::{Lobby, ActiveConnection};
+    use tokio::sync::mpsc;
+    use profile_shared::Message;
     
     let lobby = Arc::new(Lobby::new());
-    let test_key = vec![0xDE, 0xAD, 0xBE, 0xEF];
+    let test_key = "deadbeef12345678deadbeef12345678".to_string();
+    
+    // Create sender channel for the connection
+    let (sender, _) = mpsc::unbounded_channel::<Message>();
     
     // Add user
-    let connection = Connection {
+    let connection = ActiveConnection {
         public_key: test_key.clone(),
-        connected_at: std::time::Instant::now(),
+        sender,
+        connection_id: 0,
     };
-    lobby.add_user(connection).unwrap();
+    lobby.add_user(connection).await.unwrap();
     
     // Simulate client sending close frame (graceful shutdown)
     // Server should log the reason and clean up lobby
-    lobby.remove_user(&test_key).unwrap();
+    lobby.remove_user(&test_key).await.unwrap();
     
     // Verify cleanup happened
-    assert_eq!(lobby.user_count().unwrap(), 0);
-    assert!(!lobby.user_exists(&test_key).unwrap());
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+    assert!(!lobby.user_exists(&test_key).await.unwrap());
 }

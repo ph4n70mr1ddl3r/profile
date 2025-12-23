@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc;
+use std::sync::Arc;
+use tokio::sync::{RwLock, mpsc};
 use profile_shared::Message;
 use hex;
 
@@ -36,14 +36,14 @@ impl Lobby {
     }
 
     /// Add a user to the lobby
-    pub fn add_user(&self, connection: ActiveConnection) -> Result<(), String> {
-        let mut users = self.users.write().map_err(|_| "Failed to acquire write lock")?;
+    pub async fn add_user(&self, connection: ActiveConnection) -> Result<(), String> {
+        let mut users = self.users.write().await;
         users.insert(connection.public_key.clone(), connection);
         Ok(())
     }
 
     /// Add user with Connection type (compatibility method for existing code)
-    pub fn add_user_connection(&self, connection: crate::lobby::Connection) -> Result<(), String> {
+    pub async fn add_user_connection(&self, connection: crate::lobby::Connection) -> Result<(), String> {
         let key_str = hex::encode(&connection.public_key);
         let (sender, _) = mpsc::unbounded_channel::<Message>();
         let active_connection = ActiveConnection {
@@ -51,64 +51,64 @@ impl Lobby {
             sender,
             connection_id: 0, // Default ID for compatibility
         };
-        self.add_user(active_connection)
+        self.add_user(active_connection).await
     }
 
     /// Remove a user from the lobby
-    pub fn remove_user(&self, public_key: &PublicKey) -> Result<(), String> {
-        let mut users = self.users.write().map_err(|_| "Failed to acquire write lock")?;
+    pub async fn remove_user(&self, public_key: &PublicKey) -> Result<(), String> {
+        let mut users = self.users.write().await;
         users.remove(public_key);
         Ok(())
     }
 
     /// Get the full lobby state as public keys
-    pub fn get_full_lobby_state(&self) -> Result<Vec<String>, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn get_full_lobby_state(&self) -> Result<Vec<String>, String> {
+        let users = self.users.read().await;
         let online_users: Vec<String> = users.keys().cloned().collect();
         Ok(online_users)
     }
 
     /// Check if a user is in the lobby
-    pub fn user_exists(&self, public_key: &PublicKey) -> Result<bool, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn user_exists(&self, public_key: &PublicKey) -> Result<bool, String> {
+        let users = self.users.read().await;
         Ok(users.contains_key(public_key))
     }
 
     /// Get the number of online users
-    pub fn user_count(&self) -> Result<usize, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn user_count(&self) -> Result<usize, String> {
+        let users = self.users.read().await;
         Ok(users.len())
     }
 
     /// Get a specific user's connection (for broadcasting)
-    pub fn get_connection(&self, public_key: &PublicKey) -> Result<Option<ActiveConnection>, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn get_connection(&self, public_key: &PublicKey) -> Result<Option<ActiveConnection>, String> {
+        let users = self.users.read().await;
         Ok(users.get(public_key).map(|conn| conn.clone()))
     }
 
     /// Get all current connections (for broadcasting)
-    pub fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, String> {
+        let users = self.users.read().await;
         Ok(users.values().cloned().collect())
     }
 
     // Compatibility methods for existing code that uses Vec<u8> public keys
     
     /// Remove user by Vec<u8> key (compatibility method)
-    pub fn remove_user_vec(&self, public_key: &[u8]) -> Result<(), String> {
+    pub async fn remove_user_vec(&self, public_key: &[u8]) -> Result<(), String> {
         let key_str = hex::encode(public_key);
-        self.remove_user(&key_str)
+        self.remove_user(&key_str).await
     }
 
     /// Check if user exists by Vec<u8> key (compatibility method)  
-    pub fn user_exists_vec(&self, public_key: &[u8]) -> Result<bool, String> {
+    pub async fn user_exists_vec(&self, public_key: &[u8]) -> Result<bool, String> {
         let key_str = hex::encode(public_key);
-        self.user_exists(&key_str)
+        self.user_exists(&key_str).await
     }
 
     /// Get full lobby state as Vec<u8> keys (compatibility method)
-    pub fn get_full_lobby_state_vec(&self) -> Result<Vec<Vec<u8>>, String> {
-        let users = self.users.read().map_err(|_| "Failed to acquire read lock")?;
+    pub async fn get_full_lobby_state_vec(&self) -> Result<Vec<Vec<u8>>, String> {
+        let users = self.users.read().await;
         let online_users: Vec<Vec<u8>> = users.keys()
             .map(|key| hex::decode(key).map_err(|_| "Invalid hex key".to_string()))
             .collect::<Result<Vec<_>, _>>()?;
@@ -125,15 +125,16 @@ impl Default for Lobby {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::mpsc;
 
-    #[test]
-    fn test_public_key_type_alias() {
+    #[tokio::test]
+    async fn test_public_key_type_alias() {
         let key: PublicKey = "test_key".to_string();
         assert_eq!(key, "test_key");
     }
 
-    #[test]
-    fn test_active_connection_struct_construction() {
+    #[tokio::test]
+    async fn test_active_connection_struct_construction() {
         let public_key = "test_key_123".to_string();
         
         // Create mpsc channel for sender
@@ -150,21 +151,21 @@ mod tests {
         // Note: sender field tested in integration tests with actual message sending
     }
 
-    #[test]
-    fn test_lobby_creation() {
+    #[tokio::test]
+    async fn test_lobby_creation() {
         let lobby = Lobby::new();
-        assert_eq!(lobby.user_count().unwrap(), 0);
-        assert!(lobby.get_full_lobby_state().unwrap().is_empty());
+        assert_eq!(lobby.user_count().await.unwrap(), 0);
+        assert!(lobby.get_full_lobby_state().await.unwrap().is_empty());
     }
 
-    #[test]
-    fn test_add_and_remove_user() {
+    #[tokio::test]
+    async fn test_add_and_remove_user() {
         let lobby = Lobby::new();
         let public_key = "test_key".to_string();
         
         // Test basic lobby state before adding user
-        assert_eq!(lobby.user_count().unwrap(), 0);
-        assert!(!lobby.user_exists(&public_key).unwrap());
+        assert_eq!(lobby.user_count().await.unwrap(), 0);
+        assert!(!lobby.user_exists(&public_key).await.unwrap());
         
         // Add user
         let (sender, _) = mpsc::unbounded_channel::<Message>();
@@ -174,27 +175,27 @@ mod tests {
             connection_id: 1,
         };
         
-        lobby.add_user(connection).unwrap();
-        assert_eq!(lobby.user_count().unwrap(), 1);
-        assert!(lobby.user_exists(&public_key).unwrap());
+        lobby.add_user(connection).await.unwrap();
+        assert_eq!(lobby.user_count().await.unwrap(), 1);
+        assert!(lobby.user_exists(&public_key).await.unwrap());
         
         // Remove user
-        lobby.remove_user(&public_key).unwrap();
-        assert_eq!(lobby.user_count().unwrap(), 0);
-        assert!(!lobby.user_exists(&public_key).unwrap());
+        lobby.remove_user(&public_key).await.unwrap();
+        assert_eq!(lobby.user_count().await.unwrap(), 0);
+        assert!(!lobby.user_exists(&public_key).await.unwrap());
     }
 
-    #[test]
-    fn test_arc_rwlock_thread_safety_pattern() {
+    #[tokio::test]
+    async fn test_arc_rwlock_thread_safety_pattern() {
         let lobby = Lobby::new();
         
         // Test that we can clone Arc and access from multiple threads
         let lobby_clone = lobby.clone();
-        let handle = std::thread::spawn(move || {
-            lobby_clone.user_count().unwrap()
+        let handle = tokio::spawn(async move {
+            lobby_clone.user_count().await.unwrap()
         });
         
-        let result = handle.join().unwrap();
+        let result = handle.await.unwrap();
         assert_eq!(result, 0); // Empty lobby has 0 users
     }
 }

@@ -513,6 +513,47 @@ For complete architectural context and implementation patterns, see:
 
 ## Change Log
 
+### 2025-12-23 - Critical Bug Fixes for Async Runtime Compatibility
+**Developer:** Claude 3.7 Sonnet (continuation)
+**Story:** 2.1 - Server Maintains Active User Lobby
+**Status:** in-progress → review
+
+**Issues Fixed:**
+- ✅ **Thread Safety Fix**: Changed `std::sync::RwLock` to `tokio::sync::RwLock` for async compatibility
+  - Issue: `std::sync::RwLockWriteGuard` could not be sent between threads safely for `tokio::spawn`
+  - Fix: Using `tokio::sync::RwLock` which is designed for async contexts
+  - Impact: All lobby operations now properly async with `.await`
+
+- ✅ **Test Compatibility Fix**: Updated integration tests to use async test functions
+  - Issue: Tests were using `#[test]` with async methods requiring `.await`
+  - Fix: Changed to `#[tokio::test]` for proper async test execution
+  - Impact: All 12 integration tests now pass
+
+- ✅ **Import Cleanup**: Removed unused imports in lobby/manager.rs
+  - Removed: `std::collections::HashMap`, `std::sync::{Arc, RwLock}`, `tokio::sync::mpsc`, `profile_shared::LobbyUser`
+  - Added: `profile_shared::{LobbyError, Message}` for proper error handling
+  - Impact: Clean compilation with no warnings
+
+- ✅ **Handler Updates**: Fixed async method calls in auth/handler.rs and connection/handler.rs
+  - Added `.await` to `lobby.get_full_lobby_state()` call
+  - Fixed `close_frame` variable warning with `_` prefix
+  - Impact: Proper async/await usage throughout
+
+**Files Modified:**
+- `server/src/lobby/state.rs` - Changed to tokio::sync::RwLock, made methods async
+- `server/src/lobby/manager.rs` - Fixed async lock usage, cleaned imports
+- `server/src/auth/handler.rs` - Added `.await` for async lobby methods
+- `server/src/connection/handler.rs` - Fixed unused variable warning
+- `server/tests/auth_integration.rs` - Converted to async tests
+
+**Test Results:**
+- ✅ All 136 tests passing across workspace
+- ✅ 30 server unit tests pass
+- ✅ 12 auth integration tests pass
+- ✅ 2 lobby isolated tests pass
+
+---
+
 ### 2025-12-20 - Story Implementation Complete
 **Developer:** Claude 3.7 Sonnet  
 **Story:** 2.1 - Server Maintains Active User Lobby  

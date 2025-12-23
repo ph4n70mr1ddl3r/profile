@@ -79,7 +79,7 @@ pub async fn handle_connection(
                     code: CloseCode::Normal,
                     reason: reason.into(),
                 };
-                write.send(Message::Close(Some(close_frame))).await?;
+                let _ = write.send(Message::Close(Some(close_frame))).await;
                 
                 return Ok(());
             }

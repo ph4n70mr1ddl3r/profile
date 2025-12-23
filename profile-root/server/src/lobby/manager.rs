@@ -3,11 +3,8 @@
 //! This module implements the core lobby operations including add, remove, query,
 //! and broadcast functionality as specified in the story requirements.
 
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc;
-use profile_shared::{Message, LobbyError, LobbyUser};
 use crate::lobby::state::{PublicKey, ActiveConnection, Lobby};
+use profile_shared::{LobbyError, Message};
 
 /// Add a user to the lobby with reconnection handling
 ///
@@ -33,7 +30,7 @@ pub async fn add_user(
         return Err(LobbyError::InvalidPublicKey);
     }
 
-    let mut users = lobby.users.write().map_err(|_| LobbyError::LockFailed)?;
+    let mut users = lobby.users.write().await;
     
     // Check for existing user (AC2: Reconnection case)
     let is_reconnection = users.contains_key(&key);
@@ -70,7 +67,7 @@ pub async fn add_user(
 /// * `Ok(())` on success (including when user not found - idempotent)
 /// * `LobbyError::LockFailed` if lobby lock cannot be acquired
 pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
-    let mut users = lobby.users.write().map_err(|_| LobbyError::LockFailed)?;
+    let mut users = lobby.users.write().await;
     
     // Remove user (idempotent - OK if user doesn't exist)
     let user_existed = users.remove(key).is_some();
@@ -97,22 +94,12 @@ pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyErro
 /// * `Ok(None)` if user is not online
 /// * `Err(LobbyError::LockFailed)` if lobby lock cannot be acquired
 pub async fn get_user(lobby: &Lobby, key: &PublicKey) -> Result<Option<ActiveConnection>, LobbyError> {
-    let users = lobby.users.read().map_err(|_| LobbyError::LockFailed)?;
+    let users = lobby.users.read().await;
     Ok(users.get(key).cloned())
 }
 
-/// Get snapshot of all currently online users
-///
-/// **Story 2.2**: Used for initial lobby display
-///
-/// # Arguments
-/// * `lobby` - The lobby to snapshot
-///
-/// # Returns
-/// * `Ok(Vec<PublicKey>)` list of all online public keys
-/// * `Err(LobbyError::LockFailed)` if lobby lock cannot be acquired
 pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyError> {
-    let users = lobby.users.read().map_err(|_| LobbyError::LockFailed)?;
+    let users = lobby.users.read().await;
     let mut result = Vec::with_capacity(users.len());
     result.extend(users.keys().cloned());
     Ok(result)
@@ -123,14 +110,14 @@ pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyErr
 /// **AC1**: Notifies all other users when someone joins
 /// Constructs delta message: {"type": "lobby_update", "joined": [{"publicKey": "..."}]}
 async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
-    let update = profile_shared::Message::LobbyUpdate {
+    let update = Message::LobbyUpdate {
         joined: Some(vec![profile_shared::LobbyUser {
             public_key: key.clone(),
         }]),
         left: None,
     };
     
-    let users = lobby.users.read().map_err(|_| LobbyError::LockFailed)?;
+    let users = lobby.users.read().await;
     
     // Collect senders while holding the lock
     let recipients: Vec<_> = users.iter()
@@ -155,14 +142,14 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
 /// **AC3**: Notifies all other users when someone leaves
 /// Constructs delta message: {"type": "lobby_update", "left": [{"publicKey": "..."}]}
 async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
-    let update = profile_shared::Message::LobbyUpdate {
+    let update = Message::LobbyUpdate {
         joined: None,
         left: Some(vec![profile_shared::LobbyUser {
             public_key: key.clone(),
         }]),
     };
     
-    let users = lobby.users.read().map_err(|_| LobbyError::LockFailed)?;
+    let users = lobby.users.read().await;
     
     // Collect senders while holding the lock
     let recipients: Vec<_> = users.iter()
@@ -185,6 +172,7 @@ async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), Lobby
 mod tests {
     use super::*;
     use tokio::sync::mpsc;
+    use profile_shared::Message as SharedMessage;
 
     fn create_test_lobby() -> Lobby {
         Lobby::new()
@@ -194,7 +182,7 @@ mod tests {
         use std::sync::atomic::{AtomicU64, Ordering};
         static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
         
-        let (sender, _) = mpsc::unbounded_channel::<Message>();
+        let (sender, _) = mpsc::unbounded_channel::<SharedMessage>();
         // Ensure key is at least 32 characters for validation
         let padded_key = if key.len() < 32 {
             format!("{:0<32}", key)
@@ -223,7 +211,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Verify user was added
-        let users = lobby.users.read().unwrap();
+        let users = lobby.users.read().await;
         assert!(users.contains_key(&connection_key));
         assert_eq!(users.len(), 1);
     }
@@ -241,7 +229,7 @@ mod tests {
         assert!(result1.is_ok());
         
         // Verify user exists
-        let users_before = lobby.users.read().unwrap();
+        let users_before = lobby.users.read().await;
         assert_eq!(users_before.len(), 1);
         let old_stored_id = users_before.get(&connection1_key).unwrap().connection_id;
         assert_eq!(old_stored_id, old_connection_id);
@@ -256,7 +244,7 @@ mod tests {
         assert!(result2.is_ok());
         
         // Verify still only one user (not duplicated)
-        let users_after = lobby.users.read().unwrap();
+        let users_after = lobby.users.read().await;
         assert_eq!(users_after.len(), 1);
         let new_stored_id = users_after.get(&connection2_key).unwrap().connection_id;
         
@@ -288,14 +276,14 @@ mod tests {
         
         // Add user first
         add_user(&lobby, connection_key.clone(), connection).await.unwrap();
-        assert_eq!(lobby.users.read().unwrap().len(), 1);
+        assert_eq!(lobby.users.read().await.len(), 1);
         
         // Remove user
         let result = remove_user(&lobby, &connection_key).await;
         assert!(result.is_ok());
         
         // Verify user was removed
-        let users = lobby.users.read().unwrap();
+        let users = lobby.users.read().await;
         assert!(!users.contains_key(&connection_key));
         assert_eq!(users.len(), 0);
     }
@@ -310,7 +298,7 @@ mod tests {
         assert!(result.is_ok()); // Should be idempotent
         
         // Verify lobby is still empty
-        assert_eq!(lobby.users.read().unwrap().len(), 0);
+        assert_eq!(lobby.users.read().await.len(), 0);
     }
 
     #[tokio::test]
