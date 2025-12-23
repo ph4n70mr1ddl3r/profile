@@ -29,12 +29,13 @@ pub struct ActiveConnection {
 
 /// Thread-safe lobby that tracks all currently authenticated users
 /// Uses Arc<RwLock<T>> pattern for concurrent read/write access:
-/// - Arc: allows multiple threads to hold references to the lobby
-/// - RwLock: multiple readers can access simultaneously, exclusive writer for modifications  
+/// - Arc: allows multiple threads to hold references to lobby
+/// - RwLock: multiple readers can access simultaneously, exclusive writer for modifications
 /// - HashMap: O(1) lookup for message routing (critical for performance)
+/// - Arc<ActiveConnection>: Enables efficient shared references without cloning
 #[derive(Debug, Clone)]
 pub struct Lobby {
-    pub users: Arc<RwLock<HashMap<PublicKey, ActiveConnection>>>,
+    pub users: Arc<RwLock<HashMap<PublicKey, Arc<ActiveConnection>>>>,
 }
 
 impl Lobby {
@@ -45,10 +46,10 @@ impl Lobby {
         }
     }
 
-    /// Add a user to the lobby
+    /// Add a user to lobby (wraps connection in Arc)
     pub async fn add_user(&self, connection: ActiveConnection) -> Result<(), LobbyError> {
         let mut users = self.users.write().await;
-        users.insert(connection.public_key.clone(), connection);
+        users.insert(connection.public_key.clone(), Arc::new(connection));
         Ok(())
     }
 
@@ -59,27 +60,27 @@ impl Lobby {
         Ok(())
     }
 
-    /// Get the full lobby state as public keys
+    /// Get full lobby state as public keys
     pub async fn get_full_lobby_state(&self) -> Result<Vec<String>, LobbyError> {
         let users = self.users.read().await;
         let online_users: Vec<String> = users.keys().cloned().collect();
         Ok(online_users)
     }
 
-    /// Check if a user is in the lobby
+    /// Check if a user is in lobby
     pub async fn user_exists(&self, public_key: &PublicKey) -> Result<bool, LobbyError> {
         let users = self.users.read().await;
         Ok(users.contains_key(public_key))
     }
 
-    /// Get the number of online users
+    /// Get number of online users
     pub async fn user_count(&self) -> Result<usize, LobbyError> {
         let users = self.users.read().await;
         Ok(users.len())
     }
 
-    /// Get all current connections (for broadcasting to all users)
-    pub async fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, LobbyError> {
+    /// Get all current connections as Arc wrappers (for broadcasting to all users)
+    pub async fn get_all_connections(&self) -> Result<Vec<Arc<ActiveConnection>>, LobbyError> {
         let users = self.users.read().await;
         Ok(users.values().cloned().collect())
     }
@@ -106,7 +107,7 @@ impl Lobby {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(online_users)
     }
-}
+    }
 
 impl Default for Lobby {
     fn default() -> Self {

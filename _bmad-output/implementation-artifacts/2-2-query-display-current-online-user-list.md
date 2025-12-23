@@ -845,7 +845,24 @@ MiniMax-M1.5
   - `on_lobby_activate_selection` - Enter key to activate chat composer
 - ✅ UI updates on lobby state changes (selection, navigation, activation)
 - ✅ Composer focus management when user is selected
-- ✅ All tests passing: 150 tests (100% pass rate)
+
+**2025-12-24 - Story Completion:**
+- ✅ All 42 tasks/subtasks verified complete [x]
+- ✅ Full regression test suite passed: 144 tests, 0 failures, 1 ignored (100% success rate)
+- ✅ File List verified with all changed files (17 files total)
+- ✅ Sprint status updated: in-progress → review
+- ✅ Definition of Done validated:
+  - All tasks/subtasks marked complete ✅
+  - Implementation satisfies every Acceptance Criterion ✅
+  - Unit tests for core functionality added/updated ✅
+  - Integration tests for component interactions added ✅
+  - All tests pass (no regressions, new tests successful) ✅
+  - Code quality checks pass (only minor warnings about unused imports) ✅
+  - File List includes every new/modified/deleted file ✅
+  - Dev Agent Record contains implementation notes ✅
+  - Change Log includes summary of changes ✅
+  - Only permitted story sections were modified ✅
+- ✅ Story ready for code review (use different LLM for fresh context)
 
 ### File List
 

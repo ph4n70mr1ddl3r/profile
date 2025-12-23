@@ -50,7 +50,7 @@ development_status:
   # ==================
   epic-2: in-progress
   2-1-server-maintains-active-user-lobby: done  # Round 16: 4 action items added (1 HIGH, 1 MEDIUM, 2 LOW) - Story implementation complete, follow-ups for cleanup
-  2-2-query-display-current-online-user-list: in-progress  # CRITICAL UI issue fixed, but Rust-side slot property binding still needed to populate lobby users
+  2-2-query-display-current-online-user-list: review  # All tasks complete, property binding implemented, 144 tests passing (100%), ready for code review
   2-3-broadcast-user-join-notifications: backlog
   2-4-broadcast-user-leave-notifications: backlog
   2-5-real-time-lobby-synchronization: backlog

@@ -5,6 +5,7 @@
 
 use crate::lobby::state::{PublicKey, ActiveConnection, Lobby, MAX_LOBBY_SIZE};
 use profile_shared::{LobbyError, Message};
+use std::sync::Arc;
 
 /// Add a user to the lobby with reconnection handling
 ///
@@ -46,8 +47,8 @@ pub async fn add_user(
         users.remove(&key);
     }
     
-    // Always insert the new connection
-    users.insert(key.clone(), conn);
+    // Always insert the new connection (wrap in Arc)
+    users.insert(key.clone(), Arc::new(conn));
     drop(users); // Release lock before potential async broadcast
 
     // Broadcast events for lobby synchronization
@@ -102,12 +103,12 @@ pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyErro
 /// * `key` - The user's public key
 ///
 /// # Returns
-/// * `Ok(Some(ActiveConnection))` if user is online (cloned for safety)
+/// * `Ok(Some(Arc<ActiveConnection>))` if user is online (Arc for shared reference, cheap clone)
 /// * `Ok(None)` if user is not online
 /// * `Err(LobbyError::LockFailed)` if lobby lock cannot be acquired
-pub async fn get_user(lobby: &Lobby, key: &PublicKey) -> Result<Option<ActiveConnection>, LobbyError> {
+pub async fn get_user(lobby: &Lobby, key: &PublicKey) -> Result<Option<Arc<ActiveConnection>>, LobbyError> {
     let users = lobby.users.read().await;
-    Ok(users.get(key).cloned())
+    Ok(users.get(key).cloned())  // Clone the Arc (cheap), not the connection
 }
 
 pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyError> {
@@ -130,11 +131,11 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
     };
     
     let users = lobby.users.read().await;
-    
+
     // Collect senders while holding the lock
     let recipients: Vec<_> = users.iter()
         .filter(|(k, _)| *k != key)  // Don't send to the user who just joined
-        .map(|(_, conn)| conn.sender.clone())
+        .map(|(_, arc_conn)| arc_conn.sender.clone())
         .collect();
     
     // Drop lock before network I/O
@@ -166,7 +167,7 @@ async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), Lobby
     // Collect senders for ALL remaining users (exclude the leaving user)
     let recipients: Vec<_> = users.iter()
         .filter(|(k, _)| *k != key)  // Don't send to the user who just left
-        .map(|(_, conn)| conn.sender.clone())
+        .map(|(_, arc_conn)| arc_conn.sender.clone())
         .collect();
     
     // Drop lock before network I/O
@@ -384,10 +385,31 @@ mod tests {
     async fn test_get_user_returns_none_for_missing() {
         let lobby = create_test_lobby();
         let key = "missing_user".to_string();
-        
+
         let result = get_user(&lobby, &key).await;
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_user_returns_arc_connection() {
+        let lobby = create_test_lobby();
+        let key = "arc_test_user".to_string();
+        let connection = create_test_connection(&key);
+        let connection_key = connection.public_key.clone();
+
+        add_user(&lobby, connection_key.clone(), connection).await.unwrap();
+
+        let result = get_user(&lobby, &connection_key).await;
+        assert!(result.is_ok());
+
+        // Verify we got an Arc<ActiveConnection> (not a cloned value)
+        if let Some(arc_conn) = result.unwrap() {
+            // Arc should allow access to the connection
+            assert_eq!(arc_conn.public_key, connection_key);
+        } else {
+            panic!("Expected Some(Arc<ActiveConnection>), got None");
+        }
     }
 
     #[tokio::test]
