@@ -1,0 +1,125 @@
+// LobbyItem Component
+// Displays a single user in the lobby list
+//
+// Properties:
+//   - public_key: The user's public key (64 hex characters, not truncated)
+//   - is_online: Whether the user is currently online
+//   - is_selected: Whether this user is currently selected
+//
+// Callbacks:
+//   - clicked: Triggered when user clicks on this lobby item
+//
+// Color System (from UX Design):
+//   - Online indicator: #22c55e (green)
+//   - Offline indicator: #6b7280 (gray)
+//   - Selected background: #0066CC (blue)
+//   - Hover background: #374151 (surface lighter)
+//   - Default background: #111827 (surface dark)
+//   - Public key text: #0066CC (identity blue)
+//
+// Dimensions:
+//   - Item height: 36px (8px grid aligned)
+//   - Padding: 8px on all sides
+//   - Online indicator: 8px diameter, 4px border-radius
+export component LobbyItem {
+    in property <string> public_key;
+    in property <bool> is_online: true;
+    in property <bool> is_selected: false;
+
+    callback clicked;
+
+    // Main container - clickable rectangle
+    Rectangle {
+        background: is_selected ? #0066CC : #111827;
+        height: 36px;
+        width: parent.width;
+
+        // Online indicator (green dot)
+        Rectangle {
+            x: 8px;
+            y: 14px;
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: is_online ? #22c55e : #6b7280;
+        }
+
+        // Public key display - monospace, full (not truncated)
+        Text {
+            x: 24px;
+            y: 10px;
+            width: parent.width - 40px;
+            height: 16px;
+            text: public_key;
+            font-family: "Consolas, Monaco, monospace";
+            font-size: 12px;
+            color: is_selected ? #ffffff : #0066CC;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+        }
+
+        // Selection indicator (subtle border when selected)
+        Rectangle {
+            visible: is_selected;
+            width: 3px;
+            height: 36px;
+            x: 0px;
+            background: #0088FF;
+        }
+
+        // Click handler
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+}
+
+// LobbyItemCompact - Simplified version for performance with many users
+// Omits some visual polish for faster rendering
+export component LobbyItemCompact {
+    in property <string> public_key;
+    in property <bool> is_online: true;
+    in property <bool> is_selected: false;
+
+    callback clicked;
+
+    Rectangle {
+        background: is_selected ? #0066CC : #111827;
+        height: 36px;
+        width: parent.width;
+
+        // Compact online indicator
+        Rectangle {
+            x: 6px;
+            y: 14px;
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: is_online ? #22c55e : #6b7280;
+        }
+
+        // Compact key display
+        Text {
+            x: 20px;
+            y: 10px;
+            width: parent.width - 36px;
+            text: public_key;
+            font-family: "monospace";
+            font-size: 12px;
+            color: is_selected ? #ffffff : #0066CC;
+            horizontal-alignment: left;
+        }
+
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+}

@@ -1,6 +1,7 @@
 import { WelcomeScreen } from "welcome_screen.slint";
 import { KeyDisplay } from "key_display.slint";
 import { ImportKeyScreen } from "import_key_screen.slint";
+import { LobbyItem, LobbyItemCompact } from "lobby_item.slint";
 
 export component AppWindow inherits Window {
     title: "Profile - Cryptographic Messaging";
@@ -28,6 +29,34 @@ export component AppWindow inherits Window {
     in-out property <string> import_key_input: "";
     in property <string> import_error_message: "";
     in property <bool> show_import_error: false;
+
+    // Lobby state (Story 2.2)
+    in property <bool> lobby_visible: false;
+    in property <string> lobby_selected_user: "";
+    in property <int> lobby_user_count: 0;
+    in property <bool> composer_focused: false;
+
+    // Lobby user slot properties (up to 5 users shown for MVP)
+    // Each slot has: public_key, is_online, is_selected
+    in property <string> lobby_user_1_public_key: "";
+    in property <bool> lobby_user_1_online: true;
+    in property <bool> lobby_user_1_selected: false;
+
+    in property <string> lobby_user_2_public_key: "";
+    in property <bool> lobby_user_2_online: true;
+    in property <bool> lobby_user_2_selected: false;
+
+    in property <string> lobby_user_3_public_key: "";
+    in property <bool> lobby_user_3_online: true;
+    in property <bool> lobby_user_3_selected: false;
+
+    in property <string> lobby_user_4_public_key: "";
+    in property <bool> lobby_user_4_online: true;
+    in property <bool> lobby_user_4_selected: false;
+
+    in property <string> lobby_user_5_public_key: "";
+    in property <bool> lobby_user_5_online: true;
+    in property <bool> lobby_user_5_selected: false;
     
     // Callbacks that trigger Rust handlers
     callback generate_key_pressed;
@@ -35,6 +64,12 @@ export component AppWindow inherits Window {
     callback import_key_attempt(string);
     callback cancel_import;
     callback copy_public_key;
+
+    // Lobby callbacks (Story 2.2)
+    callback lobby_user_selected(string);
+    callback lobby_navigate_up;
+    callback lobby_navigate_down;
+    callback lobby_activate_selection;
 
     Rectangle {
         background: #1a1a2e;
@@ -101,5 +136,107 @@ export component AppWindow inherits Window {
                 color: #999999;
             }
         }
+
+            // Lobby view (Story 2.2 - Online User List)
+            VerticalLayout {
+                visible: root.current_view == "lobby";
+                padding: 16px;
+                spacing: 8px;
+
+                Text {
+                    text: "Online Users";
+                    font-size: 18px;
+                    color: #ffffff;
+                    font-weight: 600;
+                }
+
+                Text {
+                    visible: root.lobby_user_count == 0;
+                    text: "No users online";
+                    font-size: 14px;
+                    color: #999999;
+                    height: 100px;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+
+                // Lobby list container (fixed slots for up to 5 users)
+                // Note: Slint 1.5 doesn't support dynamic for-each loops,
+                // so we use fixed slots with visibility control.
+                Rectangle {
+                    visible: root.lobby_user_count > 0;
+                    background: #111827;
+                    border-radius: 4px;
+                    height: 400px;
+
+                    VerticalLayout {
+                        padding: 8px;
+
+                        // Lobby user slots (up to 5 users for MVP)
+                        // Each slot is bound to Rust-side properties
+                        // Slot 1
+                        LobbyItem {
+                            visible: root.lobby_user_count >= 1;
+                            public_key: root.lobby_user_1_public_key;
+                            is_online: root.lobby_user_1_online;
+                            is_selected: root.lobby_user_1_selected;
+                            clicked => {
+                                root.lobby_user_selected(root.lobby_user_1_public_key);
+                            }
+                        }
+
+                        // Slot 2
+                        LobbyItem {
+                            visible: root.lobby_user_count >= 2;
+                            public_key: root.lobby_user_2_public_key;
+                            is_online: root.lobby_user_2_online;
+                            is_selected: root.lobby_user_2_selected;
+                            clicked => {
+                                root.lobby_user_selected(root.lobby_user_2_public_key);
+                            }
+                        }
+
+                        // Slot 3
+                        LobbyItem {
+                            visible: root.lobby_user_count >= 3;
+                            public_key: root.lobby_user_3_public_key;
+                            is_online: root.lobby_user_3_online;
+                            is_selected: root.lobby_user_3_selected;
+                            clicked => {
+                                root.lobby_user_selected(root.lobby_user_3_public_key);
+                            }
+                        }
+
+                        // Slot 4
+                        LobbyItem {
+                            visible: root.lobby_user_count >= 4;
+                            public_key: root.lobby_user_4_public_key;
+                            is_online: root.lobby_user_4_online;
+                            is_selected: root.lobby_user_4_selected;
+                            clicked => {
+                                root.lobby_user_selected(root.lobby_user_4_public_key);
+                            }
+                        }
+
+                        // Slot 5
+                        LobbyItem {
+                            visible: root.lobby_user_count >= 5;
+                            public_key: root.lobby_user_5_public_key;
+                            is_online: root.lobby_user_5_online;
+                            is_selected: root.lobby_user_5_selected;
+                            clicked => {
+                                root.lobby_user_selected(root.lobby_user_5_public_key);
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: root.lobby_selected_user != "";
+                    text: "Selected: " + root.lobby_selected_user;
+                    font-size: 12px;
+                    color: #0066CC;
+                }
+            }
     }
 }

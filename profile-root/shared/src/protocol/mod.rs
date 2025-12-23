@@ -37,11 +37,45 @@ pub enum Message {
     Close,
 }
 
-/// Represents a user in the lobby
+/// Represents a user in the lobby (full user with status)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LobbyUser {
     #[serde(rename = "publicKey")]
     pub public_key: String,
+}
+
+/// Represents a compact user in lobby updates (no status field - always "online" when joining)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyUserCompact {
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+}
+
+/// Lobby message from server - sent on successful authentication
+/// Contains the initial state of all online users
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyMessage {
+    #[serde(default)]
+    pub r#type: String,
+    pub users: Vec<LobbyUserWithStatus>,
+}
+
+/// Individual user in lobby message with online status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyUserWithStatus {
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+    #[serde(default)]
+    pub status: String, // "online" or "offline"
+}
+
+/// Lobby update message - delta updates for join/leave events
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyUpdateMessage {
+    #[serde(default)]
+    pub r#type: String,
+    pub joined: Vec<LobbyUserCompact>, // No status field - always "online"
+    pub left: Vec<String>,             // Public keys of departed users
 }
 
 impl Message {
@@ -153,5 +187,84 @@ mod tests {
             }
             _ => panic!("Expected Text message after deserialization"),
         }
+    }
+
+    #[test]
+    fn test_lobby_message_deserialization() {
+        let json = r#"{"type":"lobby","users":[{"publicKey":"key1","status":"online"},{"publicKey":"key2","status":"online"}]}"#;
+        let msg: LobbyMessage = serde_json::from_str(json).unwrap();
+
+        assert_eq!(msg.users.len(), 2);
+        assert_eq!(msg.users[0].public_key, "key1");
+        assert_eq!(msg.users[0].status, "online");
+        assert_eq!(msg.users[1].public_key, "key2");
+        assert_eq!(msg.users[1].status, "online");
+    }
+
+    #[test]
+    fn test_lobby_message_empty_users() {
+        let json = r#"{"type":"lobby","users":[]}"#;
+        let msg: LobbyMessage = serde_json::from_str(json).unwrap();
+
+        assert!(msg.users.is_empty());
+    }
+
+    #[test]
+    fn test_lobby_update_message_deserialization() {
+        let json = r#"{"type":"lobby_update","joined":[{"publicKey":"new_user"}],"left":["old_user"]}"#;
+        let msg: LobbyUpdateMessage = serde_json::from_str(json).unwrap();
+
+        assert_eq!(msg.joined.len(), 1);
+        assert_eq!(msg.joined[0].public_key, "new_user");
+        assert_eq!(msg.left.len(), 1);
+        assert_eq!(msg.left[0], "old_user");
+    }
+
+    #[test]
+    fn test_lobby_user_compact() {
+        let user = LobbyUserCompact {
+            public_key: "compact_key".to_string(),
+        };
+        assert_eq!(user.public_key, "compact_key");
+
+        // Verify serialization roundtrip
+        let json = serde_json::to_string(&user).unwrap();
+        let deserialized: LobbyUserCompact = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.public_key, "compact_key");
+    }
+
+    #[test]
+    fn test_lobby_user_with_status() {
+        let user = LobbyUserWithStatus {
+            public_key: "status_key".to_string(),
+            status: "online".to_string(),
+        };
+        assert_eq!(user.public_key, "status_key");
+        assert_eq!(user.status, "online");
+
+        // Test offline status
+        let offline_user = LobbyUserWithStatus {
+            public_key: "offline_key".to_string(),
+            status: "offline".to_string(),
+        };
+        assert_eq!(offline_user.status, "offline");
+    }
+
+    #[test]
+    fn test_lobby_update_just_joined() {
+        let json = r#"{"type":"lobby_update","joined":[{"publicKey":"user1"},{"publicKey":"user2"}],"left":[]}"#;
+        let msg: LobbyUpdateMessage = serde_json::from_str(json).unwrap();
+
+        assert_eq!(msg.joined.len(), 2);
+        assert!(msg.left.is_empty());
+    }
+
+    #[test]
+    fn test_lobby_update_just_left() {
+        let json = r#"{"type":"lobby_update","joined":[],"left":["user1","user2","user3"]}"#;
+        let msg: LobbyUpdateMessage = serde_json::from_str(json).unwrap();
+
+        assert!(msg.joined.is_empty());
+        assert_eq!(msg.left.len(), 3);
     }
 }

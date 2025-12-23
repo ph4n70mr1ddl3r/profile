@@ -2,6 +2,9 @@ use serde::Deserialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
 use crate::state::session::SharedKeyState;
+use crate::ui::lobby_state::{LobbyState, LobbyUser};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// Authentication response from server
 #[derive(Debug, Clone, PartialEq)]
@@ -10,6 +13,133 @@ pub enum AuthResponse {
     Success { users: Vec<String> },
     /// Authentication failed with reason and details
     Failed { reason: String, details: String },
+}
+
+/// Callback handler for lobby events
+#[derive(Clone)]
+pub struct LobbyEventHandler {
+    /// Called when initial lobby state is received
+    pub on_lobby_received: Rc<RefCell<dyn Fn(LobbyState)>>,
+    /// Called when a user joins the lobby
+    pub on_user_joined: Rc<RefCell<dyn Fn(LobbyUser)>>,
+    /// Called when a user leaves the lobby
+    pub on_user_left: Rc<RefCell<dyn Fn(String)>>,
+}
+
+impl LobbyEventHandler {
+    /// Create a new lobby event handler with no-op callbacks
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            on_lobby_received: Rc::new(RefCell::new(|_: LobbyState| {})),
+            on_user_joined: Rc::new(RefCell::new(|_: LobbyUser| {})),
+            on_user_left: Rc::new(RefCell::new(|_: String| {})),
+        }
+    }
+
+    /// Create with custom callbacks
+    #[inline]
+    pub fn with_callbacks(
+        on_lobby_received: impl Fn(LobbyState) + 'static,
+        on_user_joined: impl Fn(LobbyUser) + 'static,
+        on_user_left: impl Fn(String) + 'static,
+    ) -> Self {
+        Self {
+            on_lobby_received: Rc::new(RefCell::new(on_lobby_received)),
+            on_user_joined: Rc::new(RefCell::new(on_user_joined)),
+            on_user_left: Rc::new(RefCell::new(on_user_left)),
+        }
+    }
+
+    /// Emit lobby received event
+    #[inline]
+    pub fn lobby_received(&self, state: &LobbyState) {
+        (self.on_lobby_received.borrow())(state.clone());
+    }
+
+    /// Emit user joined event
+    #[inline]
+    pub fn user_joined(&self, user: &LobbyUser) {
+        (self.on_user_joined.borrow())(user.clone());
+    }
+
+    /// Emit user left event
+    #[inline]
+    pub fn user_left(&self, public_key: &str) {
+        (self.on_user_left.borrow())(public_key.to_string());
+    }
+}
+
+impl Default for LobbyEventHandler {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Response from the lobby message parser
+#[derive(Debug, Clone, PartialEq)]
+pub enum LobbyResponse {
+    /// Initial lobby state with all users
+    LobbyState { users: Vec<LobbyUser> },
+    /// One or more users joined the lobby
+    UsersJoined { public_keys: Vec<String> },
+    /// One or more users left the lobby
+    UsersLeft { public_keys: Vec<String> },
+    /// Unknown or unhandled message type
+    Ignored,
+}
+
+/// Parse a lobby message from the server
+pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::error::Error + Send + Sync>> {
+    // First, determine message type
+    let msg: ServerMessage = serde_json::from_str(text)?;
+
+    match msg.r#type.as_str() {
+        "lobby" => {
+            // Parse lobby message with full user list
+            let lobby_msg: profile_shared::protocol::LobbyMessage = serde_json::from_str(text)?;
+
+            // Convert to LobbyUser structs
+            let users: Vec<LobbyUser> = lobby_msg
+                .users
+                .into_iter()
+                .map(|u| LobbyUser {
+                    public_key: u.public_key,
+                    is_online: u.status == "online",
+                })
+                .collect();
+
+            Ok(LobbyResponse::LobbyState { users })
+        }
+        "lobby_update" => {
+            // Parse lobby update (delta)
+            let update: profile_shared::protocol::LobbyUpdateMessage = serde_json::from_str(text)?;
+
+            // Handle all joined users (FIX: was only returning first)
+            if !update.joined.is_empty() {
+                let joined_keys: Vec<String> = update.joined
+                    .into_iter()
+                    .map(|u| u.public_key)
+                    .collect();
+                return Ok(LobbyResponse::UsersJoined {
+                    public_keys: joined_keys,
+                });
+            }
+
+            // Handle all left users (FIX: was only returning first)
+            if !update.left.is_empty() {
+                return Ok(LobbyResponse::UsersLeft {
+                    public_keys: update.left,
+                });
+            }
+
+            // Empty update
+            Ok(LobbyResponse::Ignored)
+        }
+        // Other message types are not lobby messages
+        _ => Ok(LobbyResponse::Ignored),
+    }
 }
 
 /// Internal message types for parsing server responses
@@ -369,13 +499,159 @@ mod tests {
     async fn test_graceful_shutdown_sends_close_frame() {
         let key_state = create_shared_key_state();
         let mut client = WebSocketClient::new(key_state);
-        
+
         // Without a connection, graceful shutdown should succeed
         let result = client.close_gracefully().await;
         assert!(result.is_ok());
         assert!(client.connection.is_none());
-        
+
         // Note: Testing with actual connection requires server integration test
         // This is covered in Task 9 (Integration Tests)
+    }
+
+    // ========== Lobby Message Tests ==========
+
+    #[test]
+    fn test_parse_lobby_message_full_state() {
+        let json = r#"{"type":"lobby","users":[{"publicKey":"key1","status":"online"},{"publicKey":"key2","status":"offline"}]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        match result {
+            LobbyResponse::LobbyState { users } => {
+                assert_eq!(users.len(), 2);
+                assert_eq!(users[0].public_key, "key1");
+                assert!(users[0].is_online);
+                assert_eq!(users[1].public_key, "key2");
+                assert!(!users[1].is_online);
+            }
+            _ => panic!("Expected LobbyState response"),
+        }
+    }
+
+    #[test]
+    fn test_parse_lobby_message_empty() {
+        let json = r#"{"type":"lobby","users":[]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        match result {
+            LobbyResponse::LobbyState { users } => {
+                assert!(users.is_empty());
+            }
+            _ => panic!("Expected LobbyState response"),
+        }
+    }
+
+    #[test]
+    fn test_parse_lobby_update_user_joined() {
+        let json = r#"{"type":"lobby_update","joined":[{"publicKey":"new_user"}],"left":[]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        match result {
+            LobbyResponse::UsersJoined { public_keys } => {
+                assert_eq!(public_keys.len(), 1);
+                assert_eq!(public_keys[0], "new_user");
+            }
+            _ => panic!("Expected UsersJoined response"),
+        }
+    }
+
+    #[test]
+    fn test_parse_lobby_update_user_left() {
+        let json = r#"{"type":"lobby_update","joined":[],"left":["departed_user"]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        match result {
+            LobbyResponse::UsersLeft { public_keys } => {
+                assert_eq!(public_keys.len(), 1);
+                assert_eq!(public_keys[0], "departed_user");
+            }
+            _ => panic!("Expected UsersLeft response"),
+        }
+    }
+
+    #[test]
+    fn test_parse_lobby_update_multiple_users() {
+        let json = r#"{"type":"lobby_update","joined":[{"publicKey":"user1"},{"publicKey":"user2"}],"left":[]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        // Should now return ALL joined users (FIX: was only returning first)
+        match result {
+            LobbyResponse::UsersJoined { public_keys } => {
+                assert_eq!(public_keys.len(), 2);
+                assert_eq!(public_keys[0], "user1");
+                assert_eq!(public_keys[1], "user2");
+            }
+            _ => panic!("Expected UsersJoined response"),
+        }
+    }
+
+    #[test]
+    fn test_parse_lobby_update_empty() {
+        let json = r#"{"type":"lobby_update","joined":[],"left":[]}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        assert_eq!(result, LobbyResponse::Ignored);
+    }
+
+    #[test]
+    fn test_parse_non_lobby_message() {
+        let json = r#"{"type":"text","message":"hello"}"#;
+        let result = parse_lobby_message(json).unwrap();
+
+        assert_eq!(result, LobbyResponse::Ignored);
+    }
+
+    #[test]
+    fn test_parse_invalid_lobby_json() {
+        let json = "not valid json";
+        let result = parse_lobby_message(json);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lobby_event_handler_creation() {
+        let handler = LobbyEventHandler::new();
+        // Handler should be created without panicking (no-op callbacks)
+        // Just verify the fields exist and can be called
+        let test_state = LobbyState::new();
+        handler.lobby_received(&test_state); // Should not panic (no-op)
+        let test_user = LobbyUser::new("key".to_string(), true);
+        handler.user_joined(&test_user); // Should not panic (no-op)
+        handler.user_left("key"); // Should not panic (no-op)
+    }
+
+    #[test]
+    fn test_lobby_event_handler_with_callbacks() {
+        // Test that callbacks are actually called using Arc<Mutex<>> pattern
+        use std::sync::{Arc, Mutex};
+
+        let state_count = Arc::new(Mutex::new(0));
+        let joined_count = Arc::new(Mutex::new(0));
+        let left_count = Arc::new(Mutex::new(0));
+
+        let state_count_clone = state_count.clone();
+        let joined_count_clone = joined_count.clone();
+        let left_count_clone = left_count.clone();
+
+        let handler = LobbyEventHandler::with_callbacks(
+            move |_state| *state_count_clone.lock().unwrap() += 1,
+            move |_user| *joined_count_clone.lock().unwrap() += 1,
+            move |_key| *left_count_clone.lock().unwrap() += 1,
+        );
+
+        // Test lobby received callback
+        let test_state = LobbyState::new();
+        handler.lobby_received(&test_state);
+        assert_eq!(*state_count.lock().unwrap(), 1);
+
+        // Test user joined callback
+        let test_user = LobbyUser::new("test_key".to_string(), true);
+        handler.user_joined(&test_user);
+        assert_eq!(*joined_count.lock().unwrap(), 1);
+
+        // Test user left callback
+        handler.user_left("departed_key");
+        assert_eq!(*left_count.lock().unwrap(), 1);
     }
 }
