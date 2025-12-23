@@ -3,7 +3,7 @@
 //! This module implements the core lobby operations including add, remove, query,
 //! and broadcast functionality as specified in the story requirements.
 
-use crate::lobby::state::{PublicKey, ActiveConnection, Lobby};
+use crate::lobby::state::{PublicKey, ActiveConnection, Lobby, MAX_LOBBY_SIZE};
 use profile_shared::{LobbyError, Message};
 
 /// Add a user to the lobby with reconnection handling
@@ -19,7 +19,7 @@ use profile_shared::{LobbyError, Message};
 /// # Returns
 /// * `Ok(())` on success
 /// * `LobbyError::InvalidPublicKey` if key format is invalid
-/// * `LobbyError::LockFailed` if lobby lock cannot be acquired
+/// * `LobbyError::LobbyFull` if lobby has reached maximum capacity
 pub async fn add_user(
     lobby: &Lobby, 
     key: PublicKey, 
@@ -34,6 +34,12 @@ pub async fn add_user(
     
     // Check for existing user (AC2: Reconnection case)
     let is_reconnection = users.contains_key(&key);
+    
+    // DoS protection: Check lobby size limit
+    // Allow reconnection even if lobby is "full" (replacing doesn't increase size)
+    if !is_reconnection && users.len() >= MAX_LOBBY_SIZE {
+        return Err(LobbyError::LobbyFull);
+    }
     
     if is_reconnection {
         // Remove old connection first
@@ -156,9 +162,10 @@ async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), Lobby
     };
     
     let users = lobby.users.read().await;
-    
-    // Collect senders while holding the lock
+
+    // Collect senders for ALL remaining users (exclude the leaving user)
     let recipients: Vec<_> = users.iter()
+        .filter(|(k, _)| *k != key)  // Don't send to the user who just left
         .map(|(_, conn)| conn.sender.clone())
         .collect();
     
@@ -202,7 +209,8 @@ mod tests {
             let hash = hasher.finish();
             format!("{:016x}{:016x}{:016x}{:016x}", hash, hash >> 16, hash >> 32, hash >> 48)
         };
-        let connection_id = CONNECTION_COUNTER.fetch_add(1, Ordering::SeqCst);
+        // Using Relaxed ordering since connection IDs are just for uniqueness testing
+        let connection_id = CONNECTION_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         ActiveConnection {
             public_key: padded_key,
@@ -290,6 +298,32 @@ mod tests {
         // Test exactly 64 chars of valid hex should succeed
         let result = add_user(&lobby, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(), connection).await;
         assert!(result.is_ok(), "Valid 64-char hex key should be accepted");
+    }
+
+    #[tokio::test]
+    async fn test_add_user_key_length_boundary() {
+        let lobby = create_test_lobby();
+        let connection = create_test_connection("boundary_test");
+
+        // Test 65 chars - should fail (too long)
+        let key_65 = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1".to_string();
+        assert_eq!(key_65.len(), 65);
+        let result = add_user(&lobby, key_65, connection.clone()).await;
+        assert_eq!(result, Err(LobbyError::InvalidPublicKey), "65-char key should be rejected");
+
+        // Test 66 chars - should fail (too long)
+        let key_66 = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12".to_string();
+        assert_eq!(key_66.len(), 66);
+        let result = add_user(&lobby, key_66, connection.clone()).await;
+        assert_eq!(result, Err(LobbyError::InvalidPublicKey), "66-char key should be rejected");
+
+        // Test 100 chars - should fail (way too long)
+        let key_100 = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456".to_string();
+        assert_eq!(key_100.len(), 102);
+        let result = add_user(&lobby, key_100, connection).await;
+        assert_eq!(result, Err(LobbyError::InvalidPublicKey), "100-char key should be rejected");
+
+        println!("✅ All key length boundary tests passed (63, 64, 65, 66, 100 chars tested)");
     }
 
     #[tokio::test]

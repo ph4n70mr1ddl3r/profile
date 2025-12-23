@@ -9,20 +9,13 @@
 //!
 //! This file satisfies Story 2.1 requirement for 5+ integration tests.
 
+mod test_utils;
+
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use profile_server::lobby::{Lobby, ActiveConnection, get_user, get_current_users, add_user, remove_user};
 use profile_shared::Message;
-
-/// Helper to create a test ActiveConnection
-fn create_test_connection(key: &str, connection_id: u64) -> ActiveConnection {
-    let (sender, _) = mpsc::unbounded_channel::<Message>();
-    ActiveConnection {
-        public_key: key.to_string(),
-        sender,
-        connection_id,
-    }
-}
+use test_utils::create_test_connection;
 
 /// Test 1: test_lobby_adds_user_on_auth
 /// Verify successful auth adds user to lobby (AC1)

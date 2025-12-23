@@ -5,19 +5,10 @@
 //!
 //! Uses the real types from profile_server::lobby module.
 
-use tokio::sync::mpsc;
-use profile_server::lobby::{Lobby, ActiveConnection, get_user, get_current_users};
-use profile_shared::Message;
+mod test_utils;
 
-/// Helper to create a test ActiveConnection
-fn create_test_connection(key: &str, connection_id: u64) -> ActiveConnection {
-    let (sender, _) = mpsc::unbounded_channel::<Message>();
-    ActiveConnection {
-        public_key: key.to_string(),
-        sender,
-        connection_id,
-    }
-}
+use profile_server::lobby::{Lobby, get_user, get_current_users};
+use test_utils::create_test_connection;
 
 #[tokio::test]
 async fn test_lobby_state_implementation() {
@@ -58,13 +49,8 @@ async fn test_active_connection_creation() {
     let public_key = "test_connection_key_12345678901234".to_string();
     let connection_id = 42;
 
-    let (sender, _) = mpsc::unbounded_channel::<Message>();
-
-    let connection = ActiveConnection {
-        public_key: public_key.clone(),
-        sender,
-        connection_id,
-    };
+    // Use the shared test helper
+    let connection = create_test_connection(&public_key, connection_id);
 
     assert_eq!(connection.public_key, public_key);
     assert_eq!(connection.connection_id, connection_id);
@@ -106,19 +92,22 @@ async fn test_lobby_multiple_users_sequential() {
 
 #[tokio::test]
 async fn test_lobby_get_connection() {
+    // NOTE: This test previously used state.rs get_connection() method
+    // which was consolidated into manager.rs get_user() function.
+    // Using get_user() from manager.rs instead (same functionality).
     let lobby = Lobby::new();
     let test_key = "get_connection_test_12345678901234".to_string();
     let connection = create_test_connection(&test_key, 99);
 
-    // Get before adding
-    let result = lobby.get_connection(&test_key).await.unwrap();
+    // Get before adding (using consolidated get_user API)
+    let result = get_user(&lobby, &test_key).await.unwrap();
     assert!(result.is_none());
 
     // Add user
     lobby.add_user(connection).await.unwrap();
 
     // Get after adding
-    let result = lobby.get_connection(&test_key).await.unwrap();
+    let result = get_user(&lobby, &test_key).await.unwrap();
     assert!(result.is_some());
     assert_eq!(result.unwrap().connection_id, 99);
 }

@@ -4,6 +4,13 @@ use tokio::sync::{RwLock, mpsc};
 use profile_shared::{Message, LobbyError};
 use hex;
 
+/// Maximum number of users allowed in the lobby at once.
+///
+/// This limit prevents memory exhaustion DoS attacks where an attacker
+/// could rapidly create many connections to exhaust server memory.
+/// Adjust based on expected usage patterns and server resources.
+pub const MAX_LOBBY_SIZE: usize = 10_000;
+
 /// Type alias for public keys for clarity and type safety
 /// This is exported for use in routing (Story 3.2)
 pub type PublicKey = String;
@@ -14,7 +21,10 @@ pub type PublicKey = String;
 pub struct ActiveConnection {
     pub public_key: PublicKey,
     pub sender: mpsc::UnboundedSender<Message>,
-    pub connection_id: u64, // For testing reconnection
+    /// Unique identifier for this connection instance.
+    /// Used to track reconnections and verify connection replacement.
+    /// Updated when a user reconnects with a new WebSocket connection.
+    pub connection_id: u64,
 }
 
 /// Thread-safe lobby that tracks all currently authenticated users
@@ -68,13 +78,7 @@ impl Lobby {
         Ok(users.len())
     }
 
-    /// Get a specific user's connection (for broadcasting)
-    pub async fn get_connection(&self, public_key: &PublicKey) -> Result<Option<ActiveConnection>, LobbyError> {
-        let users = self.users.read().await;
-        Ok(users.get(public_key).map(|conn| conn.clone()))
-    }
-
-    /// Get all current connections (for broadcasting)
+    /// Get all current connections (for broadcasting to all users)
     pub async fn get_all_connections(&self) -> Result<Vec<ActiveConnection>, LobbyError> {
         let users = self.users.read().await;
         Ok(users.values().cloned().collect())

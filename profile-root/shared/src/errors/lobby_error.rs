@@ -13,6 +13,8 @@ pub enum LobbyError {
     LockFailed,
     /// Network/broadcast failure
     BroadcastFailed,
+    /// Lobby has reached maximum capacity
+    LobbyFull,
 }
 
 impl std::fmt::Display for LobbyError {
@@ -23,6 +25,7 @@ impl std::fmt::Display for LobbyError {
             LobbyError::InvalidPublicKey => write!(f, "Invalid public key format"),
             LobbyError::LockFailed => write!(f, "Failed to acquire lobby lock"),
             LobbyError::BroadcastFailed => write!(f, "Failed to broadcast to users"),
+            LobbyError::LobbyFull => write!(f, "Lobby is full"),
         }
     }
 }

@@ -15,7 +15,12 @@ static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Generate a unique connection ID atomically
 fn generate_connection_id() -> u64 {
-    CONNECTION_COUNTER.fetch_add(1, Ordering::SeqCst)
+    // Using Relaxed ordering since connection IDs don't require strict synchronization
+    // SeqCst is unnecessary here - we just need atomic increment for uniqueness
+    // Using wrapping_add to prevent panic on overflow (saturating not available in older Rust)
+    CONNECTION_COUNTER.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+        Some(v.wrapping_add(1))
+    }).unwrap_or(0)
 }
 
 /// Connection handler that processes WebSocket connections
@@ -36,8 +41,21 @@ pub async fn handle_connection(
         let message = message_result?;
         
         match handle_auth_message(&message, &lobby).await {
-            AuthResult::Success { public_key, lobby_state } => {
+            AuthResult::Success { public_key, lobby_state: _ } => {
+                // NOTE: The lobby_state from auth handler is IGNORED here.
+                // We add the user to the lobby FIRST, then refetch the lobby state
+                // to ensure the newly authenticated user sees themselves and all
+                // other online users in the response.
+                //
+                // This fixes the bug where lobby_state was captured BEFORE the user
+                // was added, causing the new user to not see themselves.
+                
                 // Convert Vec<u8> to String for lobby API
+                // Validate that public key is exactly 32 bytes before encoding
+                if public_key.len() != 32 {
+                    eprintln!("❌ Invalid public key length: {} bytes (expected 32)", public_key.len());
+                    return Err("Invalid public key".into());
+                }
                 let public_key_string = hex::encode(public_key);
                 
                 // Create active connection for lobby
@@ -45,24 +63,30 @@ pub async fn handle_connection(
                 // Currently messages to clients are sent directly via 'write' sink.
                 // The sender will be used when implementing broadcast notifications
                 // (Stories 2.3, 2.4) to route messages through the lobby.
-                let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                let (sender, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),
                     sender,
                     connection_id: generate_connection_id(),
                 };
                 
-                // Add user to lobby using new API
+                // Add user to lobby FIRST (critical for correct lobby state)
                 if let Err(e) = crate::lobby::add_user(&lobby, public_key_string.clone(), connection).await {
-                    println!("❌ Failed to add user to lobby: {}", e);
-                    // Still send success message but log the error
+                    eprintln!("❌ Failed to add user to lobby: {}", e);
+                    // Still try to send success with available state
                 }
                 
-                // Track for cleanup
-                authenticated_key = Some(public_key_string);
+                // Track for cleanup - only if user was successfully added
+                let user_in_lobby = lobby.user_exists(&public_key_string).await.unwrap_or(false);
+                if user_in_lobby {
+                    authenticated_key = Some(public_key_string.clone());
+                }
                 
-                // Send success message with full lobby state
-                let success_msg = AuthSuccessMessage::new(lobby_state);
+                // Refetch lobby state AFTER adding user to include self
+                let updated_lobby_state = lobby.get_full_lobby_state().await.unwrap_or_else(|_| vec![]);
+                
+                // Send success message with UPDATED lobby state (includes new user)
+                let success_msg = AuthSuccessMessage::new(updated_lobby_state);
                 let success_json = serde_json::to_string(&success_msg)?;
                 write.send(Message::Text(success_json)).await?;
             }
@@ -82,7 +106,9 @@ pub async fn handle_connection(
                     code: CloseCode::Normal,
                     reason: reason.into(),
                 };
-                let _ = write.send(Message::Close(Some(close_frame))).await;
+                if let Err(e) = write.send(Message::Close(Some(close_frame))).await {
+                    eprintln!("⚠️  Failed to send close frame: {}", e);
+                }
                 
                 return Ok(());
             }
