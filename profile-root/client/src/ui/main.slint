@@ -2,6 +2,7 @@ import { WelcomeScreen } from "welcome_screen.slint";
 import { KeyDisplay } from "key_display.slint";
 import { ImportKeyScreen } from "import_key_screen.slint";
 import { LobbyItem, LobbyItemCompact } from "lobby_item.slint";
+import { MessageComposer } from "composer.slint";
 
 export component AppWindow inherits Window {
     title: "Profile - Cryptographic Messaging";
@@ -15,7 +16,7 @@ export component AppWindow inherits Window {
     in property <bool> copy_feedback_visible: false;
     in property <bool> status_is_error: false;
     
-    // View state: "welcome", "import", "key-display"
+    // View state: "welcome", "import", "key-display", "lobby"
     in-out property <string> current_view: "welcome";
     
     // Import screen state
@@ -236,6 +237,12 @@ export component AppWindow inherits Window {
                     text: "Selected: " + root.lobby_selected_user;
                     font-size: 12px;
                     color: #0066CC;
+                }
+
+                // Message composer (Story 2.2 - placeholder, full chat in Story 3.x)
+                MessageComposer {
+                    recipient: root.lobby_selected_user;
+                    focused: root.composer_focused;
                 }
             }
     }

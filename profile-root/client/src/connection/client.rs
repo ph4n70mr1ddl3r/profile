@@ -187,10 +187,10 @@ fn parse_auth_response(text: &str) -> Result<AuthResponse, Box<dyn std::error::E
 }
 
 /// WebSocket client for connecting to the profile server
-#[derive(Debug)]
 pub struct WebSocketClient {
     connection: Option<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
     key_state: SharedKeyState,
+    lobby_event_handler: Option<LobbyEventHandler>,
 }
 
 impl WebSocketClient {
@@ -199,7 +199,15 @@ impl WebSocketClient {
         Self {
             connection: None,
             key_state,
+            lobby_event_handler: None,
         }
+    }
+
+    /// Set the lobby event handler
+    ///
+    /// The handler will be called when lobby messages arrive from the server.
+    pub fn set_lobby_event_handler(&mut self, handler: LobbyEventHandler) {
+        self.lobby_event_handler = Some(handler);
     }
     
     /// Connect to the profile server
@@ -341,9 +349,41 @@ impl WebSocketClient {
             // Process message
             match msg_result {
                 Some(Ok(Message::Text(text))) => {
-                    // Handle incoming messages (future stories will process these)
-                    println!("Received message: {}", text);
-                    // TODO: Story 3.2+ will handle message types here
+                    // Try to parse as lobby message first (Story 2.2)
+                    if let Ok(lobby_response) = parse_lobby_message(&text) {
+                        println!("Received lobby message: {:?}", lobby_response);
+
+                        // Handle lobby responses
+                        if let Some(ref handler) = self.lobby_event_handler {
+                            match lobby_response {
+                                LobbyResponse::LobbyState { users } => {
+                                    // Update lobby state with initial user list
+                                    let mut lobby_state = LobbyState::new();
+                                    lobby_state.set_users(users);
+                                    handler.lobby_received(&lobby_state);
+                                }
+                                LobbyResponse::UsersJoined { public_keys } => {
+                                    // Users joined - notify handler for each
+                                    for key in public_keys {
+                                        handler.user_joined(&LobbyUser::new(key, true));
+                                    }
+                                }
+                                LobbyResponse::UsersLeft { public_keys } => {
+                                    // Users left - notify handler for each
+                                    for key in public_keys {
+                                        handler.user_left(&key);
+                                    }
+                                }
+                                LobbyResponse::Ignored => {
+                                    // Non-lobby message, ignore
+                                }
+                            }
+                        }
+                    } else {
+                        // Not a lobby message - may be future story type (message, notification, etc.)
+                        println!("Received non-lobby message: {}", text);
+                        // Future stories (3.2+) will handle other message types
+                    }
                 }
                 Some(Ok(Message::Close(frame))) => {
                     // Server closed the connection

@@ -1,7 +1,6 @@
 //! Profile client application (Slint UI + core crypto functionality).
 
 use profile_client::{state, handlers};
-use profile_client::ui::lobby_state::LobbyUser;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -50,7 +49,7 @@ async fn update_lobby_ui(
     lobby_state: &Arc<tokio::sync::Mutex<profile_client::ui::lobby_state::LobbyState>>,
 ) {
     let state = lobby_state.lock().await;
-    let users: Vec<LobbyUser> = state.users().into_iter().cloned().collect();
+    let users = state.users_cloned();
     let selected_user = state.selected_user().map(|s| s.to_string());
     let user_count = users.len();
 
