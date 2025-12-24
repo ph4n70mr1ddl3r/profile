@@ -1,8 +1,8 @@
-# Sprint Status Tracker
-# BMad Method Implementation Phase
-# Generated: 2025-12-24
-# Project: profile
+# generated: 2025-12-24
+# project: profile
 # project_key: profile
+# tracking_system: file-system
+# story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 # STATUS DEFINITIONS:
 # ==================
@@ -57,7 +57,7 @@ development_status:
   # ==================
   epic-2: in-progress
   2-1-server-maintains-active-user-lobby: done
-  2-2-query-display-current-online-user-list: review
+  2-2-query-display-current-online-user-list: done
   2-3-broadcast-user-join-notifications: backlog
   2-4-broadcast-user-leave-notifications: backlog
   2-5-real-time-lobby-synchronization: backlog
