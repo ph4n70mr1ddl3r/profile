@@ -45,6 +45,9 @@ pub struct LobbyUser {
 }
 
 /// Represents a compact user in lobby updates (no status field - always "online" when joining)
+///
+/// TODO: Consolidate LobbyUser, LobbyUserWithStatus, and LobbyUserCompact
+/// into a single type with optional status field to reduce bug risk.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LobbyUserCompact {
     #[serde(rename = "publicKey")]

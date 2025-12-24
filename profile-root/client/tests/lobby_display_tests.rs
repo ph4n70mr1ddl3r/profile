@@ -8,20 +8,6 @@
 //! - Selection highlight when user is selected
 
 use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
-use std::collections::HashMap;
-
-// Helper function to create a lobby state with users
-fn create_lobby_with_users(user_count: usize) -> LobbyState {
-    let mut state = LobbyState::new();
-    let users: Vec<LobbyUser> = (0..user_count)
-        .map(|i| LobbyUser {
-            public_key: format!("{:064x}", i),
-            is_online: true,
-        })
-        .collect();
-    state.set_users(users);
-    state
-}
 
 #[test]
 fn test_lobby_state_new_is_empty() {

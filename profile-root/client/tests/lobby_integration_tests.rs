@@ -6,6 +6,7 @@
 //! - Lobby updates when users join/leave
 //! - Selection activates chat composer
 //! - Keyboard navigation works across components
+//! - JSON parsing error handling
 
 use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
 use profile_client::connection::client::{parse_lobby_message, LobbyResponse};
@@ -50,7 +51,7 @@ async fn test_lobby_updates_on_join() {
             assert_eq!(public_keys.len(), 1);
             assert_eq!(public_keys[0], "new_user_joining_now");
 
-            // Add the new user to state
+            // Add new user to state
             state.add_user(LobbyUser::new(public_keys[0].clone(), true));
             assert_eq!(state.len(), 2);
             assert!(state.has_user("new_user_joining_now"));
@@ -72,7 +73,7 @@ async fn test_lobby_updates_on_leave() {
     state.set_users(initial_users.clone());
     assert_eq!(state.len(), 2);
 
-    // Select the user that's about to leave
+    // Select user that's about to leave
     state.select("user_leaving_87654321");
     assert_eq!(state.selected_user(), Some("user_leaving_87654321"));
 
@@ -85,7 +86,7 @@ async fn test_lobby_updates_on_leave() {
             assert_eq!(public_keys.len(), 1);
             assert_eq!(public_keys[0], "user_leaving_87654321");
 
-            // Remove the user from state
+            // Remove user from state
             state.remove_user(&public_keys[0]);
             assert_eq!(state.len(), 1);
             assert!(!state.has_user("user_leaving_87654321"));
@@ -117,7 +118,7 @@ async fn test_lobby_selection_activates_chat() {
     assert!(result);
     assert_eq!(state.selected_user(), Some("selectable_user_1234567"));
 
-    // Verify the selected user is the one we want to message
+    // Verify selected user is one we want to message
     assert!(state.is_selected("selectable_user_1234567"));
     assert!(!state.is_selected("other_user_8765432"));
 }
@@ -172,6 +173,28 @@ async fn test_lobby_empty_state() {
     }
 }
 
+/// Test: Lobby handles malformed JSON
+#[tokio::test]
+async fn test_lobby_handles_malformed_json() {
+    // Test 1: Invalid JSON syntax - missing closing bracket
+    let invalid_json = r#"{"type":"lobby","users":[{"publicKey":"key1"}"#;
+
+    let result = parse_lobby_message(invalid_json);
+    assert!(result.is_err(), "Should fail for invalid JSON syntax");
+
+    // Test 2: Valid JSON but missing required "users" field
+    let missing_field_json = r#"{"type":"lobby"}"#;
+
+    let result2 = parse_lobby_message(missing_field_json);
+    assert!(result2.is_err() || matches!(result2, Ok(LobbyResponse::Ignored)), "Should handle missing 'users' field");
+
+    // Test 3: Invalid message type
+    let unknown_type_json = r#"{"type":"unknown_type","users":[]}"#;
+
+    let result3 = parse_lobby_message(unknown_type_json);
+    assert!(matches!(result3, Ok(LobbyResponse::Ignored)), "Unknown message types should be ignored");
+}
+
 /// Test: Lobby state with mixed online/offline users
 #[tokio::test]
 async fn test_lobby_mixed_online_status() {
@@ -211,8 +234,31 @@ async fn test_lobby_selection_wrap_around() {
 
     // Simulate arrow up wrap-around to last index
     // Note: Actual keyboard handling is in lobby.rs LobbyKeyboardHandler
-    // This test verifies the state can handle selection changes
+    // This test verifies state can handle selection changes
     state.clear_selection();
     state.select("first_user_12345678");
     assert_eq!(state.selected_user(), Some("first_user_12345678"));
+}
+
+/// Test: Enter key confirms selection
+#[tokio::test]
+async fn test_lobby_enter_key_confirms_selection() {
+    let mut state = LobbyState::new();
+
+    let users = vec![
+        LobbyUser::new("selectable_user_1234567".to_string(), true),
+        LobbyUser::new("other_user_8765432".to_string(), true),
+    ];
+    state.set_users(users);
+
+    // Initially no selection
+    assert_eq!(state.selected_user(), None);
+
+    // Select a user (simulating Enter key or click)
+    let result = state.select("selectable_user_1234567");
+    assert!(result);
+    assert_eq!(state.selected_user(), Some("selectable_user_1234567"));
+
+    // Verify selection is confirmed
+    assert!(state.is_selected("selectable_user_1234567"));
 }

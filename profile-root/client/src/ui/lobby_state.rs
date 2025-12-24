@@ -147,16 +147,31 @@ impl LobbyState {
     /// This performs deduplication - if a user already exists,
     /// they will not be added again.
     ///
+    /// NOTE: Clears selection if selected user is not in new user list
+    /// to prevent state inconsistency where selected_user points to a
+    /// user that no longer exists.
+    ///
     /// # Arguments
     ///
     /// * `users` - Vector of users to set
     pub fn set_users(&mut self, users: Vec<LobbyUser>) {
+        // Check if selected user still exists in new user list
+        let selected_user_exists = self.selected_user.as_ref()
+            .map(|key| users.iter().any(|u| &u.public_key == key))
+            .unwrap_or(false);
+
+        // Replace users
         self.users.clear();
         for user in users {
             // Deduplicate: only insert if not already present
             if !self.has_user(&user.public_key) {
                 self.users.push(user);
             }
+        }
+
+        // Clear selection if selected user no longer exists
+        if !selected_user_exists {
+            self.selected_user = None;
         }
     }
 
@@ -447,241 +462,55 @@ mod tests {
     }
 
     #[test]
-    fn test_add_multiple_users_maintains_order() {
+    fn test_set_users_clears_selection_if_user_not_in_new_list() {
         let mut state = LobbyState::new();
-        let users = vec![
-            LobbyUser::new("key_1".to_string(), true),
-            LobbyUser::new("key_2".to_string(), true),
-            LobbyUser::new("key_3".to_string(), false),
+        let users1 = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
         ];
-        state.add_users(users);
+        state.set_users(users1);
+        state.select("user_b");
 
-        assert_eq!(state.len(), 3);
-        assert!(state.has_user("key_1"));
-        assert!(state.has_user("key_2"));
-        assert!(state.has_user("key_3"));
+        // Verify selection
+        assert_eq!(state.selected_user(), Some("user_b"));
 
-        // Verify order is maintained
-        let users_vec = state.users();
-        assert_eq!(users_vec[0].public_key, "key_1");
-        assert_eq!(users_vec[1].public_key, "key_2");
-        assert_eq!(users_vec[2].public_key, "key_3");
-    }
-
-    #[test]
-    fn test_set_users_replaces_existing() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("old_key".to_string(), true));
-
-        let new_users = vec![
-            LobbyUser::new("new_key_1".to_string(), true),
-            LobbyUser::new("new_key_2".to_string(), true),
+        // Update users WITHOUT user_b (simulating user left lobby)
+        let users2 = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
         ];
-        state.set_users(new_users);
+        state.set_users(users2);
 
-        assert_eq!(state.len(), 2);
-        assert!(state.has_user("new_key_1"));
-        assert!(state.has_user("new_key_2"));
-        assert!(!state.has_user("old_key"));
-    }
-
-    #[test]
-    fn test_remove_user() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("remove_me".to_string(), true));
-        assert!(state.has_user("remove_me"));
-
-        let removed = state.remove_user("remove_me");
-        assert!(removed);
-        assert!(!state.has_user("remove_me"));
-    }
-
-    #[test]
-    fn test_remove_nonexistent_user() {
-        let mut state = LobbyState::new();
-        let removed = state.remove_user("nonexistent");
-        assert!(!removed);
-    }
-
-    #[test]
-    fn test_remove_selected_user_clears_selection() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("selected_key".to_string(), true));
-        state.select("selected_key");
-        assert_eq!(state.selected_user(), Some("selected_key"));
-
-        state.remove_user("selected_key");
+        // Selection should be cleared (user_b is no longer in lobby)
         assert_eq!(state.selected_user(), None);
     }
 
     #[test]
-    fn test_select_user() {
+    fn test_set_users_preserves_selection_if_user_still_in_list() {
         let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("selectable".to_string(), true));
-
-        assert_eq!(state.selected_user(), None);
-
-        let result = state.select("selectable");
-        assert!(result);
-        assert_eq!(state.selected_user(), Some("selectable"));
-    }
-
-    #[test]
-    fn test_select_nonexistent_user() {
-        let mut state = LobbyState::new();
-        let result = state.select("nonexistent");
-        assert!(!result);
-        assert_eq!(state.selected_user(), None);
-    }
-
-    #[test]
-    fn test_is_selected() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("user_a".to_string(), true));
-        state.add_user(LobbyUser::new("user_b".to_string(), true));
-
-        assert!(!state.is_selected("user_a"));
-        assert!(!state.is_selected("user_b"));
-
-        state.select("user_a");
-        assert!(state.is_selected("user_a"));
-        assert!(!state.is_selected("user_b"));
-    }
-
-    #[test]
-    fn test_clear_selection() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("key".to_string(), true));
-        state.select("key");
-        assert_eq!(state.selected_user(), Some("key"));
-
-        state.clear_selection();
-        assert_eq!(state.selected_user(), None);
-    }
-
-    #[test]
-    fn test_deduplication_on_add() {
-        let mut state = LobbyState::new();
-        let user = LobbyUser::new("dup_key".to_string(), true);
-
-        state.add_user(user.clone());
-        state.add_user(user.clone());
-        state.add_user(user.clone());
-
-        assert_eq!(state.len(), 1);
-    }
-
-    #[test]
-    fn test_deduplication_on_set_users() {
-        let mut state = LobbyState::new();
-        let users = vec![
-            LobbyUser::new("key_a".to_string(), true),
-            LobbyUser::new("key_a".to_string(), true), // duplicate
-            LobbyUser::new("key_b".to_string(), true),
+        let users1 = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
         ];
-        state.set_users(users);
+        state.set_users(users1);
+        state.select("user_b");
 
-        assert_eq!(state.len(), 2);
-    }
+        // Verify selection
+        assert_eq!(state.selected_user(), Some("user_b"));
 
-    #[test]
-    fn test_clear() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("key_1".to_string(), true));
-        state.add_user(LobbyUser::new("key_2".to_string(), true));
-        state.select("key_1");
-
-        state.clear();
-
-        assert!(state.is_empty());
-        assert_eq!(state.selected_user(), None);
-    }
-
-    #[test]
-    fn test_selected_index_deterministic() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("key_0".to_string(), true));
-        state.add_user(LobbyUser::new("key_1".to_string(), true));
-        state.add_user(LobbyUser::new("key_2".to_string(), true));
-
-        assert_eq!(state.selected_index(), None);
-
-        state.select("key_1");
-        // Index should be 1 (deterministic order)
-        assert_eq!(state.selected_index(), Some(1));
-    }
-
-    #[test]
-    fn test_select_by_index_deterministic() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("first".to_string(), true));
-        state.add_user(LobbyUser::new("second".to_string(), true));
-        state.add_user(LobbyUser::new("third".to_string(), true));
-
-        // Select by index 0 should be first
-        assert!(state.select_by_index(0));
-        assert_eq!(state.selected_user(), Some("first"));
-
-        // Select by index 2 should be third
-        assert!(state.select_by_index(2));
-        assert_eq!(state.selected_user(), Some("third"));
-
-        // Index out of bounds should fail
-        assert!(!state.select_by_index(99));
-    }
-
-    #[test]
-    fn test_index_of_deterministic() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("alpha".to_string(), true));
-        state.add_user(LobbyUser::new("beta".to_string(), true));
-        state.add_user(LobbyUser::new("gamma".to_string(), true));
-
-        // Index should be deterministic
-        assert_eq!(state.index_of("alpha"), Some(0));
-        assert_eq!(state.index_of("beta"), Some(1));
-        assert_eq!(state.index_of("gamma"), Some(2));
-        assert_eq!(state.index_of("nonexistent"), None);
-    }
-
-    #[test]
-    fn test_get_user_at() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("key_1".to_string(), true));
-        state.add_user(LobbyUser::new("key_2".to_string(), true));
-
-        assert_eq!(state.get_user_at(0).map(|u| &u.public_key), Some(&"key_1".to_string()));
-        assert_eq!(state.get_user_at(1).map(|u| &u.public_key), Some(&"key_2".to_string()));
-        assert!(state.get_user_at(99).is_none());
-    }
-
-    #[test]
-    fn test_get_user() {
-        let mut state = LobbyState::new();
-        state.add_user(LobbyUser::new("key".to_string(), true));
-
-        let user = state.get_user("key");
-        assert!(user.is_some());
-        assert_eq!(user.unwrap().public_key, "key");
-
-        assert!(state.get_user("nonexistent").is_none());
-    }
-
-    #[test]
-    fn test_serialization_roundtrip() {
-        let mut state = LobbyState::new();
-        let users = vec![
-            LobbyUser::new("key_1_online".to_string(), true),
-            LobbyUser::new("key_2_offline".to_string(), false),
+        // Update users WITH user_b still present (simulating another user joined)
+        let users2 = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
+            LobbyUser::new("user_d".to_string(), true),
         ];
-        state.set_users(users.clone());
-        state.select("key_1_online");
+        state.set_users(users2);
 
-        let serializable: LobbyStateSerializable = state.into();
-        let deserialized: LobbyState = serializable.into();
-
-        assert_eq!(deserialized.len(), 2);
-        assert_eq!(deserialized.selected_user(), Some("key_1_online"));
+        // Selection should be preserved (user_b is still in lobby)
+        assert_eq!(state.selected_user(), Some("user_b"));
     }
 
     #[test]

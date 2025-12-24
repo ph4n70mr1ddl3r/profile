@@ -408,11 +408,15 @@ fn main() -> Result<(), slint::PlatformError> {
 
             if let Some(key) = selected_user {
                 // Focus composer field when user activates selection
+                // NOTE: Slint 1.5 does not support programmatic focus() API.
+                // The composer_focused property is a visual indicator workaround.
+                // Real keyboard focus requires user interaction (Tab key or mouse click).
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_composer_focused(true);
                     ui.set_lobby_selected_user(key.clone().into());
 
-                    // Clear focus after 100ms (simulated focus action)
+                    // Visual feedback timeout - composer_focused is cleared after 100ms
+                    // This provides temporary visual indication that focus occurred
                     let ui_weak_delayed = ui_weak.clone();
                     let _ = slint::spawn_local(async move {
                         slint::Timer::single_shot(Duration::from_millis(100), move || {
