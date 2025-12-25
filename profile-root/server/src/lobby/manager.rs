@@ -472,15 +472,11 @@ mod tests {
                 // Verify structure - should have joined users, empty left vector
                 assert!(!joined.is_empty());
                 assert!(left.is_empty());
-                
+
                 // Verify delta contains only the joined user
-                if let Some(joined_users) = joined {
-                    assert_eq!(joined_users.len(), 1);
-                    assert_eq!(joined_users[0].public_key, connection_key);
-                } else {
-                    panic!("Expected joined users in lobby update");
-                }
-                
+                assert_eq!(joined.len(), 1);
+                assert_eq!(joined[0].public_key, connection_key);
+
                 println!("✅ Broadcast delta format verified - user joined");
             }
             _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
@@ -707,11 +703,9 @@ mod tests {
         // Verify it's a lobby update with joined users
         match received_msg {
             profile_shared::Message::LobbyUpdate { joined, .. } => {
-                assert!(joined.is_some());
-                if let Some(joined_users) = joined {
-                    assert_eq!(joined_users.len(), 1);
-                    assert_eq!(joined_users[0].public_key, connection_key);
-                }
+                assert!(!joined.is_empty());
+                assert_eq!(joined.len(), 1);
+                assert_eq!(joined[0].public_key, connection_key);
             }
             _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
         }

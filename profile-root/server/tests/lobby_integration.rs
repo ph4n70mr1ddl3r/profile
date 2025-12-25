@@ -223,8 +223,8 @@ async fn test_lobby_broadcast_on_join() {
     // Verify the message is a LobbyUpdate with joined users
     match received {
         Message::LobbyUpdate { joined, left } => {
-            assert!(joined.is_some() && !joined.unwrap().is_empty(), "Expected joined users in broadcast");
-            assert!(left.is_none() || left.as_ref().map(|l| l.is_empty()).unwrap_or(true), "Should not have left users on join");
+            assert!(!joined.is_empty(), "Expected joined users in broadcast");
+            assert!(left.is_empty(), "Should not have left users on join");
             println!("✅ Broadcast on join verified - message received correctly");
         }
         _ => panic!("Expected LobbyUpdate message, got: {:?}", received),

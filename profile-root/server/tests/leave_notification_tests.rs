@@ -86,14 +86,12 @@ async fn test_single_leave_broadcast() {
     match msg1 {
         SharedMessage::LobbyUpdate { joined, left } => {
             assert!(
-                joined.is_none(),
+                joined.is_empty(),
                 "Expected no joined users in leave notification"
             );
-            assert!(left.is_some(), "Expected left users in notification");
-            if let Some(left_users) = left {
-                assert_eq!(left_users.len(), 1, "Expected 1 user to leave");
-                assert_eq!(left_users[0], key2, "Expected user2 to leave");
-            }
+            assert!(!left.is_empty(), "Expected left users in notification");
+            assert_eq!(left.len(), 1, "Expected 1 user to leave");
+            assert_eq!(left[0], key2, "Expected user2 to leave");
         }
         _ => panic!("Expected LobbyUpdate message, got: {:?}", msg1),
     }
@@ -106,12 +104,10 @@ async fn test_single_leave_broadcast() {
 
     match msg3 {
         SharedMessage::LobbyUpdate { joined, left } => {
-            assert!(joined.is_none());
-            assert!(left.is_some());
-            if let Some(left_users) = left {
-                assert_eq!(left_users.len(), 1);
-                assert_eq!(left_users[0], key2);
-            }
+            assert!(joined.is_empty());
+            assert!(!left.is_empty());
+            assert_eq!(left.len(), 1);
+            assert_eq!(left[0], key2);
         }
         _ => panic!("Expected LobbyUpdate message, got: {:?}", msg3),
     }
@@ -221,18 +217,14 @@ async fn test_multiple_leaves_consistency() {
     // Verify each message has ONE left user (per-departure notification)
     match &msg1a {
         SharedMessage::LobbyUpdate { left, .. } => {
-            if let Some(users) = left {
-                assert_eq!(users.len(), 1, "Expected 1 user in first leave notification");
-            }
+            assert_eq!(left.len(), 1, "Expected 1 user in first leave notification");
         }
         _ => panic!("Expected LobbyUpdate"),
     }
 
     match &msg1b {
         SharedMessage::LobbyUpdate { left, .. } => {
-            if let Some(users) = left {
-                assert_eq!(users.len(), 1, "Expected 1 user in second leave notification");
-            }
+            assert_eq!(left.len(), 1, "Expected 1 user in second leave notification");
         }
         _ => panic!("Expected LobbyUpdate"),
     }
@@ -243,10 +235,8 @@ async fn test_multiple_leaves_consistency() {
     for msg in [msg1a, msg1b] {
         match msg {
             SharedMessage::LobbyUpdate { left, .. } => {
-                if let Some(users) = left {
-                    for u in users {
-                        left_users.push(u.clone());
-                    }
+                for u in left {
+                    left_users.push(u);
                 }
             }
             _ => panic!("Expected LobbyUpdate"),
@@ -266,13 +256,11 @@ async fn test_multiple_leaves_consistency() {
 
         match msg4a {
             SharedMessage::LobbyUpdate { left, .. } => {
-                if let Some(users) = left {
-                    assert!(
-                        users.iter().any(|u| u == &key2)
-                            || users.iter().any(|u| u == &key3)
-                    );
-                }
-        }
+                assert!(
+                    left.iter().any(|u| u == &key2)
+                        || left.iter().any(|u| u == &key3)
+                );
+            }
         _ => panic!("Expected LobbyUpdate"),
     }
 
@@ -311,11 +299,9 @@ async fn test_connection_drop_cleanup() {
 
         match msg {
             SharedMessage::LobbyUpdate { left, .. } => {
-                assert!(left.is_some());
-                if let Some(users) = left {
-                    assert_eq!(users.len(), 1);
-                    assert_eq!(users[0], key1);
-                }
+                assert!(!left.is_empty());
+                assert_eq!(left.len(), 1);
+                assert_eq!(left[0], key1);
             }
         _ => panic!("Expected LobbyUpdate"),
     }

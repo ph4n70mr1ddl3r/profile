@@ -73,6 +73,27 @@ pub struct LobbyUserWithStatus {
 }
 
 /// Lobby update message - delta updates for join/leave events
+///
+/// NOTE: This struct is kept for JSON deserialization from external messages.
+/// The primary type used for sending messages is [`Message::LobbyUpdate`].
+/// Having a separate deserialization type prevents tight coupling between
+/// the protocol enum and incoming message formats.
+///
+/// DESIGN RATIONALE (Per-Departure Notifications):
+/// When multiple users disconnect simultaneously, each disconnection triggers
+/// a separate broadcast rather than batching into a single message. This design:
+///
+/// - **Simplicity**: Each leave event is atomic and independent
+/// - **Timeliness**: Clients receive immediate feedback when any user leaves
+/// - **Consistency**: No edge cases around batch ordering or partial failures
+/// - **AC Compliance**: Matches AC#1 format `{left: [{publicKey: "..."}]}` (single user per message)
+///
+/// The alternative (batched notifications) would require:
+/// - Waiting for multiple disconnects before sending (delay)
+/// - Complex ordering guarantees
+/// - More complex client-side handling
+///
+/// See: Story 2.4 Review Follow-up [MEDIUM] - Document per-departure notification design
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LobbyUpdateMessage {
     #[serde(default)]
