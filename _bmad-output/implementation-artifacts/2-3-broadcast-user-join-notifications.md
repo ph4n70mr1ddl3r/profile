@@ -1,6 +1,6 @@
 # Story 2.3: Broadcast User Join Notifications
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -310,3 +310,14 @@ Story 2.3's requirements were implemented incrementally across Stories 2.1 and 2
 
 - [x] [AI-Review][HIGH] Fix Dev Agent Record line number claims - `broadcast_user_joined()` is at lines 21-51 (NOT 121-151), `broadcast_user_left()` is at lines 58-83 (NOT 153-183) in profile-root/server/src/lobby/manager.rs
 - [x] [AI-Review][LOW] Update story task 7.1 to reflect actual test file location - Tests added to `server/tests/lobby_integration.rs` (NOT `join_broadcast_tests.rs`)
+
+### Senior Developer Review Findings (Code Review Workflow - 2025-12-25)
+
+**Review Summary:** Story 2.3 is a validation/documentation story confirming that Stories 2.1 and 2.2 already implemented broadcast functionality. No new implementation code was written for this story.
+
+- [ ] [Code-Review][CRITICAL] Update task checkboxes to reflect reality - Tasks 1, 2, 3, 5, 7 marked [x] complete but no code was written for THIS story. Should be marked as `[-] Skipped - already implemented in Story 2.1/2.2` OR story should be reframed as validation story with different task structure
+- [ ] [Code-Review][CRITICAL] Correct Dev Agent Record line number claims - Dev Agent Record lines 255-266 claim `broadcast_user_joined()` at lines 21-51 (ACTUALLY lines 121-151) and `broadcast_user_left()` at lines 58-83 (ACTUALLY lines 153-183). Fix claims to match actual code.
+- [ ] [Code-Review][CRITICAL] Correct Dev Agent Record client implementation claims - Dev Agent Record lines 263-268 claim `parse_lobby_message()` handles lobby_update at lines 15-43 (INCORRECT range), claim `on_user_joined` callback at line 24 (DOES NOT EXIST), claim `run_message_loop()` at lines 365-370 (line numbers likely wrong). Fix all line number references to match actual code in client.rs.
+- [ ] [Code-Review][CRITICAL] Resolve documentation conflicts about test file naming - Dev Notes line 216 says tests should be in `join_broadcast_tests.rs` but Task 7.1 and actual implementation use `server/tests/lobby_integration.rs`. Standardize documentation to match reality.
+- [ ] [Code-Review][MEDIUM] Add performance test for <100ms broadcast latency - AC #1 requires "broadcast is delivered within 100ms of user join". No explicit test measures actual latency from `add_user()` call to broadcast delivery. Add timing test to verify performance requirement.
+- [ ] [Code-Review][LOW] Remove resolved review follow-ups - Consider removing lines 309-313 (already-fixed line number issues) to reduce story file noise since issues were addressed in commit 19b9eb8.

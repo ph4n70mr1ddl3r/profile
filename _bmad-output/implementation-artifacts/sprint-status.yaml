@@ -58,7 +58,7 @@ development_status:
   epic-2: in-progress
   2-1-server-maintains-active-user-lobby: done
   2-2-query-display-current-online-user-list: done
-  2-3-broadcast-user-join-notifications: review
+  2-3-broadcast-user-join-notifications: in-progress
   2-4-broadcast-user-leave-notifications: backlog
   2-5-real-time-lobby-synchronization: backlog
   epic-2-retrospective: optional
