@@ -3721,6 +3721,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
  "zeroize",
 ]
 

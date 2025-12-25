@@ -124,10 +124,10 @@ pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyErr
 /// Constructs delta message: {"type": "lobby_update", "joined": [{"publicKey": "..."}]}
 async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
-        joined: Some(vec![profile_shared::LobbyUserCompact {
+        joined: vec![profile_shared::LobbyUserCompact {
             public_key: key.clone(),
-        }]),
-        left: None,
+        }],
+        left: vec![],
     };
     
     let users = lobby.users.read().await;
@@ -156,8 +156,8 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
 /// Constructs delta message: {"type": "lobby_update", "left": [{"publicKey": "..."}]}
 async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
-        joined: None,
-        left: Some(vec![key.clone()]),
+        joined: vec![],
+        left: vec![key.clone()],
     };
     
     let users = lobby.users.read().await;
@@ -469,9 +469,9 @@ mod tests {
         // Verify the message format is correct delta
         match received_msg {
             profile_shared::Message::LobbyUpdate { joined, left } => {
-                // Verify structure - should have joined users, no left users
-                assert!(joined.is_some());
-                assert!(left.is_none() || left.as_ref().map(|l| l.is_empty()).unwrap_or(true));
+                // Verify structure - should have joined users, empty left vector
+                assert!(!joined.is_empty());
+                assert!(left.is_empty());
                 
                 // Verify delta contains only the joined user
                 if let Some(joined_users) = joined {

@@ -141,11 +141,11 @@ pub async fn handle_connection(
                 // Handle future message types here (Story 3.x)
             }
             Ok(Message::Close(frame)) => {
-                let reason = frame.as_ref()
+                let _reason = frame.as_ref()
                     .map(|f| f.reason.to_string())
                     .unwrap_or_else(|| "Unknown".to_string());
 
-                println!(
+                tracing::info!(
                     "User {} disconnected, broadcasting leave notification",
                     authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
                 );
@@ -160,7 +160,7 @@ pub async fn handle_connection(
                 break;
             }
             Err(e) => {
-                println!(
+                tracing::info!(
                     "User {} disconnected (error), broadcasting leave notification",
                     authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
                 );

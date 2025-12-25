@@ -19,8 +19,8 @@ pub enum Message {
     },
     /// Lobby update with user join/leave events
     LobbyUpdate {
-        joined: Option<Vec<LobbyUserCompact>>,
-        left: Option<Vec<String>>,
+        joined: Vec<LobbyUserCompact>,
+        left: Vec<String>,
     },
     /// Error message
     Error {
@@ -100,16 +100,16 @@ impl Message {
     /// Create a lobby update with joined users
     pub fn new_lobby_joined(joined_users: Vec<LobbyUserCompact>) -> Self {
         Self::LobbyUpdate {
-            joined: Some(joined_users),
-            left: None,
+            joined: joined_users,
+            left: vec![],
         }
     }
 
     /// Create a lobby update with left users
     pub fn new_lobby_left(left_users: Vec<String>) -> Self {
         Self::LobbyUpdate {
-            joined: None,
-            left: Some(left_users),
+            joined: vec![],
+            left: left_users,
         }
     }
 
