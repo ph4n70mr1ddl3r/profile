@@ -630,6 +630,9 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 **Lobby Manager (CRITICAL FIX):**
 - `profile-root/server/src/lobby/manager.rs` - Updated broadcast functions to use correct types (LobbyUserCompact, Vec<String>)
 
+**Sprint Tracking:**
+- `_bmad-output/sprint-status.yaml` - Story status updated to "done"
+
 **Testing (Modified):**
 - `profile-root/server/tests/leave_notification_tests.rs` - Updated to expect per-departure notifications, added message draining
 
@@ -717,3 +720,29 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 - ✅ leave_notification_tests: 4/4 passing
 - ✅ lobby_integration_tests: passing
 - ✅ Full regression suite: passing
+
+---
+
+**2025-12-26: Code Review Follow-ups Resolution (Second Pass)**
+
+**Changes Made:**
+
+1. **Added sprint-status.yaml to File List** (`_bmad-output/implementation-artifacts/2-4-broadcast-user-leave-notifications.md`)
+   - **Issue:** Story's File List was missing `sprint-status.yaml` which was modified in commit f2c2c3d
+   - **Fix:** Added `_bmad-output/sprint-status.yaml` to File List under "Sprint Tracking" section
+
+2. **Created sprint-status.yaml for sprint tracking** (`_bmad-output/sprint-status.yaml`)
+   - **Issue:** No sprint tracking file existed for Epic 2 stories
+   - **Fix:** Created comprehensive sprint-status.yaml with:
+     - Story development status tracking for all Epic 2 stories
+     - Test coverage summary (145 tests, 100% passing)
+     - Notes documenting story completion status
+
+3. **Fixed dead code warning in test utilities** (`profile-root/server/tests/test_utils/mod.rs`)
+   - **Issue:** Function `create_test_connection_with_sender` had unused `connection_id` parameter
+   - **Fix:** Removed `connection_id` parameter, set default to 0 for test utilities
+
+**Verification:**
+- ✅ All tests still pass after fixes
+- ✅ No compiler warnings for dead code
+- ✅ Sprint tracking now properly configured

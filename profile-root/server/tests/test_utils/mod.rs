@@ -20,29 +20,3 @@ pub fn create_test_connection(key: &str, connection_id: u64) -> ActiveConnection
         connection_id,
     }
 }
-
-/// Create a test ActiveConnection with a custom sender channel
-///
-/// This is used by broadcast tests that need to capture messages
-/// sent to specific users (to verify broadcast functionality).
-///
-/// # Arguments
-///
-/// * `key` - The public key for the connection
-/// * `connection_id` - Unique connection identifier
-/// * `sender` - Custom mpsc sender channel for receiving messages
-///
-/// # Returns
-///
-/// ActiveConnection with the provided sender channel
-pub fn create_test_connection_with_sender(
-    key: &str,
-    connection_id: u64,
-    sender: mpsc::UnboundedSender<Message>,
-) -> ActiveConnection {
-    ActiveConnection {
-        public_key: key.to_string(),
-        sender,
-        connection_id,
-    }
-}
