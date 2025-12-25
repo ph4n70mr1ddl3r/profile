@@ -1,6 +1,6 @@
 # Story 2.4: Broadcast User Leave Notifications
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -293,6 +293,26 @@ pub struct LobbyUserCompact {
 - [ ] **6.1** Verify `broadcast_user_left()` sends to correct recipients (excludes leaving user)
 - [ ] **6.2** Verify existing test `test_lobby_broadcast_on_join` passes
 - [ ] **6.3** Document that broadcast infrastructure is already fully implemented in Stories 2.1-2.3
+
+### Review Follow-ups (AI)
+
+**[Code Review Performed: 2025-12-25 - Critical test failures and race condition detected]**
+
+**CRITICAL Issues (Must Fix Before Story Can Be Marked Done):**
+
+- [ ] **[AI-Review][HIGH][CRITICAL]** Fix failing test: `test_single_leave_broadcast` panics at line 80 asserting `joined.is_none()` but actual behavior is different. Root cause analysis needed to understand why test expectations don't match broadcast implementation. [server/tests/leave_notification_tests.rs:44-95]
+
+- [ ] **[AI-Review][HIGH][CRITICAL]** Fix failing test: `test_multiple_leaves_consistency` asserts `left.len() == 2` but receives `left.len() == 0`. Test expects batched leave notification with multiple users, but implementation sends separate broadcast per removal. [server/tests/leave_notification_tests.rs:156-243]
+
+- [ ] **[AI-Review][HIGH][CRITICAL]** Fix race condition in `server/src/lobby/manager.rs:82-91`. The `remove_user()` function broadcasts AFTER releasing the write lock, creating a race window where concurrent removals see inconsistent lobby state. Solution: Either (a) hold write lock during broadcast to ensure atomicity, or (b) broadcast BEFORE lock release but ensure message is sent after removal completes. Current bug causes users who leave simultaneously to receive separate leave notifications instead of batched notification. [server/src/lobby/manager.rs:82-91]
+
+- [ ] **[AI-Review][HIGH]** Fix test assertion logic in `test_single_leave_broadcast`. The test incorrectly expects ONE message with ONE left user, but actual broadcast implementation sends per-departure notifications. Either fix test to expect separate messages OR fix implementation to batch multiple concurrent removals. This is a design decision point: per-departure notification vs batched notification. [server/tests/leave_notification_tests.rs:44-95]
+
+- [ ] **[AI-Review][HIGH]** Verify story AC#1 requirement: "broadcasts to all remaining users: `{type: "lobby_update", left: [{publicKey: "..."}]}`. Current implementation broadcasts PER USER, leaving ambiguity about whether multiple simultaneous departures should be batched into single notification or sent as separate messages. Update AC#1 or implementation to clarify expected behavior for concurrent departures. [story:2-4-broadcast-user-leave-notifications.md:17-30]
+
+**MEDIUM Issues (Should Fix for Code Quality):**
+
+- [ ] **[AI-Review][MEDIUM]** Add missing tracing log in Task 1.5. Requirement states: `info!("User {} disconnected, broadcasting leave notification", public_key)` but this task is currently marked incomplete. Add log in appropriate location in `remove_user()` or connection handler to complete Task 1.5. [server/src/lobby/manager.rs:82-92 OR server/src/connection/handler.rs]
 
 ## Dev Notes
 
