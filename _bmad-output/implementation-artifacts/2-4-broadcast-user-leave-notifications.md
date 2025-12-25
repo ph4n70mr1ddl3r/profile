@@ -1,6 +1,6 @@
 # Story 2.4: Broadcast User Leave Notifications
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -296,23 +296,31 @@ pub struct LobbyUserCompact {
 
 ### Review Follow-ups (AI)
 
-**[Code Review Performed: 2025-12-25 - Critical test failures and race condition detected]**
+**[Code Review Performed: 2025-12-25 - Adversarial review found 9 issues (6 High, 2 Medium, 1 Low)]**
 
-**CRITICAL Issues (Must Fix Before Story Can Be Marked Done):**
+**HIGH Issues (Must Fix Before Story Can Be Marked Done):**
 
-- [ ] **[AI-Review][HIGH][CRITICAL]** Fix failing test: `test_single_leave_broadcast` panics at line 80 asserting `joined.is_none()` but actual behavior is different. Root cause analysis needed to understand why test expectations don't match broadcast implementation. [server/tests/leave_notification_tests.rs:44-95]
+- [ ] **[AI-Review][HIGH]** Document or remove untracked test file: `test_serialization.rs` is present in git as untracked but not documented in story File List. Either commit this file with proper documentation explaining its purpose, or delete if it's an accidental test artifact. [test_serialization.rs (untracked)]
 
-- [ ] **[AI-Review][HIGH][CRITICAL]** Fix failing test: `test_multiple_leaves_consistency` asserts `left.len() == 2` but receives `left.len() == 0`. Test expects batched leave notification with multiple users, but implementation sends separate broadcast per removal. [server/tests/leave_notification_tests.rs:156-243]
+- [ ] **[AI-Review][HIGH]** Fix Task 1.5 implementation mismatch. Task 1.5 requires tracing log: `info!("User {} disconnected, broadcasting leave notification", public_key)` but actual code uses `println!()` instead of `tracing::info!()`. Lines 148-151 and 163-166 in handler.rs must be updated to use tracing as specified. [server/src/connection/handler.rs:148-166]
 
-- [ ] **[AI-Review][HIGH][CRITICAL]** Fix race condition in `server/src/lobby/manager.rs:82-91`. The `remove_user()` function broadcasts AFTER releasing the write lock, creating a race window where concurrent removals see inconsistent lobby state. Solution: Either (a) hold write lock during broadcast to ensure atomicity, or (b) broadcast BEFORE lock release but ensure message is sent after removal completes. Current bug causes users who leave simultaneously to receive separate leave notifications instead of batched notification. [server/src/lobby/manager.rs:82-91]
+- [ ] **[AI-Review][HIGH]** Remove unnecessary Option<> wrapper in Message::LobbyUpdate enum. Protocol uses `Option<Vec<>>` for both `joined` and `left` fields, but implementation ALWAYS wraps in `Some()` (never `None`). This violates architecture pattern of "Simple JSON, no wrappers". Either (a) remove Option<> and use direct Vec<> types, or (b) document when None would actually be used. [shared/src/protocol/mod.rs:21-24, server/src/lobby/manager.rs:127, 159-161]
 
-- [ ] **[AI-Review][HIGH]** Fix test assertion logic in `test_single_leave_broadcast`. The test incorrectly expects ONE message with ONE left user, but actual broadcast implementation sends per-departure notifications. Either fix test to expect separate messages OR fix implementation to batch multiple concurrent removals. This is a design decision point: per-departure notification vs batched notification. [server/tests/leave_notification_tests.rs:44-95]
+- [ ] **[AI-Review][HIGH]** Document per-departure notification design rationale. Story AC#1 shows format with single user `{left: [{publicKey: "..."}]}` but doesn't clarify whether multiple simultaneous departures should be batched into one message or sent as separate messages. Current implementation uses per-departure notifications (verified by tests). Add documentation to story or epic explaining this design decision. [story:2-4-broadcast-user-leave-notifications.md:17-30]
 
-- [ ] **[AI-Review][HIGH]** Verify story AC#1 requirement: "broadcasts to all remaining users: `{type: "lobby_update", left: [{publicKey: "..."}]}`. Current implementation broadcasts PER USER, leaving ambiguity about whether multiple simultaneous departures should be batched into single notification or sent as separate messages. Update AC#1 or implementation to clarify expected behavior for concurrent departures. [story:2-4-broadcast-user-leave-notifications.md:17-30]
+- [ ] **[AI-Review][HIGH]** Add verification code for client-side leave handling claims. Tasks 2-5 claim "No code changes needed (Story 2.2 already handles all leave scenarios)" but NO verification code exists in this story to actually confirm Story 2.2 implemented leave handling correctly. This is a trust-based claim, not a verified claim. Add tests or verification code that loads client code and confirms leave handling works. [story:2-4-broadcast-user-leave-notifications.md:257-264]
+
+- [ ] **[AI-Review][HIGH]** Resolve contradictory story status. Story at line 3 shows `Status: review`, but Dev Agent Record at line 682 states "Story Status: All acceptance criteria met, all tasks complete, ready for review." Update story status to "done" if all ACs are met, or clarify what's blocking completion. [story:2-4-broadcast-user-leave-notifications.md:3, 682]
 
 **MEDIUM Issues (Should Fix for Code Quality):**
 
-- [ ] **[AI-Review][MEDIUM]** Add missing tracing log in Task 1.5. Requirement states: `info!("User {} disconnected, broadcasting leave notification", public_key)` but this task is currently marked incomplete. Add log in appropriate location in `remove_user()` or connection handler to complete Task 1.5. [server/src/lobby/manager.rs:82-92 OR server/src/connection/handler.rs]
+- [ ] **[AI-Review][MEDIUM]** Fix unused variable warning in handler.rs. Compiler warns about unused variable `reason` at line 144. Change line 144 to `let _reason = ...` or actually use the reason value. [server/src/connection/handler.rs:144]
+
+- [ ] **[AI-Review][MEDIUM]** Consolidate duplicate lobby update message types. Protocol defines both `Message::LobbyUpdate` enum variant (uses `Option<Vec<>>`) and `LobbyUpdateMessage` struct (uses direct `Vec<>`). The enum is used in code, but the struct matches architecture better (no Option wrapper). Remove one type and use consistent approach. [shared/src/protocol/mod.rs:21-24, 77-82]
+
+**LOW Issues (Nice to Fix for Code Style):**
+
+- [ ] **[AI-Review][LOW]** Standardize logging approach across codebase. Handler.rs uses `println!()` for disconnect logging in this story, but other parts use `eprintln!()` or `tracing`. Adopt consistent logging library (tracing) throughout codebase. [server/src/connection/handler.rs:148, 163]
 
 ## Dev Notes
 
