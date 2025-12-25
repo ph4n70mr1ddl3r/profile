@@ -1,6 +1,6 @@
 # Story 2.4: Broadcast User Leave Notifications
 
-Status: done
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -746,3 +746,27 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 - ✅ All tests still pass after fixes
 - ✅ No compiler warnings for dead code
 - ✅ Sprint tracking now properly configured
+
+---
+
+**2025-12-26: Code Review Follow-ups (AI)**
+
+**[Code Review Performed: 2025-12-26 - Fresh adversarial review found 6 issues (3 High, 2 Medium, 1 Low)]**
+
+**HIGH Issues (Must Fix):**
+
+- [ ] [AI-Review][HIGH] Configure tracing subscriber in main.rs or use eprintln! for disconnect logs. Current `tracing::info!()` calls at handler.rs:148-151, 163-166 are silently dropped without a subscriber. [file:handler.rs:148-166]
+
+- [ ] [AI-Review][HIGH] Fix inaccurate Dev Notes example. Lines 345-366 show `broadcast_user_left()` being called directly, but actual implementation calls `remove_user()` which internally invokes broadcast. [story-file:345-366]
+
+- [ ] [AI-Review][HIGH] Clarify lobby_integration.rs in File List. It's listed as modified but was NOT changed in Story 2.4 commits - belongs to Stories 2.1/2.2. Remove duplicate listings at lines 640-644 and 647-651. [story-file:640-651]
+
+**MEDIUM Issues (Should Fix):**
+
+- [ ] [AI-Review][MEDIUM] Remove redundant file listing. The story lists the same files twice under "Already Implemented" - deduplicate for clarity. [story-file:640-651]
+
+- [ ] [AI-Review][MEDIUM] Reconnection broadcasts cause spurious notifications. When user reconnects, clients receive "left" then "joined" for same user, creating UX confusion. Consider single reconnection notification. [file:manager.rs:61-66]
+
+**LOW Issues (Nice to Fix for Code Style):**
+
+- [ ] [AI-Review][LOW] Inconsistent error logging. Errors use `eprintln!()` with emoji while disconnect events use silent `tracing::info!()`. Consider using `tracing::error!()` for errors with consistent approach. [file:handler.rs:157, 174]
