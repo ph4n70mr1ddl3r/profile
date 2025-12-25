@@ -670,4 +670,57 @@ mod tests {
         
         println!("✅ Ghost user prevention verified - no lingering connections");
     }
+
+    #[tokio::test]
+    async fn test_broadcast_latency_within_100ms() {
+        let lobby = create_test_lobby();
+        
+        // Create a test receiver to measure broadcast timing
+        let (test_sender, mut test_receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+        
+        // Create a mock connection that uses our test receiver
+        let mock_connection = ActiveConnection {
+            public_key: "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab".to_string(),
+            sender: test_sender,
+            connection_id: 999,
+        };
+        
+        // Add mock user to lobby first (so they receive the broadcast)
+        crate::lobby::add_user(&lobby, mock_connection.public_key.clone(), mock_connection).await.unwrap();
+        
+        // Start timer
+        let start = std::time::Instant::now();
+        
+        // Add actual user (this should trigger broadcast)
+        let connection = create_test_connection("latency_test_user_1234567890abcdef1234567890abcdef1234567890ab");
+        let connection_key = connection.public_key.clone();
+        let add_result = crate::lobby::add_user(&lobby, connection_key.clone(), connection).await;
+        assert!(add_result.is_ok());
+        
+        // Wait for broadcast message
+        let received_msg = tokio::time::timeout(std::time::Duration::from_millis(100), test_receiver.recv())
+            .await
+            .expect("Timeout waiting for broadcast")
+            .expect("No message received");
+        
+        // Measure elapsed time
+        let elapsed = start.elapsed();
+        
+        // Verify it's a lobby update with joined users
+        match received_msg {
+            profile_shared::Message::LobbyUpdate { joined, .. } => {
+                assert!(joined.is_some());
+                if let Some(joined_users) = joined {
+                    assert_eq!(joined_users.len(), 1);
+                    assert_eq!(joined_users[0].public_key, connection_key);
+                }
+            }
+            _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
+        }
+        
+        // Assert broadcast latency is within 100ms requirement
+        assert!(elapsed.as_millis() < 100, "Broadcast latency was {}ms, required <100ms", elapsed.as_millis());
+        
+        println!("✅ Broadcast latency test passed: {}ms (<100ms requirement)", elapsed.as_millis());
+    }
 }

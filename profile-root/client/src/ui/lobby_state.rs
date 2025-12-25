@@ -193,7 +193,7 @@ impl LobbyState {
 
     /// Add multiple users to lobby
     ///
-    /// Performs deduplication for each user.
+    /// Performs deduplication for each user using HashSet for O(1) lookups.
     ///
     /// # Arguments
     ///
@@ -203,8 +203,20 @@ impl LobbyState {
     where
         I: IntoIterator<Item = LobbyUser>,
     {
+        use std::collections::HashSet;
+        
+        // Collect existing public keys into HashSet for O(1) deduplication checks
+        let mut existing_keys: HashSet<String> = self.users.iter().map(|u| u.public_key.clone()).collect();
+        
         for user in users {
-            self.add_user(user);
+            // Clone key before push so it's available for HashSet insertion
+            let public_key = user.public_key.clone();
+            // O(1) deduplication check instead of O(n)
+            if !existing_keys.contains(&public_key) {
+                self.users.push(user);
+                // Track new user to prevent duplicates within batch
+                existing_keys.insert(public_key);
+            }
         }
     }
 
