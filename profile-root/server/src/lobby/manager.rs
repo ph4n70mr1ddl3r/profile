@@ -119,12 +119,12 @@ pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyErr
 }
 
 /// Broadcast that a user joined the lobby
-/// 
+///
 /// **AC1**: Notifies all other users when someone joins
 /// Constructs delta message: {"type": "lobby_update", "joined": [{"publicKey": "..."}]}
 async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
-        joined: Some(vec![profile_shared::LobbyUser {
+        joined: Some(vec![profile_shared::LobbyUserCompact {
             public_key: key.clone(),
         }]),
         left: None,
@@ -157,9 +157,7 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
 async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
         joined: None,
-        left: Some(vec![profile_shared::LobbyUser {
-            public_key: key.clone(),
-        }]),
+        left: Some(vec![key.clone()]),
     };
     
     let users = lobby.users.read().await;

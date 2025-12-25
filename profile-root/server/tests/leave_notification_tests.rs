@@ -64,6 +64,14 @@ async fn test_single_leave_broadcast() {
         .await
         .unwrap();
 
+    // Drain initial join messages (from adding users)
+    // User1 receives join broadcasts for User2 and User3
+    for _ in 0..3 {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv()).await;
+    }
+    // User3 receives join broadcast for User2
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(100), rx3.recv()).await;
+
     // User2 disconnects - this should trigger broadcast to users 1 and 3
     profile_server::lobby::remove_user(&lobby, &key2)
         .await
@@ -84,7 +92,7 @@ async fn test_single_leave_broadcast() {
             assert!(left.is_some(), "Expected left users in notification");
             if let Some(left_users) = left {
                 assert_eq!(left_users.len(), 1, "Expected 1 user to leave");
-                assert_eq!(left_users[0].public_key, key2, "Expected user2 to leave");
+                assert_eq!(left_users[0], key2, "Expected user2 to leave");
             }
         }
         _ => panic!("Expected LobbyUpdate message, got: {:?}", msg1),
@@ -102,7 +110,7 @@ async fn test_single_leave_broadcast() {
             assert!(left.is_some());
             if let Some(left_users) = left {
                 assert_eq!(left_users.len(), 1);
-                assert_eq!(left_users[0].public_key, key2);
+                assert_eq!(left_users[0], key2);
             }
         }
         _ => panic!("Expected LobbyUpdate message, got: {:?}", msg3),
@@ -181,6 +189,16 @@ async fn test_multiple_leaves_consistency() {
         .await
         .unwrap();
 
+    // Drain initial join messages for all remaining users
+    // User1 receives joins for User2, User3, User4
+    for _ in 0..3 {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv()).await;
+    }
+    // User4 receives joins for User2, User3
+    for _ in 0..2 {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), rx4.recv()).await;
+    }
+
     // User2 and User3 disconnect simultaneously
     profile_server::lobby::remove_user(&lobby, &key2)
         .await
@@ -189,7 +207,7 @@ async fn test_multiple_leaves_consistency() {
         .await
         .unwrap();
 
-    // Assert: User1 received two leave notifications
+    // Assert: User1 received two separate leave notifications (one per user)
     let msg1a = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv())
         .await
         .expect("Timeout - should have received first leave notification")
@@ -200,6 +218,25 @@ async fn test_multiple_leaves_consistency() {
         .expect("Timeout - should have received second leave notification")
         .expect("Should have received second leave notification");
 
+    // Verify each message has ONE left user (per-departure notification)
+    match &msg1a {
+        SharedMessage::LobbyUpdate { left, .. } => {
+            if let Some(users) = left {
+                assert_eq!(users.len(), 1, "Expected 1 user in first leave notification");
+            }
+        }
+        _ => panic!("Expected LobbyUpdate"),
+    }
+
+    match &msg1b {
+        SharedMessage::LobbyUpdate { left, .. } => {
+            if let Some(users) = left {
+                assert_eq!(users.len(), 1, "Expected 1 user in second leave notification");
+            }
+        }
+        _ => panic!("Expected LobbyUpdate"),
+    }
+
     // Track which users left
     let mut left_users = Vec::new();
 
@@ -208,7 +245,7 @@ async fn test_multiple_leaves_consistency() {
             SharedMessage::LobbyUpdate { left, .. } => {
                 if let Some(users) = left {
                     for u in users {
-                        left_users.push(u.public_key.clone());
+                        left_users.push(u.clone());
                     }
                 }
             }
@@ -217,9 +254,9 @@ async fn test_multiple_leaves_consistency() {
     }
 
     // Assert: Both user2 and user3 left
-    assert_eq!(left_users.len(), 2);
-    assert!(left_users.contains(&key2));
-    assert!(left_users.contains(&key3));
+    assert_eq!(left_users.len(), 2, "Expected 2 users to leave total");
+    assert!(left_users.contains(&key2), "Expected user2 to have left");
+    assert!(left_users.contains(&key3), "Expected user3 to have left");
 
     // Assert: User4 also received notifications (verify consistency)
     let msg4a = tokio::time::timeout(std::time::Duration::from_millis(100), rx4.recv())
@@ -227,14 +264,14 @@ async fn test_multiple_leaves_consistency() {
         .expect("Timeout - User4 should have received notification")
         .expect("User4 should have received notification");
 
-    match msg4a {
-        SharedMessage::LobbyUpdate { left, .. } => {
-            if let Some(users) = left {
-                assert!(
-                    users.iter().any(|u| &u.public_key == &key2)
-                        || users.iter().any(|u| &u.public_key == &key3)
-                );
-            }
+        match msg4a {
+            SharedMessage::LobbyUpdate { left, .. } => {
+                if let Some(users) = left {
+                    assert!(
+                        users.iter().any(|u| u == &key2)
+                            || users.iter().any(|u| u == &key3)
+                    );
+                }
         }
         _ => panic!("Expected LobbyUpdate"),
     }
@@ -272,14 +309,14 @@ async fn test_connection_drop_cleanup() {
         .expect("Timeout - notification should have been sent")
         .expect("Notification should have been received");
 
-    match msg {
-        SharedMessage::LobbyUpdate { left, .. } => {
-            assert!(left.is_some());
-            if let Some(users) = left {
-                assert_eq!(users.len(), 1);
-                assert_eq!(users[0].public_key, key1);
+        match msg {
+            SharedMessage::LobbyUpdate { left, .. } => {
+                assert!(left.is_some());
+                if let Some(users) = left {
+                    assert_eq!(users.len(), 1);
+                    assert_eq!(users[0], key1);
+                }
             }
-        }
         _ => panic!("Expected LobbyUpdate"),
     }
 

@@ -144,12 +144,12 @@ pub async fn handle_connection(
                 let reason = frame.as_ref()
                     .map(|f| f.reason.to_string())
                     .unwrap_or_else(|| "Unknown".to_string());
-                
-                println!("ℹ️  Client disconnected: {:?}, reason: {}", 
-                    authenticated_key.as_ref().map(|k| k.as_str()), 
-                    reason
+
+                println!(
+                    "User {} disconnected, broadcasting leave notification",
+                    authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
                 );
-                
+
                 // CRITICAL: Clean up lobby using new API
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
@@ -160,6 +160,11 @@ pub async fn handle_connection(
                 break;
             }
             Err(e) => {
+                println!(
+                    "User {} disconnected (error), broadcasting leave notification",
+                    authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
+                );
+
                 eprintln!("❌ WebSocket error: {}", e);
 
                 // CRITICAL: Clean up lobby on error too using new API

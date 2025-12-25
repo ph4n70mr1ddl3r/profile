@@ -8,7 +8,7 @@ pub use crypto::{
     derive_public_key, generate_private_key, sign_message, verify_signature, PrivateKey, PublicKey,
 };
 pub use errors::{CryptoError, LobbyError};
-pub use protocol::{Message, LobbyUser};
+pub use protocol::{Message, LobbyUser, LobbyUserCompact};
 
 #[cfg(test)]
 mod tests {
