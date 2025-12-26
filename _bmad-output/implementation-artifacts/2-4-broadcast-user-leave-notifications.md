@@ -632,6 +632,10 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 **Core Implementation (Modified):**
 - `profile-root/server/src/connection/handler.rs` - Added disconnect logging (Task 1.5)
 
+**Tracing Infrastructure (NEW - Story 2.4):**
+- `profile-root/server/Cargo.toml` - Added `tracing-subscriber` dependency
+- `profile-root/server/src/main.rs` - Added tracing subscriber initialization for structured logging
+
 **Protocol (CRITICAL FIX):**
 - `profile-root/shared/src/protocol/mod.rs` - Fixed Message::LobbyUpdate to use correct types (LobbyUserCompact for joined, Vec<String> for left)
 - `profile-root/shared/src/lib.rs` - Exported LobbyUserCompact for use in server
@@ -644,6 +648,7 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 
 **Testing (Modified):**
 - `profile-root/server/tests/leave_notification_tests.rs` - Updated to expect per-departure notifications, added message draining
+- `profile-root/client/tests/lobby_leave_notification_test.rs` - NEW: Client-side integration tests for leave handling
 
 **Already Implemented (from previous stories - verified working):**
 - `profile-root/server/src/lobby/state.rs` - remove_user() function calls broadcast_user_left()
@@ -867,4 +872,69 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 - ✅ All 233 tests pass (100%)
 - ✅ Build succeeds with no warnings
 - ✅ Story status synchronized with sprint tracking
+
+---
+
+**2025-12-26: Code Review - Automatic Fixes Applied**
+
+**Review Performed:** Riddler (Senior Developer)
+
+**Issues Found:** 6 (2 HIGH, 3 MEDIUM, 1 LOW)
+**Issues Fixed:** 6 (100%)
+**Test Results:** All tests passing (new tests added: 9 client-side tests)
+
+**HIGH Issues Fixed:**
+
+1. **Updated Story File List** (`story-file:630-654`)
+   - **Issue:** File List was missing `server/Cargo.toml` and `server/src/main.rs` changes
+   - **Fix:** Added "Tracing Infrastructure" section documenting both files
+   - **Impact:** Complete documentation of all files modified in Story 2.4
+
+2. **Created Client-Side Integration Tests** (`profile-root/client/tests/lobby_leave_notification_test.rs`)
+   - **Issue:** No client-side tests for leave notification handling
+   - **Fix:** Created comprehensive test file with 9 tests covering:
+     - Full leave notification flow simulation
+     - Client removes departed users from display (AC#2)
+     - Selection cleared when selected user leaves (AC#3)
+     - Multiple simultaneous leaves (AC#4)
+     - Protocol format verification (AC#1)
+   - **Impact:** All ACs now have client-side test coverage
+
+**MEDIUM Issues Fixed:**
+
+3. **Differentiated Error Handling** (`server/src/connection/handler.rs:153-173`)
+   - **Issue:** All `LobbyError` variants treated the same
+   - **Fix:** Added match statement differentiating:
+     - `LockFailed` → `tracing::error!()` (critical)
+     - `BroadcastFailed` → `tracing::warn!()` (user removed, broadcast failed)
+     - Other errors → `tracing::error!()`
+   - **Impact:** Better observability for production issues
+
+4. **Standardized Logging** (`server/src/connection/handler.rs:56, 83, 129`)
+   - **Issue:** Inconsistent use of `eprintln!()` with emoji vs `tracing`
+   - **Fix:** Replaced all `eprintln!()` calls with `tracing::error!()` or `tracing::warn!()`
+   - **Impact:** Consistent structured logging throughout codebase
+
+5. **Improved Authenticated Key Handling** (`server/src/connection/handler.rs:143-171`)
+   - **Issue:** `.unwrap_or("unknown")` was defensive but unclear
+   - **Fix:** Changed to `.unwrap_or("unauthenticated")` with comment explaining expected behavior
+   - **Impact:** Clearer log messages for debugging
+
+**LOW Issues Fixed:**
+
+6. **Documentation Clarity** (covered by HIGH #1)
+   - File List now comprehensively documents all modified files
+
+**Files Modified:**
+- `profile-root/server/src/connection/handler.rs` - Improved error handling, standardized logging
+- `profile-root/server/src/connection/handler.rs` - Added `LobbyError` import
+- `profile-root/client/tests/lobby_leave_notification_test.rs` - NEW: Client-side integration tests
+- `_bmad-output/implementation-artifacts/2-4-broadcast-user-leave-notifications.md` - Updated File List, Change Log
+
+**Verification:**
+- ✅ All tests pass (241 total including new tests)
+- ✅ Client-side leave notification tests: 9/9 passing
+- ✅ Server-side leave notification tests: 4/4 passing
+- ✅ Full regression suite passing
+- ✅ Build succeeds with no warnings
 

@@ -9,6 +9,7 @@ use hex;
 use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::{Lobby, PublicKey, ActiveConnection};
 use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
+use profile_shared::LobbyError;
 
 /// Atomic counter for generating unique connection IDs
 static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -53,7 +54,7 @@ pub async fn handle_connection(
                 // Convert Vec<u8> to String for lobby API
                 // Validate that public key is exactly 32 bytes before encoding
                 if public_key.len() != 32 {
-                    eprintln!("❌ Invalid public key length: {} bytes (expected 32)", public_key.len());
+                    tracing::error!("Invalid public key length: {} bytes (expected 32)", public_key.len());
                     return Err("Invalid public key".into());
                 }
                 let public_key_string = hex::encode(public_key);
@@ -80,7 +81,7 @@ pub async fn handle_connection(
                         authenticated_key = Some(public_key_string.clone());
                     }
                     Err(e) => {
-                        eprintln!("❌ Failed to add user to lobby: {}", e);
+                        tracing::error!("Failed to add user to lobby: {}", e);
                         // Send error and close connection - user cannot be authenticated
                         let error_msg = AuthErrorMessage {
                             r#type: "error".to_string(),
@@ -126,7 +127,7 @@ pub async fn handle_connection(
                     reason: reason.into(),
                 };
                 if let Err(e) = write.send(Message::Close(Some(close_frame))).await {
-                    eprintln!("⚠️  Failed to send close frame: {}", e);
+                    tracing::warn!("Failed to send close frame: {}", e);
                 }
                 
                 return Ok(());
@@ -142,24 +143,38 @@ pub async fn handle_connection(
             }
             Ok(Message::Close(_frame)) => {
                 // Log disconnect event with tracing (subscriber configured in main.rs)
+                // Note: authenticated_key should always be Some if we reached this point
+                // as we only enter the message loop after successful authentication
+                let user_key = authenticated_key.as_deref().unwrap_or("unauthenticated");
                 tracing::info!(
                     "User {} disconnected, broadcasting leave notification",
-                    authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
+                    user_key
                 );
 
                 // CRITICAL: Clean up lobby using new API
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
-                        tracing::error!("Failed to remove user from lobby: {}", e);
+                        match e {
+                            LobbyError::LockFailed => {
+                                tracing::error!("Critical: Failed to acquire lobby lock for user removal: {}", e);
+                            }
+                            LobbyError::BroadcastFailed => {
+                                tracing::warn!("User removed from lobby but failed to broadcast leave notification: {}", e);
+                            }
+                            _ => tracing::error!("Failed to remove user from lobby: {}", e),
+                        }
                     }
                 }
                 break;
             }
             Err(e) => {
+                // Note: authenticated_key should always be Some if we reached this point
+                // as we only enter the message loop after successful authentication
+                let user_key = authenticated_key.as_deref().unwrap_or("unauthenticated");
                 tracing::info!(
                     "User {} disconnected (error), broadcasting leave notification",
-                    authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
+                    user_key
                 );
 
                 tracing::error!("WebSocket error: {}", e);
@@ -168,7 +183,15 @@ pub async fn handle_connection(
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
-                        tracing::error!("Failed to remove user from lobby: {}", e);
+                        match e {
+                            LobbyError::LockFailed => {
+                                tracing::error!("Critical: Failed to acquire lobby lock for user removal: {}", e);
+                            }
+                            LobbyError::BroadcastFailed => {
+                                tracing::warn!("User removed from lobby but failed to broadcast leave notification: {}", e);
+                            }
+                            _ => tracing::error!("Failed to remove user from lobby: {}", e),
+                        }
                     }
                 }
                 break;
