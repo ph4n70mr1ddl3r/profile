@@ -299,10 +299,10 @@ async fn test_full_leave_notification_flow() {
 
     // Step 1: Server broadcasts leave notification
     // Server sends: {type: "lobby_update", left: ["bob_12345678901234"]}
-    let server_broadcast = r#"{"type":"lobby_update","joined":[],"left":["bob_12345678901234"]}"#;
+    let leave_json = r#"{"type":"lobby_update","joined":[],"left":["bob_12345678901234"]}"#;
 
     // Step 2: Client receives and parses message
-    let response = parse_lobby_message(server_broadcast).unwrap();
+    let response = parse_lobby_message(leave_json).unwrap();
 
     // Step 3: Client updates lobby state
     match response {
