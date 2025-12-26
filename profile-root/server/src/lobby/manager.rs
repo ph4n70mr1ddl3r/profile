@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// Add a user to the lobby with reconnection handling
 ///
 /// **AC1**: Creates new lobby entry for authenticated user
-/// **AC2**: Handles reconnection by replacing old connection
+/// **AC2**: Handles reconnection by replacing old connection (broadcasts "left" then "joined")
 ///
 /// # Arguments
 /// * `lobby` - The lobby to add the user to
@@ -21,9 +21,10 @@ use std::sync::Arc;
 /// * `Ok(())` on success
 /// * `LobbyError::InvalidPublicKey` if key format is invalid
 /// * `LobbyError::LobbyFull` if lobby has reached maximum capacity
+#[tracing::instrument(skip(lobby, conn), fields(public_key = %key.chars().take(16).collect::<String>(), connection_id = conn.connection_id))]
 pub async fn add_user(
-    lobby: &Lobby, 
-    key: PublicKey, 
+    lobby: &Lobby,
+    key: PublicKey,
     conn: ActiveConnection
 ) -> Result<(), LobbyError> {
     // Validate public key format (must be valid hex, exactly 64 chars = 32 bytes)
@@ -32,29 +33,45 @@ pub async fn add_user(
     }
 
     let mut users = lobby.users.write().await;
-    
+
     // Check for existing user (AC2: Reconnection case)
     let is_reconnection = users.contains_key(&key);
-    
+
+    // AC2 Requirement: On reconnection, broadcast "left" then "joined" delta
+    // This allows clients to update their connection reference while maintaining
+    // continuity in the user interface (they see the same user, just reconnected)
+    if is_reconnection {
+        tracing::debug!(
+            "User {} reconnecting (connection_id {}), broadcasting leave/join delta",
+            key.chars().take(16).collect::<String>(),
+            conn.connection_id
+        );
+        // Remove old connection first before broadcasting
+        users.remove(&key);
+    } else {
+        tracing::debug!(
+            "User {} joining lobby (connection_id {})",
+            key.chars().take(16).collect::<String>(),
+            conn.connection_id
+        );
+    }
+
     // DoS protection: Check lobby size limit
     // Allow reconnection even if lobby is "full" (replacing doesn't increase size)
     if !is_reconnection && users.len() >= MAX_LOBBY_SIZE {
         return Err(LobbyError::LobbyFull);
     }
-    
-    if is_reconnection {
-        // Remove old connection first
-        users.remove(&key);
-    }
-    
+
     // Always insert the new connection (wrap in Arc)
     users.insert(key.clone(), Arc::new(conn));
     drop(users); // Release lock before potential async broadcast
 
-    // Broadcast events for lobby synchronization
-    // On reconnection, we broadcast "joined" (not "left" then "joined")
-    // to avoid confusing UX where users see "X left" then immediately "X joined"
-    // The reconnection naturally handles state updates without spurious notifications
+    // AC2: Broadcast events for lobby synchronization
+    // If this was a reconnection, we need to broadcast "left" first (user reconnected with new connection)
+    if is_reconnection {
+        broadcast_user_left(lobby, &key).await.map_err(|_| LobbyError::BroadcastFailed)?;
+    }
+    // Always broadcast "joined" for new/reconnected user
     broadcast_user_joined(lobby, &key).await.map_err(|_| LobbyError::BroadcastFailed)?;
     
     Ok(())
@@ -71,13 +88,18 @@ pub async fn add_user(
 /// # Returns
 /// * `Ok(())` on success (including when user not found - idempotent)
 /// * `LobbyError::LockFailed` if lobby lock cannot be acquired
+#[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
 pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let mut users = lobby.users.write().await;
-    
+
     // Remove user (idempotent - OK if user doesn't exist)
     let user_existed = users.remove(key).is_some();
-    
+
     if user_existed {
+        tracing::debug!(
+            "User {} removed from lobby, broadcasting leave notification",
+            key.chars().take(16).collect::<String>()
+        );
         // User was found and removed - broadcast they left
         drop(users); // Release lock before potential async broadcast
         broadcast_user_left(lobby, key).await.map_err(|_| LobbyError::BroadcastFailed)?;
@@ -114,6 +136,7 @@ pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyErr
 ///
 /// **AC1**: Notifies all other users when someone joins
 /// Constructs delta message: {"type": "lobby_update", "joined": [{"publicKey": "..."}]}
+#[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
 async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
         joined: vec![profile_shared::LobbyUserCompact {
@@ -146,6 +169,7 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
 ///
 /// **AC3**: Notifies all other users when someone leaves
 /// Constructs delta message: {"type": "lobby_update", "left": [{"publicKey": "..."}]}
+#[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
 async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
         joined: vec![],

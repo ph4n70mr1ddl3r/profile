@@ -373,3 +373,56 @@ async fn test_lobby_connection_id_tracking() {
 
     println!("✅ test_lobby_connection_id_tracking passed");
 }
+
+/// Test: test_public_key_validation_rejects_invalid_keys
+/// Verify that add_user properly validates public key format
+#[tokio::test]
+async fn test_public_key_validation_rejects_invalid_keys() {
+    let lobby = Arc::new(Lobby::new());
+
+    // Test 1: Empty key should fail
+    let result = add_user(&lobby, "".to_string(), create_test_connection("dummy", 1)).await;
+    assert_eq!(result, Err(profile_shared::LobbyError::InvalidPublicKey));
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+
+    // Test 2: Too short key (63 chars) should fail
+    let short_key = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde".to_string();
+    assert_eq!(short_key.len(), 63);
+    let result = add_user(&lobby, short_key, create_test_connection("dummy", 1)).await;
+    assert_eq!(result, Err(profile_shared::LobbyError::InvalidPublicKey));
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+
+    // Test 3: Too long key (65 chars) should fail
+    let long_key = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1".to_string();
+    assert_eq!(long_key.len(), 65);
+    let result = add_user(&lobby, long_key, create_test_connection("dummy", 1)).await;
+    assert_eq!(result, Err(profile_shared::LobbyError::InvalidPublicKey));
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+
+    // Test 4: Invalid hex characters (zzz) should fail
+    let invalid_hex = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890zzzzyy".to_string();
+    let result = add_user(&lobby, invalid_hex, create_test_connection("dummy", 1)).await;
+    assert_eq!(result, Err(profile_shared::LobbyError::InvalidPublicKey));
+    assert_eq!(lobby.user_count().await.unwrap(), 0);
+
+    println!("✅ test_public_key_validation_rejects_invalid_keys passed");
+}
+
+/// Test: test_public_key_validation_accepts_valid_keys
+/// Verify that valid 64-char hex keys are accepted
+#[tokio::test]
+async fn test_public_key_validation_accepts_valid_keys() {
+    let lobby = Arc::new(Lobby::new());
+
+    // Valid 64-char hex key
+    let valid_key = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string();
+    assert_eq!(valid_key.len(), 64);
+    assert!(valid_key.chars().all(|c| c.is_ascii_hexdigit()));
+
+    let result = add_user(&lobby, valid_key.clone(), create_test_connection(&valid_key, 1)).await;
+    assert!(result.is_ok(), "Valid 64-char hex key should be accepted");
+    assert_eq!(lobby.user_count().await.unwrap(), 1);
+    assert!(lobby.user_exists(&valid_key).await.unwrap());
+
+    println!("✅ test_public_key_validation_accepts_valid_keys passed");
+}

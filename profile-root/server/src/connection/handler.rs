@@ -12,6 +12,10 @@ use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
 use profile_shared::LobbyError;
 
 /// Atomic counter for generating unique connection IDs
+///
+/// NOTE: Connection IDs wrap at u64::MAX (approximately 1.8e19 connections).
+/// In practice, this is never reached. If needed, a UUID generator could be
+/// used instead, but atomic counter is faster for the common case.
 static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Generate a unique connection ID atomically
@@ -157,13 +161,41 @@ pub async fn handle_connection(
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         match e {
                             LobbyError::LockFailed => {
-                                tracing::error!("Critical: Failed to acquire lobby lock for user removal: {}", e);
+                                // CRITICAL: User may remain "stuck" in lobby
+                                // This is a serious error that could lead to ghost users
+                                tracing::error!(
+                                    "CRITICAL: Failed to acquire lobby lock for user {} removal: {}. \
+                                     User may remain visible to others incorrectly.",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
+                                // Return error to signal this needs attention
+                                return Err(format!("Lobby lock failure on disconnect: {}", e).into());
                             }
                             LobbyError::BroadcastFailed => {
-                                tracing::warn!("User removed from lobby but failed to broadcast leave notification: {}", e);
+                                // User was removed from lobby but broadcast to other users failed
+                                // This is a non-critical error - user is cleaned up but others
+                                // won't be notified. Log as warning.
+                                tracing::warn!(
+                                    "User {} removed from lobby but leave notification failed to broadcast: {}",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
                             }
-                            _ => tracing::error!("Failed to remove user from lobby: {}", e),
+                            _ => {
+                                tracing::error!(
+                                    "Failed to remove user {} from lobby: {}",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
+                                return Err(format!("Lobby removal error: {}", e).into());
+                            }
                         }
+                    } else {
+                        tracing::debug!(
+                            "User {} removed from lobby successfully",
+                            key.chars().take(16).collect::<String>()
+                        );
                     }
                 }
                 break;
@@ -182,19 +214,51 @@ pub async fn handle_connection(
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         match e {
                             LobbyError::LockFailed => {
-                                tracing::error!("Critical: Failed to acquire lobby lock for user removal: {}", e);
+                                // CRITICAL: User may remain "stuck" in lobby
+                                // This is a serious error that could lead to ghost users
+                                tracing::error!(
+                                    "CRITICAL: Failed to acquire lobby lock for user {} removal on error: {}. \
+                                     User may remain visible to others incorrectly.",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
+                                // Return error to signal this needs attention
+                                return Err(format!("Lobby lock failure on error disconnect: {}", e).into());
                             }
                             LobbyError::BroadcastFailed => {
-                                tracing::warn!("User removed from lobby but failed to broadcast leave notification: {}", e);
+                                // User was removed from lobby but broadcast to other users failed
+                                tracing::warn!(
+                                    "User {} removed from lobby but leave notification failed to broadcast: {}",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
                             }
-                            _ => tracing::error!("Failed to remove user from lobby: {}", e),
+                            _ => {
+                                tracing::error!(
+                                    "Failed to remove user {} from lobby on error: {}",
+                                    key.chars().take(16).collect::<String>(),
+                                    e
+                                );
+                                return Err(format!("Lobby removal error on disconnect: {}", e).into());
+                            }
                         }
+                    } else {
+                        tracing::debug!(
+                            "User {} removed from lobby successfully after WebSocket error",
+                            key.chars().take(16).collect::<String>()
+                        );
                     }
                 }
                 break;
             }
             _ => {
-                // Handle other message types
+                // Handle other message types (binary, ping, pong, etc.)
+                // Log at debug level for debugging purposes - these are normal WebSocket events
+                tracing::debug!(
+                    "Received non-text, non-close message type for user {}: {:?}",
+                    authenticated_key.as_deref().unwrap_or("unauthenticated"),
+                    msg_result.as_ref().map(|m| m.to_string()).unwrap_or_else(|e| format!("Error: {}", e))
+                );
             }
         }
     }

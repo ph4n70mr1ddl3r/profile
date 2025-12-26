@@ -522,3 +522,27 @@ MiniMax-M2.1
 **Deleted (no longer needed):**
 - `profile-root/server/tests/lobby_state_isolated_test.rs` - Replaced by lobby_state_isolated.rs
 
+### **Review Follow-ups (Round 11 - Auto-Fixed)**
+
+#### 🔴 HIGH (3)
+- **[AI-Review][HIGH]** AC2 Reconnection Broadcast - Fixed `add_user()` in manager.rs to broadcast "left" then "joined" delta on reconnection per AC requirements [manager.rs:43-50]
+- **[AI-Review][HIGH]** Error Handling LockFailed - Updated connection handler to return errors on LockFailed instead of silently continuing, added retry behavior documentation [handler.rs:156-196]
+- **[AI-Review][HIGH]** WebSocket Message Debug - Added tracing::debug! for non-text, non-close message types to aid debugging [handler.rs:250-258]
+
+#### 🟡 MEDIUM (3)
+- **[AI-Review][MEDIUM]** Tracing Added - Added `#[tracing::instrument]` to all lobby operations (add_user, remove_user, broadcast functions) with public key logging [manager.rs:25-173]
+- **[AI-Review][MEDIUM]** Public Key Validation Tests - Added integration tests `test_public_key_validation_rejects_invalid_keys` and `test_public_key_validation_accepts_valid_keys` [lobby_integration.rs:378-425]
+- **[AI-Review][MEDIUM]** Connection ID Documentation - Added overflow behavior documentation to CONNECTION_COUNTER comment (wraps at u64::MAX ~1.8e19) [handler.rs:14-20]
+
+#### 🟢 LOW (3)
+- **[AI-Review][LOW]** Dead Code Comment - Verified `receiver` in handler.rs is intentionally dropped (documented for Epic 3 implementation) - ACCEPTED as technical debt [handler.rs:69]
+- **[AI-Review][LOW]** Test Count Documentation - Updated to reflect actual test counts (31 lobby-specific tests total) [story:238]
+- **[AI-Review][LOW]** Module Documentation - Added AC references to manager.rs function docs for traceability
+
+**Testing Results:**
+- ✅ All 23 lib tests pass (21 lobby + 2 handler)
+- ✅ All 12 integration tests pass (10 lobby + 2 new validation tests)
+- ✅ AC2 reconnection now broadcasts "left" then "joined" as required
+- ✅ Lock failures are properly logged and returned as errors
+- ✅ Public key validation thoroughly tested at integration level
+
