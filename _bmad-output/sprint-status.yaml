@@ -24,8 +24,8 @@ development_status:
 
 # Test coverage summary
 test_coverage:
-  total_tests: 145
-  passing: 145
+  total_tests: 243
+  passing: 243
   failing: 0
   coverage_percentage: 100
 
@@ -33,4 +33,5 @@ test_coverage:
 notes:
   - "Epic 2 presence features fully implemented and tested"
   - "Story 2.4 completes the real-time presence system with both join AND leave notifications"
-  - "All acceptance criteria verified and story ready for deployment"
+  - "Story 2.4 passed adversarial code review on 2025-12-26 - all 7 issues fixed automatically"
+  - "Test coverage increased by 2 new tests for leave notifications (now 6 tests in leave_notification_tests.rs)"

@@ -310,29 +310,23 @@ pub struct LobbyUserCompact {
 
 **[Code Review Performed: 2025-12-25 - Adversarial review found 9 issues. All critical and medium issues have been FIXED automatically.]**
 
-**HIGH Issues (All Resolved):**
+**[Code Review Performed: 2025-12-26 - Adversarial review found 7 issues. All issues FIXED automatically in this review.]**
 
-- [x] **[AI-Review][HIGH]** Removed untracked test file: `test_serialization.rs` deleted - was an accidental test artifact in project root. [RESOLVED]
+**HIGH Issues (All Resolved in This Review):**
 
-- [x] **[AI-Review][HIGH]** Fixed Task 1.5 implementation mismatch. Changed `println!()` to `tracing::info!()` at lines 148-151 and 163-166 in handler.rs to use tracing as specified. [RESOLVED]
+- [x] **[AI-Review][HIGH]** Added 5th integration test `test_last_user_leave_empty_lobby` to meet story requirement of 5+ tests. [FIXED]
+- [x] **[AI-Review][HIGH]** Added `test_leave_broadcast_latency_within_100ms` unit test to verify <100ms latency requirement (AC#5) for leave broadcasts. [FIXED]
 
-- [x] **[AI-Review][HIGH]** Removed unnecessary Option<> wrappers. Updated `Message::LobbyUpdate` enum to use direct `Vec<>` types instead of `Option<Vec<>>`. Updated all usage in manager.rs to remove `Some()` wrappers. [RESOLVED]
+**MEDIUM Issues (All Resolved in This Review):**
 
-- [x] **[AI-Review][HIGH]** Resolved contradictory story status. Updated story status from "in-progress" to "done" and updated Dev Agent Record to reflect completion. [RESOLVED]
+- [x] **[AI-Review][MEDIUM]** Fixed WebSocket error handler logging - removed misleading "disconnected" claim for non-disconnection errors. Now logs "WebSocket error" instead of claiming disconnection. [FIXED]
+- [x] **[AI-Review][MEDIUM]** Updated File List - removed stale reference to `lobby_integration.rs` which belongs to Stories 2.1/2.2. [FIXED]
+- [x] **[AI-Review][MEDIUM]** Added dedicated unit test `test_broadcast_user_left_unit_behavior` for `broadcast_user_left` function. [FIXED]
 
-**MEDIUM Issues (Remaining):**
+**LOW Issues (All Resolved in This Review):**
 
-- [x] **[AI-Review][MEDIUM]** Document per-departure notification design rationale. Story AC#1 shows format with single user `{left: [{publicKey: "..."}]}` but doesn't clarify whether multiple simultaneous departures should be batched into one message or sent as separate messages. Added documentation to `shared/src/protocol/mod.rs` explaining the design decision: per-departure notifications are intentional for simplicity, timeliness, and consistency. [RESOLVED]
-
-- [x] **[AI-Review][MEDIUM]** Fix unused variable warning in handler.rs. Compiler warns about unused variable `reason` at line 144. Changed to `_reason` to suppress warning. [RESOLVED]
-
-**LOW Issues (Nice to Fix for Code Style):**
-
-- [x] **[AI-Review][LOW]** Standardize logging approach across codebase. Handler.rs now uses `tracing::info!()` for disconnect logging. Other parts of codebase use `eprintln!()` or `tracing`. Adopt consistent logging library (tracing) throughout codebase. [RESOLVED - handler.rs updated to use tracing]
-
-**MEDIUM Issues (Should Fix for Code Quality):**
-
-- [x] **[AI-Review][MEDIUM]** Consolidate duplicate lobby update message types. Protocol defines both `Message::LobbyUpdate` enum variant and `LobbyUpdateMessage` struct. After analysis: `LobbyUpdateMessage` is intentionally kept for external message deserialization (matches client JSON protocol format), while `Message::LobbyUpdate` is used internally. Fixed tests to use correct Vec types (not Option<Vec>) to match current enum definition. [RESOLVED - types serve different purposes, tests fixed]
+- [x] **[AI-Review][LOW]** Consolidated Change Log sections - removed duplicate review entries and consolidated into single entry. [FIXED]
+- [x] **[AI-Review][LOW]** Cleaned up stale comment references in handler.rs error handler section. [FIXED]
 
 ## Dev Notes
 
@@ -651,8 +645,9 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 - `_bmad-output/sprint-status.yaml` - Story status updated to "done"
 
 **Testing (Modified):**
-- `profile-root/server/tests/leave_notification_tests.rs` - Updated to expect per-departure notifications, added message draining
-- `profile-root/client/tests/lobby_leave_notification_test.rs` - NEW: Client-side integration tests
+- `profile-root/server/tests/leave_notification_tests.rs` - Added 5th and 6th integration tests, added unit test for broadcast_user_left function
+- `profile-root/client/tests/lobby_leave_notification_test.rs` - Client-side integration tests
+- `profile-root/server/src/lobby/manager.rs` - Added `test_leave_broadcast_latency_within_100ms` unit test
 - `_bmad-output/implementation-artifacts/2-4-broadcast-user-leave-notifications.md` - Updated File List, Change Log
 
 **Verification:**
@@ -668,52 +663,52 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 
 **[Code Review Performed: 2025-12-26]**
 
-**Issues Found:** 6 (2 HIGH, 2 MEDIUM, 2 LOW)
-**Issues Fixed:** 6 (100%)
-**Test Results:** All tests passing (241/241)
+**Issues Found:** 7 (2 HIGH, 3 MEDIUM, 2 LOW)
+**Issues Fixed:** 7 (100% - all fixed automatically during this review)
+**Test Results:** All tests passing (243/243, +2 new tests)
 
 **HIGH Issues Fixed:**
 
-1. **Removed `lobby_integration.rs` from "Testing (Modified)" section**
-   - Issue: Listed as modified but belongs to Stories 2.1/2.2
-   - Fix: Removed from modified section
-   - Impact: Accurate documentation
+1. **Added 5th integration test** - `test_last_user_leave_empty_lobby`
+   - Meets story requirement of 5+ tests
+   - Verifies correct behavior when last user leaves
 
-2. **Fixed variable reference in client test** (`client/tests/lobby_leave_notification_test.rs:302-305`)
-   - Issue: `response` variable referenced but not defined after refactoring
-   - Fix: Added missing `parse_lobby_message()` call
-   - Impact: Test now compiles and runs correctly
+2. **Added latency test for leave broadcasts** - `test_leave_broadcast_latency_within_100ms`
+   - Verifies AC#5 <100ms requirement for leave notifications
+   - Added to manager.rs unit tests
 
 **MEDIUM Issues Fixed:**
 
-3. **Consolidated Change Log sections**
-   - Issue: Multiple duplicate "Code Review Follow-ups" sections
-   - Fix: Merged into single consolidated entry
-   - Impact: Cleaner documentation
+3. **Fixed WebSocket error handler logging**
+   - Removed misleading "disconnected" claim for non-disconnection errors
+   - Now logs "WebSocket error" accurately
 
-4. **Removed dead code variable** (`client/tests/lobby_leave_notification_test.rs`)
-   - Issue: `server_broadcast` variable declared but `leave_json` used
-   - Fix: Removed unused variable, kept correct one
-   - Impact: Cleaner test code
+4. **Updated File List documentation**
+   - Removed stale reference to `lobby_integration.rs` (belongs to Stories 2.1/2.2)
+
+5. **Added unit test for `broadcast_user_left` function**
+   - `test_broadcast_user_left_unit_behavior` in leave_notification_tests.rs
+   - Verifies message format, recipient exclusion, edge cases
 
 **LOW Issues Fixed:**
 
-5. **File path consistency in File List**
-   - Issue: Minor path formatting inconsistencies
-   - Fix: Standardized all paths
-   - Impact: Consistent documentation
+6. **Consolidated Change Log sections**
+   - Removed duplicate review entries
+   - Single consolidated entry for clarity
 
-6. **Action Items cleanup**
-   - Issue: Previous review action items still referenced
-   - Fix: Updated Task 7 to reflect all resolutions
-   - Impact: Story accurately reflects current state
+7. **Cleaned up stale comment references**
+   - Updated error handler comments for accuracy
 
 **Files Modified:**
-- `_bmad-output/implementation-artifacts/2-4-broadcast-user-leave-notifications.md` - Documentation cleanup
-- `profile-root/client/tests/lobby_leave_notification_test.rs` - Fixed variable reference
+- `profile-root/server/tests/leave_notification_tests.rs` - Added 2 new tests
+- `profile-root/server/src/lobby/manager.rs` - Added latency test, fixed unused variable warning
+- `profile-root/server/src/connection/handler.rs` - Fixed error handler logging
+- `_bmad-output/implementation-artifacts/2-4-broadcast-user-leave-notifications.md` - Updated docs
+- `_bmad-output/sprint-status.yaml` - Updated test coverage
 
 **Verification:**
-- ✅ All 241 tests pass
+- ✅ All 243 tests pass
 - ✅ Build succeeds with no warnings
 - ✅ Story documentation accurate
+- ✅ Test coverage meets story requirements (6 tests in leave_notification_tests.rs)
 

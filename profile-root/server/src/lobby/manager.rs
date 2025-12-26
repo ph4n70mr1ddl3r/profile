@@ -707,4 +707,65 @@ mod tests {
         
         println!("✅ Broadcast latency test passed: {}ms (<100ms requirement)", elapsed.as_millis());
     }
+
+    /// Test that leave broadcast latency is within 100ms requirement (AC#5)
+    #[tokio::test]
+    async fn test_leave_broadcast_latency_within_100ms() {
+        let lobby = create_test_lobby();
+
+        // Create a test receiver to measure broadcast timing
+        let (test_sender, mut test_receiver) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+
+        // Create a mock connection that uses our test receiver
+        let mock_connection = ActiveConnection {
+            public_key: "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab".to_string(),
+            sender: test_sender,
+            connection_id: 999,
+        };
+
+        // Add mock user to lobby first (so they receive the broadcast)
+        crate::lobby::add_user(&lobby, mock_connection.public_key.clone(), mock_connection).await.unwrap();
+
+        // Drain join broadcast
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(10), test_receiver.recv()).await;
+
+        // Create a second user who will disconnect
+        let connection = create_test_connection("latency_test_user_leave_1234567890abcdef1234567890ab");
+        let connection_key = connection.public_key.clone();
+
+        // Add user then immediately remove to measure leave broadcast latency
+        crate::lobby::add_user(&lobby, connection_key.clone(), connection).await.unwrap();
+
+        // Drain join broadcast before measuring leave
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(10), test_receiver.recv()).await;
+
+        // Now measure leave broadcast latency
+        let start_leave = std::time::Instant::now();
+        crate::lobby::remove_user(&lobby, &connection_key).await.unwrap();
+
+        // Wait for leave broadcast message
+        let received_msg = tokio::time::timeout(std::time::Duration::from_millis(100), test_receiver.recv())
+            .await
+            .expect("Timeout waiting for leave broadcast")
+            .expect("No leave message received");
+
+        // Measure elapsed time for leave broadcast
+        let elapsed = start_leave.elapsed();
+
+        // Verify it's a lobby update with left users
+        match received_msg {
+            profile_shared::Message::LobbyUpdate { joined, left } => {
+                assert!(joined.is_empty());
+                assert!(!left.is_empty());
+                assert_eq!(left.len(), 1);
+                assert_eq!(left[0], connection_key);
+            }
+            _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
+        }
+
+        // Assert leave broadcast latency is within 100ms requirement
+        assert!(elapsed.as_millis() < 100, "Leave broadcast latency was {}ms, required <100ms", elapsed.as_millis());
+
+        println!("✅ Leave broadcast latency test passed: {}ms (<100ms requirement)", elapsed.as_millis());
+    }
 }

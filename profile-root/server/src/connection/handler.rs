@@ -172,15 +172,12 @@ pub async fn handle_connection(
                 // Note: authenticated_key should always be Some if we reached this point
                 // as we only enter the message loop after successful authentication
                 let user_key = authenticated_key.as_deref().unwrap_or("unauthenticated");
-                tracing::info!(
-                    "User {} disconnected (error), broadcasting leave notification",
-                    user_key
-                );
+                // Log the error but don't claim "disconnection" - WebSocket read errors
+                // could be network flakiness, malformed messages, etc., not actual disconnections
+                tracing::error!("WebSocket error for user {}: {}", user_key, e);
 
-                tracing::error!("WebSocket error: {}", e);
-
-                // CRITICAL: Clean up lobby on error too using new API
-                // Note: remove_user() handles broadcast_user_left internally
+                // Clean up lobby on error - this is treated as a disconnection event
+                // because the connection stream has failed
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
                         match e {

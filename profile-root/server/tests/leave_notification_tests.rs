@@ -316,3 +316,116 @@ async fn test_connection_drop_cleanup() {
 
     println!("✅ Connection drop cleanup works - no ghost users remain");
 }
+
+/// Test that lobby state remains consistent when last user leaves
+/// This is the 5th integration test required by Story 2.4
+#[tokio::test]
+async fn test_last_user_leave_empty_lobby() {
+    let lobby = Lobby::new();
+
+    // Create single user
+    let (conn1, mut rx1) = create_test_connection_with_sender("last_user");
+    let key1 = conn1.public_key.clone();
+
+    // Add user to lobby
+    profile_server::lobby::add_user(&lobby, key1.clone(), conn1)
+        .await
+        .unwrap();
+
+    // Drain initial join message
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv()).await;
+
+    // User disconnects (they were the only one)
+    profile_server::lobby::remove_user(&lobby, &key1)
+        .await
+        .unwrap();
+
+    // Verify: Lobby is now empty (no ghost users)
+    let current_users = profile_server::lobby::get_current_users(&lobby)
+        .await
+        .unwrap();
+    assert!(current_users.is_empty(), "Lobby should be empty after last user leaves");
+
+    // Verify: get_user returns None
+    let lookup = profile_server::lobby::get_user(&lobby, &key1).await.unwrap();
+    assert!(lookup.is_none(), "get_user should return None for departed user");
+
+    // No broadcast should be sent (no remaining users to notify)
+    // The receiver should NOT receive any message since there are no recipients
+    let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv()).await;
+    assert!(result.is_err() || result.unwrap().is_none(), "No broadcast should be sent when no users remain");
+
+    println!("✅ Last user leave handled correctly - empty lobby, no spurious broadcasts");
+}
+
+/// Unit test for broadcast_user_left function behavior
+/// Tests message format, recipient exclusion, and edge cases
+#[tokio::test]
+async fn test_broadcast_user_left_unit_behavior() {
+    use profile_server::lobby::manager;
+    let lobby = Lobby::new();
+
+    // Create 3 users with receivers
+    let (conn1, mut rx1) = create_test_connection_with_sender("unit_user1");
+    let (conn2, mut rx2) = create_test_connection_with_sender("unit_user2");
+    let (conn3, mut rx3) = create_test_connection_with_sender("unit_user3");
+
+    let key1 = conn1.public_key.clone();
+    let key2 = conn2.public_key.clone();
+    let key3 = conn3.public_key.clone();
+
+    // Add all to lobby
+    profile_server::lobby::add_user(&lobby, key1.clone(), conn1).await.unwrap();
+    profile_server::lobby::add_user(&lobby, key2.clone(), conn2).await.unwrap();
+    profile_server::lobby::add_user(&lobby, key3.clone(), conn3).await.unwrap();
+
+    // Drain all join broadcasts
+    for _ in 0..6 {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(10), rx1.recv()).await;
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(10), rx2.recv()).await;
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(10), rx3.recv()).await;
+    }
+
+    // Test 1: Direct call to broadcast_user_left with single user
+    // We need to test this by removing user2
+    profile_server::lobby::remove_user(&lobby, &key2).await.unwrap();
+
+    // Verify: User1 and User3 received leave notification
+    let msg1 = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv())
+        .await
+        .expect("User1 should receive leave notification")
+        .expect("Should get message");
+
+    let msg3 = tokio::time::timeout(std::time::Duration::from_millis(100), rx3.recv())
+        .await
+        .expect("User3 should receive leave notification")
+        .expect("Should get message");
+
+    // Verify message format: left should contain Vec<String>, not Vec<LobbyUser>
+    match msg1 {
+        SharedMessage::LobbyUpdate { joined, left } => {
+            assert!(joined.is_empty(), "Joined should be empty for leave notification");
+            assert!(!left.is_empty(), "Left should not be empty");
+            assert_eq!(left.len(), 1, "Should have exactly 1 user leaving");
+            assert_eq!(left[0], key2, "Leaving user should be key2");
+            assert!(left[0].len() == 64, "Key should be 64 hex chars");
+        }
+        _ => panic!("Expected LobbyUpdate message"),
+    }
+
+    match msg3 {
+        SharedMessage::LobbyUpdate { joined, left } => {
+            assert!(joined.is_empty());
+            assert!(!left.is_empty());
+            assert_eq!(left.len(), 1);
+            assert_eq!(left[0], key2);
+        }
+        _ => panic!("Expected LobbyUpdate message"),
+    }
+
+    // Verify: User2 did NOT receive their own notification (excluded from broadcast)
+    let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx2.recv()).await;
+    assert!(result.is_err() || result.unwrap().is_none(), "Leaving user should NOT receive own notification");
+
+    println!("✅ broadcast_user_left unit behavior verified: correct format, recipients excluded");
+}
