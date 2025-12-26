@@ -2,6 +2,7 @@ use serde::Deserialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
 use crate::state::session::SharedKeyState;
+use crate::state::messages::{ChatMessage, SharedMessageHistory, create_shared_message_history, create_shared_message_history_with_capacity};
 use crate::ui::lobby_state::{LobbyState, LobbyUser};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -24,6 +25,57 @@ pub struct LobbyEventHandler {
     pub on_user_joined: Rc<RefCell<dyn Fn(LobbyUser)>>,
     /// Called when a user leaves the lobby
     pub on_user_left: Rc<RefCell<dyn Fn(String)>>,
+}
+
+/// Callback handler for chat message events
+#[derive(Clone)]
+pub struct MessageEventHandler {
+    /// Called when a new message is received
+    pub on_message_received: Rc<RefCell<dyn Fn(ChatMessage)>>,
+    /// Called when an error occurs
+    pub on_error: Rc<RefCell<dyn Fn(String)>>,
+}
+
+impl MessageEventHandler {
+    /// Create a new message event handler with no-op callbacks
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            on_message_received: Rc::new(RefCell::new(|_: ChatMessage| {})),
+            on_error: Rc::new(RefCell::new(|_: String| {})),
+        }
+    }
+
+    /// Create with custom callbacks
+    #[inline]
+    pub fn with_callbacks(
+        on_message_received: impl Fn(ChatMessage) + 'static,
+        on_error: impl Fn(String) + 'static,
+    ) -> Self {
+        Self {
+            on_message_received: Rc::new(RefCell::new(on_message_received)),
+            on_error: Rc::new(RefCell::new(on_error)),
+        }
+    }
+
+    /// Emit message received event
+    #[inline]
+    pub fn message_received(&self, message: &ChatMessage) {
+        (self.on_message_received.borrow())(message.clone());
+    }
+
+    /// Emit error event
+    #[inline]
+    pub fn error(&self, error: &str) {
+        (self.on_error.borrow())(error.to_string());
+    }
+}
+
+impl Default for MessageEventHandler {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LobbyEventHandler {
@@ -90,6 +142,15 @@ pub enum LobbyResponse {
     Ignored,
 }
 
+/// Response from the chat message parser
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChatResponse {
+    /// A new message was received
+    Message(ChatMessage),
+    /// Message was ignored (e.g., already verified by server)
+    Ignored,
+}
+
 /// Parse a lobby message from the server
 pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::error::Error + Send + Sync>> {
     // First, determine message type
@@ -142,6 +203,98 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
     }
 }
 
+/// Parse a chat message from the server
+///
+/// This handles the "message" type sent when another user sends a message.
+/// The message has already been validated by the server, so we trust it.
+/// The client will do its own verification for defense in depth.
+pub fn parse_chat_message(text: &str) -> Result<ChatResponse, Box<dyn std::error::Error + Send + Sync>> {
+    // First, determine message type
+    let msg: ServerMessage = serde_json::from_str(text)?;
+
+    match msg.r#type.as_str() {
+        "message" => {
+            // Parse the text message from protocol module
+            let text_msg: profile_shared::protocol::Message = serde_json::from_str(text)?;
+
+            // Extract the message data using pattern matching
+            let (message, sender_public_key, signature, timestamp) = match text_msg {
+                profile_shared::protocol::Message::Text {
+                    message,
+                    sender_public_key,
+                    signature,
+                    timestamp,
+                } => (message, sender_public_key, signature, timestamp),
+                _ => return Ok(ChatResponse::Ignored),
+            };
+
+            // Create a ChatMessage (initially unverified, client will verify)
+            let chat_msg = ChatMessage::new(
+                sender_public_key,
+                message,
+                signature,
+                timestamp,
+            );
+            Ok(ChatResponse::Message(chat_msg))
+        }
+        // Other message types are not chat messages
+        _ => Ok(ChatResponse::Ignored),
+    }
+}
+
+/// Parse any server message (lobby or chat)
+///
+/// Returns the appropriate response type based on message content.
+/// Useful for handling messages in the WebSocket loop.
+pub fn parse_server_message(text: &str) -> Result<ServerMessageResponse, Box<dyn std::error::Error + Send + Sync>> {
+    // First, determine message type
+    let msg: ServerMessage = serde_json::from_str(text)?;
+
+    match msg.r#type.as_str() {
+        "lobby" | "lobby_update" => {
+            // Try to parse as lobby message
+            match parse_lobby_message(text) {
+                Ok(response) => Ok(ServerMessageResponse::Lobby(response)),
+                Err(e) => Err(e),
+            }
+        }
+        "message" => {
+            // Try to parse as chat message
+            match parse_chat_message(text) {
+                Ok(response) => Ok(ServerMessageResponse::Chat(response)),
+                Err(e) => Err(e),
+            }
+        }
+        "error" => {
+            // Parse error message
+            let error_msg: ServerErrorMessage = serde_json::from_str(text)?;
+            Ok(ServerMessageResponse::Error(error_msg))
+        }
+        _ => Ok(ServerMessageResponse::Unknown),
+    }
+}
+
+/// Unified server message response
+#[derive(Debug, Clone, PartialEq)]
+pub enum ServerMessageResponse {
+    /// Lobby-related message
+    Lobby(LobbyResponse),
+    /// Chat message
+    Chat(ChatResponse),
+    /// Error from server
+    Error(ServerErrorMessage),
+    /// Unknown message type
+    Unknown,
+}
+
+/// Server error message structure
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct ServerErrorMessage {
+    pub r#type: String,
+    pub reason: String,
+    pub details: Option<String>,
+}
+
 /// Internal message types for parsing server responses
 #[derive(Debug, Deserialize)]
 struct ServerMessage {
@@ -190,7 +343,9 @@ fn parse_auth_response(text: &str) -> Result<AuthResponse, Box<dyn std::error::E
 pub struct WebSocketClient {
     connection: Option<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
     key_state: SharedKeyState,
+    message_history: SharedMessageHistory,
     lobby_event_handler: Option<LobbyEventHandler>,
+    message_event_handler: Option<MessageEventHandler>,
 }
 
 impl WebSocketClient {
@@ -199,8 +354,26 @@ impl WebSocketClient {
         Self {
             connection: None,
             key_state,
+            message_history: create_shared_message_history(),
             lobby_event_handler: None,
+            message_event_handler: None,
         }
+    }
+
+    /// Create with custom message history capacity
+    pub fn with_history_capacity(key_state: SharedKeyState, capacity: usize) -> Self {
+        Self {
+            connection: None,
+            key_state,
+            message_history: create_shared_message_history_with_capacity(capacity),
+            lobby_event_handler: None,
+            message_event_handler: None,
+        }
+    }
+
+    /// Get the message history
+    pub fn message_history(&self) -> SharedMessageHistory {
+        self.message_history.clone()
     }
 
     /// Set the lobby event handler
@@ -208,6 +381,13 @@ impl WebSocketClient {
     /// The handler will be called when lobby messages arrive from the server.
     pub fn set_lobby_event_handler(&mut self, handler: LobbyEventHandler) {
         self.lobby_event_handler = Some(handler);
+    }
+
+    /// Set the message event handler
+    ///
+    /// The handler will be called when chat messages arrive from the server.
+    pub fn set_message_event_handler(&mut self, handler: MessageEventHandler) {
+        self.message_event_handler = Some(handler);
     }
     
     /// Connect to the profile server
@@ -379,10 +559,48 @@ impl WebSocketClient {
                                 }
                             }
                         }
+                    } else if let Ok(chat_response) = parse_chat_message(&text) {
+                        // Handle chat message (Story 3.3)
+                        match chat_response {
+                            ChatResponse::Message(message) => {
+                                println!("Received chat message from: {}", message.sender_public_key.chars().take(16).collect::<String>());
+
+                                // Store in message history
+                                {
+                                    let mut history = self.message_history.lock().await;
+                                    history.add_message(message.clone());
+                                }
+
+                                // Notify handler
+                                if let Some(ref handler) = self.message_event_handler {
+                                    handler.message_received(&message);
+                                }
+                            }
+                            ChatResponse::Ignored => {
+                                // Message was ignored
+                            }
+                        }
                     } else {
-                        // Not a lobby message - may be future story type (message, notification, etc.)
-                        println!("Received non-lobby message: {}", text);
-                        // Future stories (3.2+) will handle other message types
+                        // Try to parse as error or other message
+                        if let Ok(server_msg) = parse_server_message(&text) {
+                            match server_msg {
+                                ServerMessageResponse::Error(error) => {
+                                    println!("Server error: {} - {}", error.reason, error.details.clone().unwrap_or_default());
+                                    if let Some(ref handler) = self.message_event_handler {
+                                        let details = error.details.unwrap_or_default();
+                                        handler.error(&format!("{}: {}", error.reason, details));
+                                    }
+                                }
+                                ServerMessageResponse::Unknown => {
+                                    println!("Received unknown message type: {}", text);
+                                }
+                                _ => {
+                                    // Lobby and chat already handled above
+                                }
+                            }
+                        } else {
+                            println!("Received unparseable message: {}", text);
+                        }
                     }
                 }
                 Some(Ok(Message::Close(frame))) => {
