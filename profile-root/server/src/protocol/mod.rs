@@ -37,6 +37,33 @@ pub struct AuthErrorMessage {
 pub struct ErrorMessage {
     pub r#type: String,
     pub reason: String,
+    pub details: Option<String>,
+}
+
+/// Client message request for sending a message to another user
+///
+/// Sent by client to server after Story 3.1 (composer implementation)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendMessageRequest {
+    pub r#type: String,
+    #[serde(rename = "recipientPublicKey")]
+    pub recipient_public_key: String,
+    pub message: String,
+    #[serde(rename = "senderPublicKey")]
+    pub sender_public_key: String,
+    pub signature: String,
+    pub timestamp: String,
+}
+
+/// Outbound message from server to client
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutboundMessage {
+    pub r#type: String,
+    pub message: String,
+    #[serde(rename = "senderPublicKey")]
+    pub sender_public_key: String,
+    pub signature: String,
+    pub timestamp: String,
 }
 
 /// Close frame reason codes
@@ -110,6 +137,16 @@ impl ErrorMessage {
         Self {
             r#type: "error".to_string(),
             reason,
+            details: None,
+        }
+    }
+
+    /// Create a new error message with details
+    pub fn with_details(reason: String, details: String) -> Self {
+        Self {
+            r#type: "error".to_string(),
+            reason,
+            details: Some(details),
         }
     }
 }
