@@ -30,8 +30,10 @@ pub struct LobbyEventHandler {
 /// Callback handler for chat message events
 #[derive(Clone)]
 pub struct MessageEventHandler {
-    /// Called when a new message is received
+    /// Called when a new message is received and verified
     pub on_message_received: Rc<RefCell<dyn Fn(ChatMessage)>>,
+    /// Called when a message has an invalid signature
+    pub on_invalid_signature: Rc<RefCell<dyn Fn(String)>>,
     /// Called when an error occurs
     pub on_error: Rc<RefCell<dyn Fn(String)>>,
 }
@@ -42,6 +44,7 @@ impl MessageEventHandler {
     pub fn new() -> Self {
         Self {
             on_message_received: Rc::new(RefCell::new(|_: ChatMessage| {})),
+            on_invalid_signature: Rc::new(RefCell::new(|_: String| {})),
             on_error: Rc::new(RefCell::new(|_: String| {})),
         }
     }
@@ -50,18 +53,26 @@ impl MessageEventHandler {
     #[inline]
     pub fn with_callbacks(
         on_message_received: impl Fn(ChatMessage) + 'static,
+        on_invalid_signature: impl Fn(String) + 'static,
         on_error: impl Fn(String) + 'static,
     ) -> Self {
         Self {
             on_message_received: Rc::new(RefCell::new(on_message_received)),
+            on_invalid_signature: Rc::new(RefCell::new(on_invalid_signature)),
             on_error: Rc::new(RefCell::new(on_error)),
         }
     }
 
-    /// Emit message received event
+    /// Emit message received event (for verified messages)
     #[inline]
     pub fn message_received(&self, message: &ChatMessage) {
         (self.on_message_received.borrow())(message.clone());
+    }
+
+    /// Emit invalid signature event
+    #[inline]
+    pub fn invalid_signature(&self, notification: &str) {
+        (self.on_invalid_signature.borrow())(notification.to_string());
     }
 
     /// Emit error event
@@ -239,6 +250,56 @@ pub fn parse_chat_message(text: &str) -> Result<ChatResponse, Box<dyn std::error
         }
         // Other message types are not chat messages
         _ => Ok(ChatResponse::Ignored),
+    }
+}
+
+/// Verify and store a received chat message
+///
+/// This function performs client-side signature verification and stores
+/// valid messages in the message history. Invalid messages are rejected.
+///
+/// # Arguments
+/// * `chat_msg` - The parsed but unverified chat message
+/// * `message_history` - Shared message history for storage
+/// * `handler` - Message event handler for callbacks
+///
+/// # Returns
+/// Ok(()) if message was verified and stored, Err(reason) otherwise
+pub async fn verify_and_store_message(
+    chat_msg: &ChatMessage,
+    message_history: &SharedMessageHistory,
+    handler: &Option<MessageEventHandler>,
+) {
+    use crate::handlers::verify::{verify_chat_message, create_invalid_signature_notification, format_public_key};
+
+    // Verify the signature
+    match verify_chat_message(chat_msg) {
+        crate::handlers::verify::VerificationResult::Valid(verified_msg) => {
+            // Store in message history
+            let mut history = message_history.lock().await;
+            history.add_message(verified_msg.clone());
+
+            // Notify handler
+            if let Some(ref h) = handler {
+                h.message_received(&verified_msg);
+            }
+        }
+        crate::handlers::verify::VerificationResult::Invalid { sender_public_key, reason } => {
+            // Log warning and notify user
+            println!(
+                "WARNING: Invalid signature received from {} - {}",
+                format_public_key(&sender_public_key),
+                reason
+            );
+
+            // Create notification
+            let notification = create_invalid_signature_notification(&sender_public_key, &reason);
+
+            // Notify handler
+            if let Some(ref h) = handler {
+                h.invalid_signature(&notification);
+            }
+        }
     }
 }
 
@@ -560,21 +621,17 @@ impl WebSocketClient {
                             }
                         }
                     } else if let Ok(chat_response) = parse_chat_message(&text) {
-                        // Handle chat message (Story 3.3)
+                        // Handle chat message with verification (Story 3.3 + 3.4)
                         match chat_response {
                             ChatResponse::Message(message) => {
-                                println!("Received chat message from: {}", message.sender_public_key.chars().take(16).collect::<String>());
+                                println!("Received chat message from: {}, verifying...", message.sender_public_key.chars().take(16).collect::<String>());
 
-                                // Store in message history
-                                {
-                                    let mut history = self.message_history.lock().await;
-                                    history.add_message(message.clone());
-                                }
-
-                                // Notify handler
-                                if let Some(ref handler) = self.message_event_handler {
-                                    handler.message_received(&message);
-                                }
+                                // Verify and store the message
+                                verify_and_store_message(
+                                    &message,
+                                    &self.message_history,
+                                    &self.message_event_handler,
+                                ).await;
                             }
                             ChatResponse::Ignored => {
                                 // Message was ignored

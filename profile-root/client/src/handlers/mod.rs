@@ -4,6 +4,7 @@ pub mod key_generation;
 pub mod key_import;
 pub mod lobby;
 pub mod composer;
+pub mod verify;
 
 pub use key_generation::handle_generate_new_key;
 pub use key_import::handle_import_key;
@@ -28,4 +29,11 @@ pub use composer::{
     handle_composer_set_send_callback,
     create_composer_with_state,
     get_send_result_message,
+};
+pub use verify::{
+    verify_message,
+    verify_chat_message,
+    VerificationResult,
+    create_invalid_signature_notification,
+    format_public_key,
 };
