@@ -6,6 +6,7 @@ pub mod lobby;
 pub mod composer;
 pub mod verify;
 pub mod offline;
+pub mod edge_cases;
 
 pub use key_generation::handle_generate_new_key;
 pub use key_import::handle_import_key;
