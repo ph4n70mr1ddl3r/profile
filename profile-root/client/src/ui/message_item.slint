@@ -1,0 +1,250 @@
+// MessageItem Component (Story 4.1)
+// Displays a single chat message with click-to-open-drill-down functionality
+//
+// Properties:
+//   - sender_key: Full sender public key
+//   - sender_key_short: Abbreviated key for display (first 8 chars + "... " + last 8)
+//   - message_content: The message text
+//   - timestamp: Formatted timestamp (HH:MM:SS)
+//   - is_self: Whether the message was sent by the current user
+//   - is_verified: Whether the message signature is verified
+//
+// Callbacks:
+//   - clicked: Triggered when user clicks on the message
+//
+// Features:
+//   - Cursor changes to pointer on hover
+//   - Tooltip appears on hover: "Click to view details"
+//   - Verification badge (✓ for verified, ⚠ for failed)
+//   - Distinct styling for self vs. other messages
+//   - Click propagation prevented (doesn't bubble to parent)
+//
+// Color System:
+//   - Self message background: #0066CC (blue)
+//   - Other message background: #111827 (dark surface)
+//   - Self text: #ffffff
+//   - Other text: #e0e0e0
+//   - Verified badge: #22c55e (green)
+//   - Unverified/Warning badge: #ef4444 (red)
+//   - Timestamp text: #888888
+
+export component MessageItem {
+    in property <string> sender_key;
+    in property <string> sender_key_short;
+    in property <string> message_content;
+    in property <string> timestamp;
+    in property <bool> is_self: false;
+    in property <bool> is_verified: true;
+
+    callback clicked;
+
+    // Forward focus for keyboard accessibility
+    forward-focus: touch_scope;
+
+    // Main container - clickable message bubble
+    Rectangle {
+        width: parent.width;
+        height: self_id.preferred_height + 24px;
+        background: is_self ? #0066CC : #111827;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: is_self ? #0077EE : #2a2a3a;
+
+        // Hover effect indicator
+        touch_hover := TouchArea {
+            width: parent.width;
+            height: parent.height;
+
+            // Cursor changes to pointer on hover
+            mouse-cursor: pointer;
+        }
+
+        // Layout for message content
+        VerticalLayout {
+            padding: 12px;
+            spacing: 4px;
+
+            // Header row: Key + Timestamp + Badge
+            HorizontalLayout {
+                spacing: 8px;
+
+                // Sender's abbreviated public key
+                Text {
+                    text: is_self ? "(You) " + root.sender_key_short : root.sender_key_short;
+                    font-family: "Consolas, Monaco, monospace";
+                    font-size: 11px;
+                    color: is_self ? #bbddff : #0066CC;
+                    vertical-alignment: center;
+                }
+
+                // Spacer
+                Rectangle {
+                    width: 1px;
+                    horizontal-stretch: 1;
+                }
+
+                // Timestamp
+                Text {
+                    text: root.timestamp;
+                    font-size: 11px;
+                    color: #888888;
+                    vertical-alignment: center;
+                }
+
+                // Verification badge (✓ or ⚠)
+                Rectangle {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 9px;
+                    background: root.is_verified ? #22c55e : #ef4444;
+
+                    Text {
+                        text: root.is_verified ? "✓" : "⚠";
+                        color: #ffffff;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Message content
+            self_id := Text {
+                text: root.message_content;
+                font-size: 14px;
+                color: is_self ? #ffffff : #e0e0e0;
+                wrap: word-wrap;
+                horizontal-alignment: left;
+            }
+        }
+
+        // Invisible overlay for tooltip on hover
+        Rectangle {
+            visible: touch_hover.has-hover;
+            width: parent.width;
+            height: parent.height;
+            z: 10;
+
+            // Tooltip indicator at top
+            Rectangle {
+                x: 12px;
+                y: 4px;
+                width: 120px;
+                height: 16px;
+                background: #333333;
+                border-radius: 4px;
+                opacity: 0.9;
+
+                Text {
+                    text: "Click to view details";
+                    font-size: 10px;
+                    color: #ffffff;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Click handler - triggers callback, prevents propagation
+        touch_scope := FocusScope {
+            width: parent.width;
+            height: parent.height;
+
+            touch_area := TouchArea {
+                width: parent.width;
+                height: parent.height;
+                mouse-cursor: pointer;
+
+                clicked => {
+                    root.clicked();
+                }
+            }
+        }
+    }
+}
+
+// MessageItemCompact - Simplified version for performance with many messages
+// Omits some visual polish for faster rendering
+export component MessageItemCompact {
+    in property <string> sender_key_short;
+    in property <string> message_content;
+    in property <string> timestamp;
+    in property <bool> is_self: false;
+    in property <bool> is_verified: true;
+
+    callback clicked;
+
+    forward-focus: touch_scope;
+
+    Rectangle {
+        width: parent.width;
+        height: 48px;
+        background: is_self ? #0066CC : #111827;
+        border-radius: 6px;
+
+        HorizontalLayout {
+            padding: 8px;
+            spacing: 8px;
+
+            Text {
+                text: is_self ? "(You)" : root.sender_key_short;
+                font-family: "monospace";
+                font-size: 11px;
+                color: is_self ? #bbddff : #0066CC;
+                width: 80px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.message_content;
+                font-size: 13px;
+                color: is_self ? #ffffff : #e0e0e0;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                width: 1px;
+                horizontal-stretch: 1;
+            }
+
+            Text {
+                text: root.timestamp;
+                font-size: 11px;
+                color: #888888;
+                vertical-alignment: center;
+            }
+
+            // Compact verification indicator
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background: root.is_verified ? #22c55e : #ef4444;
+
+                Text {
+                    text: root.is_verified ? "✓" : "⚠";
+                    color: #ffffff;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        touch_scope := FocusScope {
+            width: parent.width;
+            height: parent.height;
+
+            touch_area := TouchArea {
+                width: parent.width;
+                height: parent.height;
+                mouse-cursor: pointer;
+
+                clicked => {
+                    root.clicked();
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,301 @@
+// Drill-Down Modal Component (Story 4.1)
+// Displays message cryptographic details in a modal overlay
+//
+// Properties:
+//   - visible: Controls whether the modal is displayed
+//   - sender_key: Full sender public key to display
+//   - message_content: The message text
+//   - timestamp: Message timestamp (formatted)
+//   - signature: Full cryptographic signature (hex-encoded)
+//   - is_verified: Verification status (true = verified, false = failed)
+//
+// Callbacks:
+//   - close_requested: Triggered when user presses Escape or clicks X
+//
+// Features:
+//   - Centered modal overlay
+//   - Dimmed background (50% opacity overlay)
+//   - Close button (X) in top-right corner
+//   - Escape key closes modal
+//   - Focus trapping within modal
+//   - Backdrop click closes modal
+//
+// Color System:
+//   - Modal background: #1e1e2e (dark surface)
+//   - Overlay background: #000000 with 50% opacity
+//   - Text primary: #ffffff
+//   - Text secondary: #a0a0a0
+//   - Verified badge: #22c55e (green)
+//   - Warning badge: #ef4444 (red)
+//   - Close button: #ef4444 (red) on hover
+
+export component DrillDownModal {
+    in property <bool> is_visible: false;
+
+    // Message details to display (populated in Story 4.2)
+    in property <string> sender_key: "";
+    in property <string> message_content: "";
+    in property <string> timestamp: "";
+    in property <string> signature: "";
+    in property <bool> is_verified: false;
+
+    // Verification badge text
+    in property <string> verification_text: "";
+    in property <string> verification_explanation: "";
+
+    callback close_requested;
+
+    // Focus management for keyboard navigation
+    forward-focus: modal_scope;
+
+    // Modal container - only visible when is_visible property is true
+    Rectangle {
+        visible: root.is_visible;
+
+        // Dimmed overlay (backdrop)
+        Rectangle {
+            width: parent.width;
+            height: parent.height;
+            background: #000000;
+            opacity: 0.5;
+
+            // Click outside to close (backdrop click)
+            TouchArea {
+                clicked => {
+                    root.close_requested();
+                }
+            }
+        }
+
+        // Modal content (centered)
+        modal_scope := FocusScope {
+            x: (parent.width - 500px) / 2;
+            y: (parent.height - 400px) / 2;
+            width: 500px;
+            height: 400px;
+
+            // Keyboard event handling (Escape to close)
+            key-pressed(event) => {
+                // Check for Escape key using modifier + key combination
+                // Escape key typically sends an empty text with no modifiers
+                if (event.text == "" && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.shift) {
+                    root.close_requested();
+                    return accept;
+                }
+                return reject;
+            }
+
+            // Modal background
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: #1e1e2e;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: #3d3d5c;
+
+                // Header with title and close button
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    // Header row: Title + Close button
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "Message Details";
+                            font-size: 18px;
+                            font-weight: 700;
+                            color: #ffffff;
+                            vertical-alignment: center;
+                        }
+
+                        // Spacer to push close button to right
+                        Rectangle {
+                            width: 1px;
+                            horizontal-stretch: 1;
+                        }
+
+                        // Close button (X)
+                        close_button := FocusScope {
+                            width: 32px;
+                            height: 32px;
+
+                            Rectangle {
+                                width: parent.width;
+                                height: parent.height;
+                                background: close_button.has-focus ? #cc4444 : #ef4444;
+                                border-radius: 6px;
+                                border-width: close_button.has-focus ? 2px : 0px;
+                                border-color: #ff6666;
+
+                                Text {
+                                    text: "✕";
+                                    color: #ffffff;
+                                    font-size: 16px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            TouchArea {
+                                width: parent.width;
+                                height: parent.height;
+                                clicked => {
+                                    root.close_requested();
+                                }
+                            }
+
+                            accessible-role: button;
+                            accessible-label: "Close message details";
+                            accessible-description: "Press Enter, Space, or click to close the modal";
+
+                            key-pressed(event) => {
+                                if (event.text == "\n" || event.text == " ") {
+                                    root.close_requested();
+                                    return accept;
+                                }
+                                return reject;
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        height: 1px;
+                        background: #3d3d5c;
+                    }
+
+                    // Content area (placeholder for Story 4.2)
+                    VerticalLayout {
+                        spacing: 12px;
+
+                        // Sender's public key (Layer 1 - Always visible)
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            Text {
+                                text: "Sender's Public Key";
+                                font-size: 12px;
+                                color: #a0a0a0;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: root.sender_key;
+                                font-family: "Consolas, Monaco, monospace";
+                                font-size: 11px;
+                                color: #0066CC;
+                                wrap: word-wrap;
+                                horizontal-alignment: left;
+                            }
+                        }
+
+                        // Message content (Layer 1 - Always visible)
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            Text {
+                                text: "Message";
+                                font-size: 12px;
+                                color: #a0a0a0;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: root.message_content;
+                                font-size: 14px;
+                                color: #ffffff;
+                                wrap: word-wrap;
+                                horizontal-alignment: left;
+                            }
+                        }
+
+                        // Timestamp (Layer 1 - Always visible)
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            Text {
+                                text: "Timestamp";
+                                font-size: 12px;
+                                color: #a0a0a0;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: root.timestamp;
+                                font-size: 12px;
+                                color: #888888;
+                            }
+                        }
+
+                        // Verification status (Layer 3)
+                        VerticalLayout {
+                            spacing: 8px;
+                            padding-top: 8px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                // Verification badge
+                                Rectangle {
+                                    width: 24px;
+                                    height: 24px;
+                                    border-radius: 12px;
+                                    background: root.is_verified ? #22c55e : #ef4444;
+
+                                    Text {
+                                        text: root.is_verified ? "✓" : "⚠";
+                                        color: #ffffff;
+                                        font-size: 14px;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                Text {
+                                    text: root.verification_text;
+                                    font-size: 14px;
+                                    font-weight: 600;
+                                    color: root.is_verified ? #22c55e : #ef4444;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: root.verification_explanation;
+                                font-size: 12px;
+                                color: #a0a0a0;
+                                wrap: word-wrap;
+                                horizontal-alignment: left;
+                            }
+                        }
+
+                        // Signature placeholder (Layer 2 - Expandable, shown for now)
+                        VerticalLayout {
+                            spacing: 4px;
+                            padding-top: 8px;
+
+                            Text {
+                                text: "Cryptographic Signature";
+                                font-size: 12px;
+                                color: #a0a0a0;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: root.signature;
+                                font-family: "Consolas, Monaco, monospace";
+                                font-size: 10px;
+                                color: #888888;
+                                wrap: word-wrap;
+                                horizontal-alignment: left;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

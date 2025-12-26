@@ -430,5 +430,146 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // Drill-down modal callbacks (Story 4.1)
+    let ui_weak_drill_down_clicked = ui.as_weak();
+    let ui_weak_drill_down_close = ui.as_weak();
+
+    // Handle chat message click - opens drill-down modal
+    ui.on_chat_message_clicked(move |slot_index| {
+        let Some(ui) = ui_weak_drill_down_clicked.upgrade() else {
+            return;
+        };
+
+        // Get message details from the corresponding slot
+        let (sender_key, sender_key_short, content, timestamp, is_self, is_verified) = match slot_index {
+            1 => (
+                ui.get_chat_msg_1_sender_key().to_string(),
+                ui.get_chat_msg_1_sender_key_short().to_string(),
+                ui.get_chat_msg_1_content().to_string(),
+                ui.get_chat_msg_1_timestamp().to_string(),
+                ui.get_chat_msg_1_is_self(),
+                ui.get_chat_msg_1_is_verified(),
+            ),
+            2 => (
+                ui.get_chat_msg_2_sender_key().to_string(),
+                ui.get_chat_msg_2_sender_key_short().to_string(),
+                ui.get_chat_msg_2_content().to_string(),
+                ui.get_chat_msg_2_timestamp().to_string(),
+                ui.get_chat_msg_2_is_self(),
+                ui.get_chat_msg_2_is_verified(),
+            ),
+            3 => (
+                ui.get_chat_msg_3_sender_key().to_string(),
+                ui.get_chat_msg_3_sender_key_short().to_string(),
+                ui.get_chat_msg_3_content().to_string(),
+                ui.get_chat_msg_3_timestamp().to_string(),
+                ui.get_chat_msg_3_is_self(),
+                ui.get_chat_msg_3_is_verified(),
+            ),
+            4 => (
+                ui.get_chat_msg_4_sender_key().to_string(),
+                ui.get_chat_msg_4_sender_key_short().to_string(),
+                ui.get_chat_msg_4_content().to_string(),
+                ui.get_chat_msg_4_timestamp().to_string(),
+                ui.get_chat_msg_4_is_self(),
+                ui.get_chat_msg_4_is_verified(),
+            ),
+            5 => (
+                ui.get_chat_msg_5_sender_key().to_string(),
+                ui.get_chat_msg_5_sender_key_short().to_string(),
+                ui.get_chat_msg_5_content().to_string(),
+                ui.get_chat_msg_5_timestamp().to_string(),
+                ui.get_chat_msg_5_is_self(),
+                ui.get_chat_msg_5_is_verified(),
+            ),
+            6 => (
+                ui.get_chat_msg_6_sender_key().to_string(),
+                ui.get_chat_msg_6_sender_key_short().to_string(),
+                ui.get_chat_msg_6_content().to_string(),
+                ui.get_chat_msg_6_timestamp().to_string(),
+                ui.get_chat_msg_6_is_self(),
+                ui.get_chat_msg_6_is_verified(),
+            ),
+            7 => (
+                ui.get_chat_msg_7_sender_key().to_string(),
+                ui.get_chat_msg_7_sender_key_short().to_string(),
+                ui.get_chat_msg_7_content().to_string(),
+                ui.get_chat_msg_7_timestamp().to_string(),
+                ui.get_chat_msg_7_is_self(),
+                ui.get_chat_msg_7_is_verified(),
+            ),
+            8 => (
+                ui.get_chat_msg_8_sender_key().to_string(),
+                ui.get_chat_msg_8_sender_key_short().to_string(),
+                ui.get_chat_msg_8_content().to_string(),
+                ui.get_chat_msg_8_timestamp().to_string(),
+                ui.get_chat_msg_8_is_self(),
+                ui.get_chat_msg_8_is_verified(),
+            ),
+            9 => (
+                ui.get_chat_msg_9_sender_key().to_string(),
+                ui.get_chat_msg_9_sender_key_short().to_string(),
+                ui.get_chat_msg_9_content().to_string(),
+                ui.get_chat_msg_9_timestamp().to_string(),
+                ui.get_chat_msg_9_is_self(),
+                ui.get_chat_msg_9_is_verified(),
+            ),
+            10 => (
+                ui.get_chat_msg_10_sender_key().to_string(),
+                ui.get_chat_msg_10_sender_key_short().to_string(),
+                ui.get_chat_msg_10_content().to_string(),
+                ui.get_chat_msg_10_timestamp().to_string(),
+                ui.get_chat_msg_10_is_self(),
+                ui.get_chat_msg_10_is_verified(),
+            ),
+            _ => return, // Invalid slot index
+        };
+
+        // Set modal properties
+        ui.set_drill_down_sender_key(sender_key.clone().into());
+        ui.set_drill_down_message_content(content.clone().into());
+        ui.set_drill_down_timestamp(timestamp.clone().into());
+        ui.set_drill_down_is_verified(is_verified);
+
+        // Set verification text and explanation
+        if is_verified {
+            ui.set_drill_down_verification_text("Verified".into());
+            ui.set_drill_down_verification_explanation(
+                format!("This message came from the owner of the public key shown above.")
+                    .into()
+            );
+        } else {
+            ui.set_drill_down_verification_text("Not Verified".into());
+            ui.set_drill_down_verification_explanation(
+                "This message failed signature verification. It may have been tampered with."
+                    .into()
+            );
+        }
+
+        // Placeholder signature (full signature would come from message history)
+        ui.set_drill_down_signature("[Signature available in Story 4.2]".into());
+
+        // Show modal
+        ui.set_drill_down_modal_visible(true);
+    });
+
+    // Handle drill-down modal close (Escape or X button)
+    ui.on_drill_down_modal_close(move || {
+        let Some(ui) = ui_weak_drill_down_close.upgrade() else {
+            return;
+        };
+
+        // Hide modal
+        ui.set_drill_down_modal_visible(false);
+
+        // Clear modal properties
+        ui.set_drill_down_sender_key("".into());
+        ui.set_drill_down_message_content("".into());
+        ui.set_drill_down_timestamp("".into());
+        ui.set_drill_down_signature("".into());
+        ui.set_drill_down_verification_text("".into());
+        ui.set_drill_down_verification_explanation("".into());
+    });
+
     ui.run()
 }
