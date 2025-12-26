@@ -31,6 +31,11 @@ pub use composer::{
     create_composer_with_state,
     get_send_result_message,
 };
+pub use crate::state::composer::{
+    ConnectionState,
+    format_connection_notification,
+    clear_all_ephemeral_data,
+};
 pub use verify::{
     verify_message,
     verify_chat_message,
