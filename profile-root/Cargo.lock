@@ -3706,6 +3706,7 @@ name = "profile-client"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "chrono",
  "futures-util",
  "hex",
  "profile-shared",

@@ -3,6 +3,7 @@
 pub mod key_generation;
 pub mod key_import;
 pub mod lobby;
+pub mod composer;
 
 pub use key_generation::handle_generate_new_key;
 pub use key_import::handle_import_key;
@@ -17,4 +18,14 @@ pub use lobby::{
     get_lobby_user_count,
     get_lobby_selected_user,
 };
-
+pub use composer::{
+    handle_send_message,
+    handle_composer_text_change,
+    handle_composer_clear,
+    handle_composer_can_send,
+    handle_composer_get_draft,
+    handle_composer_set_status_callback,
+    handle_composer_set_send_callback,
+    create_composer_with_state,
+    get_send_result_message,
+};
