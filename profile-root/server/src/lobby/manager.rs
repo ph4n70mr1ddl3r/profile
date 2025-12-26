@@ -52,7 +52,7 @@ pub async fn add_user(
     drop(users); // Release lock before potential async broadcast
 
     // Broadcast events for lobby synchronization
-    // On reconnection, we only broadcast "joined" (not "left" then "joined")
+    // On reconnection, we broadcast "joined" (not "left" then "joined")
     // to avoid confusing UX where users see "X left" then immediately "X joined"
     // The reconnection naturally handles state updates without spurious notifications
     broadcast_user_joined(lobby, &key).await.map_err(|_| LobbyError::BroadcastFailed)?;

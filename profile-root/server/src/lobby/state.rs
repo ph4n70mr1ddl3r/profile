@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
 use profile_shared::{Message, LobbyError};
-use hex;
 
 /// Maximum number of users allowed in the lobby at once.
 ///
@@ -84,30 +83,7 @@ impl Lobby {
         let users = self.users.read().await;
         Ok(users.values().cloned().collect())
     }
-
-    // Compatibility methods for existing code that uses Vec<u8> public keys
-
-    /// Remove user by Vec<u8> key (compatibility method)
-    pub async fn remove_user_vec(&self, public_key: &[u8]) -> Result<(), LobbyError> {
-        let key_str = hex::encode(public_key);
-        self.remove_user(&key_str).await
-    }
-
-    /// Check if user exists by Vec<u8> key (compatibility method)
-    pub async fn user_exists_vec(&self, public_key: &[u8]) -> Result<bool, LobbyError> {
-        let key_str = hex::encode(public_key);
-        self.user_exists(&key_str).await
-    }
-
-    /// Get full lobby state as Vec<u8> keys (compatibility method)
-    pub async fn get_full_lobby_state_vec(&self) -> Result<Vec<Vec<u8>>, LobbyError> {
-        let users = self.users.read().await;
-        let online_users: Vec<Vec<u8>> = users.keys()
-            .map(|key| hex::decode(key).map_err(|_| LobbyError::InvalidPublicKey))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(online_users)
-    }
-    }
+}
 
 impl Default for Lobby {
     fn default() -> Self {

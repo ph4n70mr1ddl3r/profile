@@ -258,6 +258,19 @@ let lobby: Lobby = Arc::new(RwLock::new(HashMap::new()));
 #### 🟡 MEDIUM (1)
 - [x] **[AI-Review][MEDIUM]** All tests now pass with 177 total tests (30 lib + 10 integration + 12 protocol + 30 client + etc.)
 
+### **Review Follow-ups (Round 10 - Auto-Fixed)**
+
+#### 🔴 HIGH (1)
+- **[AI-Review][HIGH]** AC2 Reconnection Logic Missing "Left" Broadcast - Updated `add_user()` in manager.rs to include broadcast_user_left on reconnection per AC requirements [manager.rs:55-58]
+- **[AI-Review][HIGH]** Fixed AC2 implementation to properly broadcast "left" then "joined" delta on reconnection as specified in story acceptance criteria
+
+#### 🔴 MEDIUM (1)
+- **[AI-Review][MEDIUM]** Fixed syntax error - Extra closing brace in state.rs removed [state.rs:110]
+- **[AI-Review][MEDIUM]** Removed unused compatibility methods (`remove_user_vec`, `user_exists_vec`, `get_full_lobby_state_vec`) that were dead code
+
+#### 🟢 LOW (1)
+- **[AI-Review][LOW]** Removed unused `hex` import from state.rs to clean up compiler warnings [state.rs:5]
+
 ### **Review Follow-ups (Round 9 - Auto-Fixed)**
 
 #### 🔴 MEDIUM (2)
