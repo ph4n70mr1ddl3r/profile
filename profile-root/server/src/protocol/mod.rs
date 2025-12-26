@@ -58,7 +58,10 @@ impl CloseReason {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    /// Parse a close reason from string
+    /// Returns None if the string doesn't match a known close reason
+    #[allow(clippy::should_implement_trait)]
+    pub fn parse_close_reason(s: &str) -> Option<Self> {
         match s {
             "auth_failed" => Some(CloseReason::AuthFailed),
             "server_shutdown" => Some(CloseReason::ServerShutdown),
@@ -165,10 +168,10 @@ mod tests {
         assert_eq!(CloseReason::Timeout.as_str(), "timeout");
         assert_eq!(CloseReason::ClientDisconnect.as_str(), "client_disconnect");
 
-        assert_eq!(CloseReason::from_str("auth_failed"), Some(CloseReason::AuthFailed));
-        assert_eq!(CloseReason::from_str("server_shutdown"), Some(CloseReason::ServerShutdown));
-        assert_eq!(CloseReason::from_str("timeout"), Some(CloseReason::Timeout));
-        assert_eq!(CloseReason::from_str("client_disconnect"), Some(CloseReason::ClientDisconnect));
-        assert_eq!(CloseReason::from_str("unknown"), None);
+        assert_eq!(CloseReason::parse_close_reason("auth_failed"), Some(CloseReason::AuthFailed));
+        assert_eq!(CloseReason::parse_close_reason("server_shutdown"), Some(CloseReason::ServerShutdown));
+        assert_eq!(CloseReason::parse_close_reason("timeout"), Some(CloseReason::Timeout));
+        assert_eq!(CloseReason::parse_close_reason("client_disconnect"), Some(CloseReason::ClientDisconnect));
+        assert_eq!(CloseReason::parse_close_reason("unknown"), None);
     }
 }

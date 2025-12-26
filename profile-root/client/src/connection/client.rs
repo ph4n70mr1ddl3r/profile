@@ -253,7 +253,7 @@ impl WebSocketClient {
                         if let AuthResponse::Failed { reason, details: _ } = &response {
                             // Use error_display to map to user-friendly message
                             use crate::ui::error_display::display_connection_error;
-                            let user_message = display_connection_error(&reason);
+                            let user_message = display_connection_error(reason);
                             
                             // If no specific user message, provide generic auth failure
                             let final_message = if user_message.is_empty() || user_message.contains("Connection lost") {

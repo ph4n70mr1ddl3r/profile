@@ -8,9 +8,6 @@ use tokio::net::TcpListener;
 use profile_server::lobby::Lobby;
 use profile_server::connection;
 
-// Initialize tracing for structured logging
-use tracing_subscriber;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize tracing subscriber - logs go to stderr with structured format

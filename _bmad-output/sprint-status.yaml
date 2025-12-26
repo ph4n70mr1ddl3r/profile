@@ -33,5 +33,6 @@ test_coverage:
 notes:
   - "Epic 2 presence features fully implemented and tested"
   - "Story 2.4 completes the real-time presence system with both join AND leave notifications"
-  - "Story 2.4 passed adversarial code review on 2025-12-26 - all 7 issues fixed automatically"
-  - "Test coverage increased by 2 new tests for leave notifications (now 6 tests in leave_notification_tests.rs)"
+  - "Story 2.4 passed adversarial code review on 2025-12-26 - all issues fixed automatically"
+  - "Story 2.4 code review (2025-12-26 - Riddler): Fixed 6 documentation and Clippy issues"
+  - "Test coverage: 6 server tests + 9 client tests + 6 latency tests = 243 total tests"
