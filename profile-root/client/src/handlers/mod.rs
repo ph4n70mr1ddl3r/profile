@@ -5,6 +5,7 @@ pub mod key_import;
 pub mod lobby;
 pub mod composer;
 pub mod verify;
+pub mod offline;
 
 pub use key_generation::handle_generate_new_key;
 pub use key_import::handle_import_key;
@@ -36,4 +37,18 @@ pub use verify::{
     VerificationResult,
     create_invalid_signature_notification,
     format_public_key,
+};
+pub use offline::{
+    parse_offline_notification,
+    create_offline_notification,
+    OfflineNotification,
+    UndeliveredMessage,
+    SharedUndeliveredMessages,
+    create_shared_undelivered_messages,
+    add_undelivered_message,
+    get_undelivered_for_recipient,
+    clear_undelivered_for_recipient,
+    dismiss_notification,
+    format_notification_message,
+    create_undelivered_display_message,
 };

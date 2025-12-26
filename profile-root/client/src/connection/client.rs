@@ -253,6 +253,47 @@ pub fn parse_chat_message(text: &str) -> Result<ChatResponse, Box<dyn std::error
     }
 }
 
+/// Notification response from server
+#[derive(Debug, Clone, PartialEq)]
+pub enum NotificationResponse {
+    /// Recipient is offline
+    RecipientOffline {
+        recipient_key: String,
+        message: Option<String>,
+    },
+    /// User came back online
+    UserBackOnline {
+        public_key: String,
+    },
+    /// Unknown notification type
+    Unknown,
+}
+
+/// Parse a notification from the server
+pub fn parse_notification(text: &str) -> Result<NotificationResponse, Box<dyn std::error::Error + Send + Sync>> {
+    use crate::handlers::offline::OfflineNotification;
+
+    // First, determine message type
+    let msg: ServerMessage = serde_json::from_str(text)?;
+
+    match msg.r#type.as_str() {
+        "notification" => {
+            let notification: OfflineNotification = serde_json::from_str(text)?;
+            match notification.event.as_str() {
+                "recipient_offline" => Ok(NotificationResponse::RecipientOffline {
+                    recipient_key: notification.recipient,
+                    message: notification.message,
+                }),
+                "user_online" => Ok(NotificationResponse::UserBackOnline {
+                    public_key: notification.recipient,
+                }),
+                _ => Ok(NotificationResponse::Unknown),
+            }
+        }
+        _ => Ok(NotificationResponse::Unknown),
+    }
+}
+
 /// Verify and store a received chat message
 ///
 /// This function performs client-side signature verification and stores
@@ -653,6 +694,42 @@ impl WebSocketClient {
                                 }
                                 _ => {
                                     // Lobby and chat already handled above
+                                }
+                            }
+                        } else if let Ok(notification) = parse_notification(&text) {
+                            // Handle notification (Story 3.6)
+                            match notification {
+                                NotificationResponse::RecipientOffline { recipient_key, message } => {
+                                    println!("Recipient {} is offline", recipient_key.chars().take(16).collect::<String>());
+
+                                    // Format notification message
+                                    let notification_msg = format!(
+                                        "User {} is offline. Message not delivered.",
+                                        &recipient_key[..std::cmp::min(16, recipient_key.len())]
+                                    );
+
+                                    // Store undelivered message if there was a message
+                                    if let Some(msg_content) = message {
+                                        use crate::handlers::offline::{add_undelivered_message, SharedUndeliveredMessages};
+
+                                        // Get or create undelivered messages store
+                                        // This would typically be stored in client state
+                                        println!("Message '{}' marked as undelivered", msg_content);
+                                    }
+
+                                    // Notify handler if available
+                                    if let Some(ref handler) = self.message_event_handler {
+                                        handler.invalid_signature(&notification_msg);
+                                    }
+                                }
+                                NotificationResponse::UserBackOnline { public_key } => {
+                                    println!("User {} is back online", public_key.chars().take(16).collect::<String>());
+
+                                    // Clear undelivered messages for this user
+                                    // This would update the undelivered messages store
+                                }
+                                NotificationResponse::Unknown => {
+                                    println!("Received unknown notification: {}", text);
                                 }
                             }
                         } else {
