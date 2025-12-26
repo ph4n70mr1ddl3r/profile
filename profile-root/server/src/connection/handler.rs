@@ -140,11 +140,8 @@ pub async fn handle_connection(
             Ok(Message::Text(_text)) => {
                 // Handle future message types here (Story 3.x)
             }
-            Ok(Message::Close(frame)) => {
-                let _reason = frame.as_ref()
-                    .map(|f| f.reason.to_string())
-                    .unwrap_or_else(|| "Unknown".to_string());
-
+            Ok(Message::Close(_frame)) => {
+                // Log disconnect event with tracing (subscriber configured in main.rs)
                 tracing::info!(
                     "User {} disconnected, broadcasting leave notification",
                     authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
@@ -154,7 +151,7 @@ pub async fn handle_connection(
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
-                        eprintln!("❌ Failed to remove user from lobby: {}", e);
+                        tracing::error!("Failed to remove user from lobby: {}", e);
                     }
                 }
                 break;
@@ -165,13 +162,13 @@ pub async fn handle_connection(
                     authenticated_key.as_ref().map(|k| k.as_str()).unwrap_or("unknown")
                 );
 
-                eprintln!("❌ WebSocket error: {}", e);
+                tracing::error!("WebSocket error: {}", e);
 
                 // CRITICAL: Clean up lobby on error too using new API
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
                     if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
-                        eprintln!("❌ Failed to remove user from lobby: {}", e);
+                        tracing::error!("Failed to remove user from lobby: {}", e);
                     }
                 }
                 break;

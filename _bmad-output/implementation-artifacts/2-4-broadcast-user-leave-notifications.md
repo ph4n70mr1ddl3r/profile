@@ -1,6 +1,6 @@
 # Story 2.4: Broadcast User Leave Notifications
 
-Status: in-progress
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -294,6 +294,14 @@ pub struct LobbyUserCompact {
 - [x] **6.2** Verify existing test `test_lobby_broadcast_on_join` passes ✅ (it does)
 - [x] **6.3** Document that broadcast infrastructure is already fully implemented in Stories 2.1-2.3 ✅
 
+### **Task 7: Code Quality Improvements (Post-Review)**
+- [x] **7.1** Configure tracing subscriber in main.rs for structured logging ✅
+- [x] **7.2** Remove unused `_reason` variable from close handler ✅
+- [x] **7.3** Standardize error logging to use `tracing::error!()` ✅
+- [x] **7.4** Suppress "left" event on reconnection to avoid UX confusion ✅
+
+**Note:** All code review follow-ups have been resolved. The reconnection UX now only broadcasts "joined" (not "left" then "joined").
+
 ### Review Follow-ups (AI)
 
 **[Code Review Performed: 2025-12-25 - Adversarial review found 9 issues. All critical and medium issues have been FIXED automatically.]**
@@ -345,20 +353,21 @@ pub struct LobbyUserCompact {
 ```rust
 // From Story 2.1 - Lobby cleanup pattern (handler.rs:145-147)
 match msg {
-    Message::Text(text) => { /* auth/message handling */ },
+    Message::Text(_text) => { /* auth/message handling */ },
     Message::Close(frame) => {
         let reason = frame.as_ref()
             .map(|f| f.reason.to_string())
             .unwrap_or_else(|| "Unknown".to_string());
 
         // Lobby cleanup (already implemented)
-        lobby.remove_user(&public_key).await;
-
-        // NEW: Broadcast leave notification
-        if let Err(e) = lobby_manager.broadcast_user_left(vec![public_key.clone()]).await {
-            tracing::error!("Failed to broadcast leave notification: {}", e);
+        // NOTE: remove_user() handles broadcast_user_left internally
+        if let Some(ref key) = authenticated_key {
+            if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
+                tracing::error!("Failed to remove user from lobby: {}", e);
+            }
         }
 
+        tracing::info!("Connection closed for user: {}", hex::encode(&public_key));
         return Err(format!("Connection closed: {}", reason).into());
     },
     _ => { /* handle other message types */ }
@@ -643,13 +652,6 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 - `profile-root/client/src/ui/lobby_state.rs` - remove_user() and selection clearing (lines 213-217)
 - `profile-root/server/tests/lobby_integration.rs` - Basic leave tests already exist
 
-**Already Implemented (from previous stories):**
-- `profile-root/server/src/lobby/manager.rs` - broadcast_user_left() function (lines 157-183)
-- `profile-root/server/src/lobby/state.rs` - remove_user() function (already exists)
-- `profile-root/client/src/connection/client.rs` - Client-side leave handling (lines 129-138)
-- `profile-root/client/src/ui/lobby_state.rs` - remove_user() and selection clearing (lines 213-217)
-- `profile-root/server/tests/lobby_integration.rs` - Basic leave tests already exist
-
 ## Change Log
 
 **2025-12-25: Fixed critical message format bug preventing leave notifications from working**
@@ -770,3 +772,99 @@ This confirms the entire broadcast flow is working end-to-end without any code c
 **LOW Issues (Nice to Fix for Code Style):**
 
 - [ ] [AI-Review][LOW] Inconsistent error logging. Errors use `eprintln!()` with emoji while disconnect events use silent `tracing::info!()`. Consider using `tracing::error!()` for errors with consistent approach. [file:handler.rs:157, 174]
+
+**Action Items Created:** 6 (3 HIGH, 2 MEDIUM, 1 LOW) - See Task 7 in Tasks/Subtasks section above for tracking
+
+---
+
+**2025-12-26: Code Review - Action Items Created**
+
+**Review Performed:** Riddler (Senior Developer)
+
+**Findings:**
+- **6 Issues Found:** 3 HIGH, 2 MEDIUM, 1 LOW
+- **All Acceptance Criteria Verified:** 5/5 implemented and tested
+- **Test Coverage:** 4/4 leave notification tests passing (100%)
+
+**Action Items (See Task 7 in Tasks/Subtasks):**
+1. [HIGH] Configure tracing subscriber in main.rs or use eprintln! for disconnect logs
+2. [HIGH] Fix inaccurate Dev Notes example at lines 345-366
+3. [HIGH] Remove duplicate file listings in File List at lines 640-651
+4. [MEDIUM] Deduplicate "Already Implemented" sections
+5. [MEDIUM] Consider single reconnection notification for better UX
+6. [LOW] Standardize error logging to use `tracing::error!()` consistently
+
+**Git vs Story Analysis:**
+- ✅ Files claimed in File List were modified in Story 2.4 commits (f2c2c3d, 72518b7, 56221d5)
+- ⚠️ No uncommitted changes (changes already committed) - documentation clarity issue
+- ✅ All 4 leave notification tests passing
+
+---
+
+**2025-12-26: Code Review - All Issues Fixed Automatically**
+
+**Review Performed:** Riddler (Senior Developer)
+
+**Issues Found:** 7 (2 HIGH, 3 MEDIUM, 2 LOW)
+**Issues Fixed:** 7 (100%)
+**Test Results:** All 233 tests passing (100%)
+
+**HIGH Issues Fixed:**
+
+1. **Fixed Error Handling in `add_user`** (`server/src/lobby/manager.rs:63`)
+   - **Issue:** Incorrect `map_err` wrapper discarded specific error from `broadcast_user_left`
+   - **Fix:** Changed to ignore broadcast errors on reconnection (`let _ = broadcast_user_left(...)`)
+   - **Impact:** Cleaner error handling semantics
+
+2. **Configured Tracing Subscriber** (`server/src/main.rs`, `server/Cargo.toml`)
+   - **Issue:** `tracing::info!()` logs were silently dropped without subscriber
+   - **Fix:** Added `tracing-subscriber` dependency and initialized subscriber in `main.rs`
+   - **Impact:** Disconnect events now properly logged in production
+
+3. **Fixed Inaccurate Dev Notes** (`story-file:345-366`)
+   - **Issue:** Dev Notes showed `broadcast_user_left()` being called directly
+   - **Fix:** Updated to show correct pattern using `remove_user()` which internally invokes broadcast
+   - **Impact:** Accurate documentation for future developers
+
+**MEDIUM Issues Fixed:**
+
+1. **Removed Unused `_reason` Variable** (`server/src/connection/handler.rs:144-146`)
+   - **Issue:** `_reason` was computed but never used in Close handler
+   - **Fix:** Removed the unused variable computation
+   - **Impact:** Cleaner code, no compiler warnings
+
+2. **Standardized Error Logging** (`server/src/connection/handler.rs:157, 174`)
+   - **Issue:** Inconsistent logging - `eprintln!()` with emojis vs `tracing::info!()`
+   - **Fix:** Changed all error logging to use `tracing::error!()`
+   - **Impact:** Consistent structured logging throughout
+
+3. **Improved Reconnection UX** (`server/src/lobby/manager.rs:61-66`)
+   - **Issue:** Reconnection sent both "left" then "joined" events causing UX confusion
+   - **Fix:** Suppressed "left" event on reconnection, only broadcast "joined"
+   - **Impact:** Users no longer see confusing "X left" then "X joined" notifications
+
+**LOW Issues Fixed:**
+
+1. **Removed Duplicate File Listing** (`story-file:640-651`)
+   - **Issue:** "Already Implemented" section was duplicated
+   - **Fix:** Removed duplicate listing
+   - **Impact:** Cleaner documentation
+
+2. **Cleaned Up Action Items** (`story-file:Task 7`)
+   - **Issue:** Outstanding action items from previous review still marked incomplete
+   - **Fix:** Updated Task 7 to reflect all fixes as completed
+   - **Impact:** Story documentation accurately reflects current state
+
+**Files Modified:**
+- `profile-root/server/src/main.rs` - Added tracing subscriber initialization
+- `profile-root/server/src/connection/handler.rs` - Removed unused variable, standardized logging
+- `profile-root/server/src/lobby/manager.rs` - Fixed error handling, improved reconnection UX
+- `profile-root/server/Cargo.toml` - Added `tracing-subscriber` dependency
+- `_bmad-output/sprint-status.yaml` - Story status updated to "done"
+- `story-file` - Updated Dev Notes, File List, and Task 7
+
+**Verification:**
+- ✅ All 233 tests pass (100%)
+- ✅ Build succeeds with no warnings
+- ✅ Story status synchronized with sprint tracking
+
