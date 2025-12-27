@@ -167,6 +167,7 @@ pub fn create_undelivered_display_message(
         sender_key_short: format_public_key_short(&msg.recipient_key),
         content: msg.content.clone(),
         timestamp: crate::ui::chat::format_timestamp(&msg.timestamp),
+        signature: "".to_string(), // No signature for undelivered messages
         is_verified: false, // Undelivered = not verified
         is_self,
         original_timestamp: msg.timestamp.clone(),

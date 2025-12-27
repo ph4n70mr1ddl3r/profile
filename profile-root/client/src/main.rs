@@ -23,14 +23,27 @@ fn parse_clipboard_error(error: &str) -> String {
     if error.contains("0x80040154") || error.contains("REGDB_E_CLASSNOTREG") {
         return "Clipboard service not available.".to_string();
     }
-    
+
     // Generic clipboard errors
     if error.contains("clipboard") || error.contains("Clipboard") {
         return "Clipboard operation failed. Please try again.".to_string();
     }
-    
+
     // Fallback: return simplified version of error
     "Copy operation failed. Please try again.".to_string()
+}
+
+/// Copy text to system clipboard using arboard
+/// Returns Ok(()) on success, or Err(message) on failure
+fn copy_to_clipboard(text: &str) -> Result<(), String> {
+    match arboard::Clipboard::new() {
+        Ok(mut clipboard) => {
+            clipboard.set_text(text)
+                .map_err(|e| parse_clipboard_error(&e.to_string()))?;
+            Ok(())
+        }
+        Err(e) => Err(parse_clipboard_error(&e.to_string()))
+    }
 }
 
 /// Update lobby UI properties from lobby state
@@ -119,6 +132,238 @@ async fn update_lobby_ui(
     }
 }
 
+/// Update chat message UI slots from message history
+///
+/// This function reads messages from the history and updates the UI's
+/// slot-based properties (chat_msg_1_*, chat_msg_2_*, etc.) to display
+/// messages in the chat view. The UI uses fixed slots (up to 10 for MVP).
+///
+/// # Arguments
+///
+/// * `ui` - Reference to the Slint UI window
+/// * `message_history` - Reference to the shared message history
+/// * `my_public_key` - Current user's public key for self-detection
+async fn update_chat_messages_ui(
+    ui: &AppWindow,
+    message_history: &Arc<tokio::sync::Mutex<profile_client::state::MessageHistory>>,
+    my_public_key: &str,
+) {
+    use profile_client::ui::chat::format_timestamp;
+
+    let history = message_history.lock().await;
+    let messages: Vec<_> = history.messages().collect();
+    let message_count = messages.len().min(10);
+
+    // Update message count
+    ui.set_chat_message_count(message_count as i32);
+
+    // Clear all slots first
+    for i in 1..=10 {
+        match i {
+            1 => {
+                ui.set_chat_msg_1_sender_key("".into());
+                ui.set_chat_msg_1_sender_key_short("".into());
+                ui.set_chat_msg_1_content("".into());
+                ui.set_chat_msg_1_timestamp("".into());
+                ui.set_chat_msg_1_signature("".into());
+                ui.set_chat_msg_1_is_self(false);
+                ui.set_chat_msg_1_is_verified(true);
+            }
+            2 => {
+                ui.set_chat_msg_2_sender_key("".into());
+                ui.set_chat_msg_2_sender_key_short("".into());
+                ui.set_chat_msg_2_content("".into());
+                ui.set_chat_msg_2_timestamp("".into());
+                ui.set_chat_msg_2_signature("".into());
+                ui.set_chat_msg_2_is_self(false);
+                ui.set_chat_msg_2_is_verified(true);
+            }
+            3 => {
+                ui.set_chat_msg_3_sender_key("".into());
+                ui.set_chat_msg_3_sender_key_short("".into());
+                ui.set_chat_msg_3_content("".into());
+                ui.set_chat_msg_3_timestamp("".into());
+                ui.set_chat_msg_3_signature("".into());
+                ui.set_chat_msg_3_is_self(false);
+                ui.set_chat_msg_3_is_verified(true);
+            }
+            4 => {
+                ui.set_chat_msg_4_sender_key("".into());
+                ui.set_chat_msg_4_sender_key_short("".into());
+                ui.set_chat_msg_4_content("".into());
+                ui.set_chat_msg_4_timestamp("".into());
+                ui.set_chat_msg_4_signature("".into());
+                ui.set_chat_msg_4_is_self(false);
+                ui.set_chat_msg_4_is_verified(true);
+            }
+            5 => {
+                ui.set_chat_msg_5_sender_key("".into());
+                ui.set_chat_msg_5_sender_key_short("".into());
+                ui.set_chat_msg_5_content("".into());
+                ui.set_chat_msg_5_timestamp("".into());
+                ui.set_chat_msg_5_signature("".into());
+                ui.set_chat_msg_5_is_self(false);
+                ui.set_chat_msg_5_is_verified(true);
+            }
+            6 => {
+                ui.set_chat_msg_6_sender_key("".into());
+                ui.set_chat_msg_6_sender_key_short("".into());
+                ui.set_chat_msg_6_content("".into());
+                ui.set_chat_msg_6_timestamp("".into());
+                ui.set_chat_msg_6_signature("".into());
+                ui.set_chat_msg_6_is_self(false);
+                ui.set_chat_msg_6_is_verified(true);
+            }
+            7 => {
+                ui.set_chat_msg_7_sender_key("".into());
+                ui.set_chat_msg_7_sender_key_short("".into());
+                ui.set_chat_msg_7_content("".into());
+                ui.set_chat_msg_7_timestamp("".into());
+                ui.set_chat_msg_7_signature("".into());
+                ui.set_chat_msg_7_is_self(false);
+                ui.set_chat_msg_7_is_verified(true);
+            }
+            8 => {
+                ui.set_chat_msg_8_sender_key("".into());
+                ui.set_chat_msg_8_sender_key_short("".into());
+                ui.set_chat_msg_8_content("".into());
+                ui.set_chat_msg_8_timestamp("".into());
+                ui.set_chat_msg_8_signature("".into());
+                ui.set_chat_msg_8_is_self(false);
+                ui.set_chat_msg_8_is_verified(true);
+            }
+            9 => {
+                ui.set_chat_msg_9_sender_key("".into());
+                ui.set_chat_msg_9_sender_key_short("".into());
+                ui.set_chat_msg_9_content("".into());
+                ui.set_chat_msg_9_timestamp("".into());
+                ui.set_chat_msg_9_signature("".into());
+                ui.set_chat_msg_9_is_self(false);
+                ui.set_chat_msg_9_is_verified(true);
+            }
+            10 => {
+                ui.set_chat_msg_10_sender_key("".into());
+                ui.set_chat_msg_10_sender_key_short("".into());
+                ui.set_chat_msg_10_content("".into());
+                ui.set_chat_msg_10_timestamp("".into());
+                ui.set_chat_msg_10_signature("".into());
+                ui.set_chat_msg_10_is_self(false);
+                ui.set_chat_msg_10_is_verified(true);
+            }
+            _ => break,
+        }
+    }
+
+    // Populate slots with message data (up to 10 for MVP)
+    for (i, msg) in messages.iter().enumerate().take(10) {
+        let is_self = msg.sender_public_key == my_public_key;
+        let sender_key_short = if msg.sender_public_key.len() > 16 {
+            format!(
+                "{}...{}",
+                &msg.sender_public_key[..8],
+                &msg.sender_public_key[msg.sender_public_key.len() - 8..]
+            )
+        } else {
+            msg.sender_public_key.clone()
+        };
+        let timestamp = format_timestamp(&msg.timestamp);
+
+        match i {
+            0 => {
+                ui.set_chat_msg_1_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_1_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_1_content(msg.message.clone().into());
+                ui.set_chat_msg_1_timestamp(timestamp.into());
+                ui.set_chat_msg_1_signature(msg.signature.clone().into());
+                ui.set_chat_msg_1_is_self(is_self);
+                ui.set_chat_msg_1_is_verified(msg.is_verified);
+            }
+            1 => {
+                ui.set_chat_msg_2_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_2_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_2_content(msg.message.clone().into());
+                ui.set_chat_msg_2_timestamp(timestamp.into());
+                ui.set_chat_msg_2_signature(msg.signature.clone().into());
+                ui.set_chat_msg_2_is_self(is_self);
+                ui.set_chat_msg_2_is_verified(msg.is_verified);
+            }
+            2 => {
+                ui.set_chat_msg_3_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_3_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_3_content(msg.message.clone().into());
+                ui.set_chat_msg_3_timestamp(timestamp.into());
+                ui.set_chat_msg_3_signature(msg.signature.clone().into());
+                ui.set_chat_msg_3_is_self(is_self);
+                ui.set_chat_msg_3_is_verified(msg.is_verified);
+            }
+            3 => {
+                ui.set_chat_msg_4_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_4_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_4_content(msg.message.clone().into());
+                ui.set_chat_msg_4_timestamp(timestamp.into());
+                ui.set_chat_msg_4_signature(msg.signature.clone().into());
+                ui.set_chat_msg_4_is_self(is_self);
+                ui.set_chat_msg_4_is_verified(msg.is_verified);
+            }
+            4 => {
+                ui.set_chat_msg_5_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_5_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_5_content(msg.message.clone().into());
+                ui.set_chat_msg_5_timestamp(timestamp.into());
+                ui.set_chat_msg_5_signature(msg.signature.clone().into());
+                ui.set_chat_msg_5_is_self(is_self);
+                ui.set_chat_msg_5_is_verified(msg.is_verified);
+            }
+            5 => {
+                ui.set_chat_msg_6_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_6_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_6_content(msg.message.clone().into());
+                ui.set_chat_msg_6_timestamp(timestamp.into());
+                ui.set_chat_msg_6_signature(msg.signature.clone().into());
+                ui.set_chat_msg_6_is_self(is_self);
+                ui.set_chat_msg_6_is_verified(msg.is_verified);
+            }
+            6 => {
+                ui.set_chat_msg_7_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_7_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_7_content(msg.message.clone().into());
+                ui.set_chat_msg_7_timestamp(timestamp.into());
+                ui.set_chat_msg_7_signature(msg.signature.clone().into());
+                ui.set_chat_msg_7_is_self(is_self);
+                ui.set_chat_msg_7_is_verified(msg.is_verified);
+            }
+            7 => {
+                ui.set_chat_msg_8_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_8_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_8_content(msg.message.clone().into());
+                ui.set_chat_msg_8_timestamp(timestamp.into());
+                ui.set_chat_msg_8_signature(msg.signature.clone().into());
+                ui.set_chat_msg_8_is_self(is_self);
+                ui.set_chat_msg_8_is_verified(msg.is_verified);
+            }
+            8 => {
+                ui.set_chat_msg_9_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_9_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_9_content(msg.message.clone().into());
+                ui.set_chat_msg_9_timestamp(timestamp.into());
+                ui.set_chat_msg_9_signature(msg.signature.clone().into());
+                ui.set_chat_msg_9_is_self(is_self);
+                ui.set_chat_msg_9_is_verified(msg.is_verified);
+            }
+            9 => {
+                ui.set_chat_msg_10_sender_key(msg.sender_public_key.clone().into());
+                ui.set_chat_msg_10_sender_key_short(sender_key_short.into());
+                ui.set_chat_msg_10_content(msg.message.clone().into());
+                ui.set_chat_msg_10_timestamp(timestamp.into());
+                ui.set_chat_msg_10_signature(msg.signature.clone().into());
+                ui.set_chat_msg_10_is_self(is_self);
+                ui.set_chat_msg_10_is_verified(msg.is_verified);
+            }
+            _ => break,
+        }
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -134,12 +379,26 @@ fn main() -> Result<(), slint::PlatformError> {
     let lobby_state_nav_down = lobby_state.clone();
     let lobby_state_activate = lobby_state.clone();
 
+    // Message history initialization (Story 4.2)
+    let message_history = state::create_shared_message_history();
+    let _message_history_update = message_history.clone();
+    let message_history_select = message_history.clone();
+
     // Initial lobby UI update (empty state)
     let ui_weak_lobby_update = ui.as_weak();
     let lobby_state_init = lobby_state.clone();
     let _ = slint::spawn_local(async move {
         if let Some(ui) = ui_weak_lobby_update.upgrade() {
             update_lobby_ui(&ui, &lobby_state_init).await;
+        }
+    });
+
+    // Initial chat messages UI update (empty state)
+    let ui_weak_messages_update = ui.as_weak();
+    let message_history_init = message_history.clone();
+    let _ = slint::spawn_local(async move {
+        if let Some(ui) = ui_weak_messages_update.upgrade() {
+            update_chat_messages_ui(&ui, &message_history_init, "").await;
         }
     });
 
@@ -152,6 +411,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let ui_weak_lobby_nav_up = ui.as_weak();
     let ui_weak_lobby_nav_down = ui.as_weak();
     let ui_weak_lobby_activate = ui.as_weak();
+    let key_state_lobby_select = key_state.clone();
 
     // Re-entry guards to prevent race conditions from multiple button clicks
     let generating = Arc::new(AtomicBool::new(false));
@@ -339,15 +599,24 @@ fn main() -> Result<(), slint::PlatformError> {
         };
 
         let lobby_state = lobby_state_select.clone();
+        let message_history = message_history_select.clone();
+        let key_state = key_state_lobby_select.clone();
         let ui_weak = ui_weak_lobby_select.clone();
 
         let _ = slint::spawn_local(async move {
+            // Get user's public key for self-detection
+            let my_key = {
+                let state = key_state.lock().await;
+                state.public_key().map(hex::encode).unwrap_or_default()
+            };
+
             // Update lobby state selection
-            handlers::handle_lobby_user_select(&lobby_state, &public_key.to_string()).await;
+            handlers::handle_lobby_user_select(&lobby_state, public_key.as_str()).await;
 
             // Update UI to reflect selection
             if let Some(ui) = ui_weak.upgrade() {
                 update_lobby_ui(&ui, &lobby_state).await;
+                update_chat_messages_ui(&ui, &message_history, &my_key).await;
             }
         });
     });
@@ -430,9 +699,12 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // Drill-down modal callbacks (Story 4.1)
+    // Drill-down modal callbacks (Story 4.1 + 4.2)
     let ui_weak_drill_down_clicked = ui.as_weak();
     let ui_weak_drill_down_close = ui.as_weak();
+    let ui_weak_drill_down_copy_key = ui.as_weak();
+    let ui_weak_drill_down_copy_message = ui.as_weak();
+    let ui_weak_drill_down_copy_signature = ui.as_weak();
 
     // Handle chat message click - opens drill-down modal
     ui.on_chat_message_clicked(move |slot_index| {
@@ -441,12 +713,13 @@ fn main() -> Result<(), slint::PlatformError> {
         };
 
         // Get message details from the corresponding slot
-        let (sender_key, sender_key_short, content, timestamp, is_self, is_verified) = match slot_index {
+        let (sender_key, _sender_key_short, content, timestamp, signature, is_self, is_verified) = match slot_index {
             1 => (
                 ui.get_chat_msg_1_sender_key().to_string(),
                 ui.get_chat_msg_1_sender_key_short().to_string(),
                 ui.get_chat_msg_1_content().to_string(),
                 ui.get_chat_msg_1_timestamp().to_string(),
+                ui.get_chat_msg_1_signature().to_string(),
                 ui.get_chat_msg_1_is_self(),
                 ui.get_chat_msg_1_is_verified(),
             ),
@@ -455,6 +728,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_2_sender_key_short().to_string(),
                 ui.get_chat_msg_2_content().to_string(),
                 ui.get_chat_msg_2_timestamp().to_string(),
+                ui.get_chat_msg_2_signature().to_string(),
                 ui.get_chat_msg_2_is_self(),
                 ui.get_chat_msg_2_is_verified(),
             ),
@@ -463,6 +737,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_3_sender_key_short().to_string(),
                 ui.get_chat_msg_3_content().to_string(),
                 ui.get_chat_msg_3_timestamp().to_string(),
+                ui.get_chat_msg_3_signature().to_string(),
                 ui.get_chat_msg_3_is_self(),
                 ui.get_chat_msg_3_is_verified(),
             ),
@@ -471,6 +746,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_4_sender_key_short().to_string(),
                 ui.get_chat_msg_4_content().to_string(),
                 ui.get_chat_msg_4_timestamp().to_string(),
+                ui.get_chat_msg_4_signature().to_string(),
                 ui.get_chat_msg_4_is_self(),
                 ui.get_chat_msg_4_is_verified(),
             ),
@@ -479,6 +755,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_5_sender_key_short().to_string(),
                 ui.get_chat_msg_5_content().to_string(),
                 ui.get_chat_msg_5_timestamp().to_string(),
+                ui.get_chat_msg_5_signature().to_string(),
                 ui.get_chat_msg_5_is_self(),
                 ui.get_chat_msg_5_is_verified(),
             ),
@@ -487,6 +764,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_6_sender_key_short().to_string(),
                 ui.get_chat_msg_6_content().to_string(),
                 ui.get_chat_msg_6_timestamp().to_string(),
+                ui.get_chat_msg_6_signature().to_string(),
                 ui.get_chat_msg_6_is_self(),
                 ui.get_chat_msg_6_is_verified(),
             ),
@@ -495,6 +773,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_7_sender_key_short().to_string(),
                 ui.get_chat_msg_7_content().to_string(),
                 ui.get_chat_msg_7_timestamp().to_string(),
+                ui.get_chat_msg_7_signature().to_string(),
                 ui.get_chat_msg_7_is_self(),
                 ui.get_chat_msg_7_is_verified(),
             ),
@@ -503,6 +782,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_8_sender_key_short().to_string(),
                 ui.get_chat_msg_8_content().to_string(),
                 ui.get_chat_msg_8_timestamp().to_string(),
+                ui.get_chat_msg_8_signature().to_string(),
                 ui.get_chat_msg_8_is_self(),
                 ui.get_chat_msg_8_is_verified(),
             ),
@@ -511,6 +791,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_9_sender_key_short().to_string(),
                 ui.get_chat_msg_9_content().to_string(),
                 ui.get_chat_msg_9_timestamp().to_string(),
+                ui.get_chat_msg_9_signature().to_string(),
                 ui.get_chat_msg_9_is_self(),
                 ui.get_chat_msg_9_is_verified(),
             ),
@@ -519,6 +800,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_chat_msg_10_sender_key_short().to_string(),
                 ui.get_chat_msg_10_content().to_string(),
                 ui.get_chat_msg_10_timestamp().to_string(),
+                ui.get_chat_msg_10_signature().to_string(),
                 ui.get_chat_msg_10_is_self(),
                 ui.get_chat_msg_10_is_verified(),
             ),
@@ -529,15 +811,27 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_drill_down_sender_key(sender_key.clone().into());
         ui.set_drill_down_message_content(content.clone().into());
         ui.set_drill_down_timestamp(timestamp.clone().into());
+        ui.set_drill_down_signature(signature.clone().into());
         ui.set_drill_down_is_verified(is_verified);
 
         // Set verification text and explanation
         if is_verified {
             ui.set_drill_down_verification_text("Verified".into());
-            ui.set_drill_down_verification_explanation(
-                format!("This message came from the owner of the public key shown above.")
-                    .into()
-            );
+            if is_self {
+                ui.set_drill_down_verification_explanation(
+                    "This message came from your public key".into()
+                );
+            } else {
+                // Show abbreviated fingerprint (first 8 chars + "...")
+                let fingerprint = if sender_key.len() > 12 {
+                    format!("{}...{}", &sender_key[..8], &sender_key[sender_key.len()-4..])
+                } else {
+                    sender_key.clone()
+                };
+                ui.set_drill_down_verification_explanation(
+                    format!("This message came from {}", fingerprint).into()
+                );
+            }
         } else {
             ui.set_drill_down_verification_text("Not Verified".into());
             ui.set_drill_down_verification_explanation(
@@ -545,9 +839,6 @@ fn main() -> Result<(), slint::PlatformError> {
                     .into()
             );
         }
-
-        // Placeholder signature (full signature would come from message history)
-        ui.set_drill_down_signature("[Signature available in Story 4.2]".into());
 
         // Show modal
         ui.set_drill_down_modal_visible(true);
@@ -559,16 +850,142 @@ fn main() -> Result<(), slint::PlatformError> {
             return;
         };
 
-        // Hide modal
-        ui.set_drill_down_modal_visible(false);
-
-        // Clear modal properties
+        // Clear modal properties FIRST (prevents visual flicker)
         ui.set_drill_down_sender_key("".into());
         ui.set_drill_down_message_content("".into());
         ui.set_drill_down_timestamp("".into());
         ui.set_drill_down_signature("".into());
         ui.set_drill_down_verification_text("".into());
         ui.set_drill_down_verification_explanation("".into());
+        ui.set_drill_down_key_copied(false);
+        ui.set_drill_down_message_copied(false);
+        ui.set_drill_down_signature_copied(false);
+        ui.set_drill_down_key_error(false);
+        ui.set_drill_down_message_error(false);
+        ui.set_drill_down_signature_error(false);
+
+        // Hide modal AFTER properties are cleared
+        ui.set_drill_down_modal_visible(false);
+    });
+
+    // Handle copy public key from drill-down modal
+    ui.on_drill_down_copy_key(move || {
+        let Some(ui) = ui_weak_drill_down_copy_key.upgrade() else {
+            return;
+        };
+
+        let text_to_copy = ui.get_drill_down_sender_key().to_string();
+
+        // Attempt copy and show appropriate feedback
+        match copy_to_clipboard(&text_to_copy) {
+            Ok(()) => {
+                // Success: show "Copied!" feedback
+                ui.set_drill_down_key_error(false);
+                ui.set_drill_down_key_copied(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(1), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_key_copied(false);
+                        }
+                    });
+                });
+            }
+            Err(msg) => {
+                // Error: show "Error!" feedback for 2 seconds
+                ui.set_drill_down_key_copied(false);
+                ui.set_drill_down_key_error(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(2), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_key_error(false);
+                        }
+                    });
+                });
+                eprintln!("Clipboard error: {}", msg);
+            }
+        }
+    });
+
+    // Handle copy message content from drill-down modal
+    ui.on_drill_down_copy_message(move || {
+        let Some(ui) = ui_weak_drill_down_copy_message.upgrade() else {
+            return;
+        };
+
+        let text_to_copy = ui.get_drill_down_message_content().to_string();
+
+        // Attempt copy and show appropriate feedback
+        match copy_to_clipboard(&text_to_copy) {
+            Ok(()) => {
+                // Success: show "Copied!" feedback
+                ui.set_drill_down_message_error(false);
+                ui.set_drill_down_message_copied(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(1), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_message_copied(false);
+                        }
+                    });
+                });
+            }
+            Err(msg) => {
+                // Error: show "Error!" feedback for 2 seconds
+                ui.set_drill_down_message_copied(false);
+                ui.set_drill_down_message_error(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(2), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_message_error(false);
+                        }
+                    });
+                });
+                eprintln!("Clipboard error: {}", msg);
+            }
+        }
+    });
+
+    // Handle copy signature from drill-down modal
+    ui.on_drill_down_copy_signature(move || {
+        let Some(ui) = ui_weak_drill_down_copy_signature.upgrade() else {
+            return;
+        };
+
+        let text_to_copy = ui.get_drill_down_signature().to_string();
+
+        // Attempt copy and show appropriate feedback
+        match copy_to_clipboard(&text_to_copy) {
+            Ok(()) => {
+                // Success: show "Copied!" feedback
+                ui.set_drill_down_signature_error(false);
+                ui.set_drill_down_signature_copied(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(1), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_signature_copied(false);
+                        }
+                    });
+                });
+            }
+            Err(msg) => {
+                // Error: show "Error!" feedback for 2 seconds
+                ui.set_drill_down_signature_copied(false);
+                ui.set_drill_down_signature_error(true);
+                let ui_weak = ui.as_weak();
+                let _ = slint::spawn_local(async move {
+                    slint::Timer::single_shot(Duration::from_secs(2), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_drill_down_signature_error(false);
+                        }
+                    });
+                });
+                eprintln!("Clipboard error: {}", msg);
+            }
+        }
     });
 
     ui.run()

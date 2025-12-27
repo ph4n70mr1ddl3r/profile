@@ -1,16 +1,22 @@
-// Drill-Down Modal Component (Story 4.1)
+// Drill-Down Modal Component (Story 4.1 + 4.2)
 // Displays message cryptographic details in a modal overlay
 //
 // Properties:
-//   - visible: Controls whether the modal is displayed
+//   - is_visible: Controls whether the modal is displayed
 //   - sender_key: Full sender public key to display
 //   - message_content: The message text
 //   - timestamp: Message timestamp (formatted)
 //   - signature: Full cryptographic signature (hex-encoded)
 //   - is_verified: Verification status (true = verified, false = failed)
+//   - key_copied: Temporary state for copy button feedback (true = shows "Copied!")
+//   - message_copied: Temporary state for copy button feedback
+//   - signature_copied: Temporary state for copy button feedback
 //
 // Callbacks:
 //   - close_requested: Triggered when user presses Escape or clicks X
+//   - copy_key: Triggered when user clicks copy button for public key
+//   - copy_message: Triggered when user clicks copy button for message content
+//   - copy_signature: Triggered when user clicks copy button for signature
 //
 // Features:
 //   - Centered modal overlay
@@ -19,15 +25,19 @@
 //   - Escape key closes modal
 //   - Focus trapping within modal
 //   - Backdrop click closes modal
+//   - Copy buttons with visual feedback ("Copied!" for 1 second)
 //
 // Color System:
 //   - Modal background: #1e1e2e (dark surface)
 //   - Overlay background: #000000 with 50% opacity
 //   - Text primary: #ffffff
 //   - Text secondary: #a0a0a0
+//   - Public key: #0066CC (blue)
+//   - Signature text: #6b7280 (neutral gray)
 //   - Verified badge: #22c55e (green)
 //   - Warning badge: #ef4444 (red)
 //   - Close button: #ef4444 (red) on hover
+//   - Copy button: #6b7280 (gray), changes to #22c55e (green) when copied
 
 export component DrillDownModal {
     in property <bool> is_visible: false;
@@ -43,7 +53,18 @@ export component DrillDownModal {
     in property <string> verification_text: "";
     in property <string> verification_explanation: "";
 
+    // Copy button feedback states
+    in property <bool> key_copied: false;
+    in property <bool> message_copied: false;
+    in property <bool> signature_copied: false;
+    in property <bool> key_error: false;
+    in property <bool> message_error: false;
+    in property <bool> signature_error: false;
+
     callback close_requested;
+    callback copy_key;
+    callback copy_message;
+    callback copy_signature;
 
     // Focus management for keyboard navigation
     forward-focus: modal_scope;
@@ -97,6 +118,7 @@ export component DrillDownModal {
                 // Header with title and close button
                 VerticalLayout {
                     padding: 16px;
+                    padding-bottom: 0px;
                     spacing: 12px;
 
                     // Header row: Title + Close button
@@ -166,20 +188,79 @@ export component DrillDownModal {
                         height: 1px;
                         background: #3d3d5c;
                     }
+                }
 
-                    // Content area (placeholder for Story 4.2)
+                // Scrollable content area using Flickable
+                Flickable {
+                    vertical-stretch: 1;
+                    horizontal-stretch: 0;
+
+                    // Content area with copy buttons (Story 4.2)
                     VerticalLayout {
+                        padding: 16px;
+                        padding-top: 12px;
                         spacing: 12px;
 
                         // Sender's public key (Layer 1 - Always visible)
                         VerticalLayout {
                             spacing: 4px;
 
-                            Text {
-                                text: "Sender's Public Key";
-                                font-size: 12px;
-                                color: #a0a0a0;
-                                font-weight: 600;
+                            // Header with label and copy button
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Sender's Public Key";
+                                    font-size: 12px;
+                                    color: #a0a0a0;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+
+                                // Copy button for public key
+                                key_copy_button := FocusScope {
+                                    width: 60px;
+                                    height: 20px;
+
+                                    Rectangle {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        background: key_copy_button.has-focus ? #4444AA : (root.key_error ? #ef4444 : (root.key_copied ? #22c55e : #333333));
+                                        border-radius: 4px;
+                                        border-width: key_copy_button.has-focus ? 2px : 0px;
+                                        border-color: key_copy_button.has-focus ? #6666CC : transparent;
+
+                                        Text {
+                                            text: {
+                                                if (root.key_error) { "Error!" }
+                                                else if (root.key_copied) { "Copied!" }
+                                                else { "Copy" }
+                                            };
+                                            color: #ffffff;
+                                            font-size: 10px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    TouchArea {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        mouse-cursor: pointer;
+
+                                        clicked => {
+                                            root.copy_key();
+                                        }
+                                    }
+
+                                    key-pressed(event) => {
+                                        if (event.text == "\n" || event.text == " ") {
+                                            root.copy_key();
+                                            return accept;
+                                        }
+                                        return reject;
+                                    }
+                                }
                             }
 
                             Text {
@@ -196,11 +277,62 @@ export component DrillDownModal {
                         VerticalLayout {
                             spacing: 4px;
 
-                            Text {
-                                text: "Message";
-                                font-size: 12px;
-                                color: #a0a0a0;
-                                font-weight: 600;
+                            // Header with label and copy button
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Message";
+                                    font-size: 12px;
+                                    color: #a0a0a0;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+
+                                // Copy button for message
+                                message_copy_button := FocusScope {
+                                    width: 60px;
+                                    height: 20px;
+
+                                    Rectangle {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        background: message_copy_button.has-focus ? #4444AA : (root.message_error ? #ef4444 : (root.message_copied ? #22c55e : #333333));
+                                        border-radius: 4px;
+                                        border-width: message_copy_button.has-focus ? 2px : 0px;
+                                        border-color: message_copy_button.has-focus ? #6666CC : transparent;
+
+                                        Text {
+                                            text: {
+                                                if (root.message_error) { "Error!" }
+                                                else if (root.message_copied) { "Copied!" }
+                                                else { "Copy" }
+                                            };
+                                            color: #ffffff;
+                                            font-size: 10px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    TouchArea {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        mouse-cursor: pointer;
+
+                                        clicked => {
+                                            root.copy_message();
+                                        }
+                                    }
+
+                                    key-pressed(event) => {
+                                        if (event.text == "\n" || event.text == " ") {
+                                            root.copy_message();
+                                            return accept;
+                                        }
+                                        return reject;
+                                    }
+                                }
                             }
 
                             Text {
@@ -272,23 +404,74 @@ export component DrillDownModal {
                             }
                         }
 
-                        // Signature placeholder (Layer 2 - Expandable, shown for now)
+                        // Cryptographic Signature (Layer 2)
                         VerticalLayout {
                             spacing: 4px;
                             padding-top: 8px;
 
-                            Text {
-                                text: "Cryptographic Signature";
-                                font-size: 12px;
-                                color: #a0a0a0;
-                                font-weight: 600;
+                            // Header with label and copy button
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Cryptographic Signature";
+                                    font-size: 12px;
+                                    color: #a0a0a0;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+
+                                // Copy button for signature
+                                signature_copy_button := FocusScope {
+                                    width: 60px;
+                                    height: 20px;
+
+                                    Rectangle {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        background: signature_copy_button.has-focus ? #4444AA : (root.signature_error ? #ef4444 : (root.signature_copied ? #22c55e : #333333));
+                                        border-radius: 4px;
+                                        border-width: signature_copy_button.has-focus ? 2px : 0px;
+                                        border-color: signature_copy_button.has-focus ? #6666CC : transparent;
+
+                                        Text {
+                                            text: {
+                                                if (root.signature_error) { "Error!" }
+                                                else if (root.signature_copied) { "Copied!" }
+                                                else { "Copy" }
+                                            };
+                                            color: #ffffff;
+                                            font-size: 10px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    TouchArea {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        mouse-cursor: pointer;
+
+                                        clicked => {
+                                            root.copy_signature();
+                                        }
+                                    }
+
+                                    key-pressed(event) => {
+                                        if (event.text == "\n" || event.text == " ") {
+                                            root.copy_signature();
+                                            return accept;
+                                        }
+                                        return reject;
+                                    }
+                                }
                             }
 
                             Text {
                                 text: root.signature;
                                 font-family: "Consolas, Monaco, monospace";
                                 font-size: 10px;
-                                color: #888888;
+                                color: #6b7280;
                                 wrap: word-wrap;
                                 horizontal-alignment: left;
                             }

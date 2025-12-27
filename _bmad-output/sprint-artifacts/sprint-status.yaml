@@ -73,9 +73,9 @@ development_status:
   # ==================
   # EPIC 4: Transparency - Drill-Down Details & Signature Inspection
   # ==================
-  epic-4: backlog
-  "4-1-click-message-to-open-drill-down-modal": backlog
-  "4-2-display-message-details-in-drill-down-modal": backlog
+  epic-4: in-progress
+  "4-1-click-message-to-open-drill-down-modal": done
+  "4-2-display-message-details-in-drill-down-modal": review
   "4-3-verify-message-signature-in-modal": backlog
   "4-4-support-technical-signature-testing-validation": backlog
   epic-4-retrospective: optional

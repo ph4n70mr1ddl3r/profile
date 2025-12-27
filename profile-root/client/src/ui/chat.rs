@@ -22,6 +22,8 @@ pub struct DisplayMessage {
     pub content: String,
     /// Formatted timestamp (HH:MM:SS)
     pub timestamp: String,
+    /// The cryptographic signature (hex-encoded)
+    pub signature: String,
     /// Whether the message is verified
     pub is_verified: bool,
     /// Whether the message is from self
@@ -51,6 +53,7 @@ impl DisplayMessage {
             sender_key_short,
             content: msg.message.clone(),
             timestamp,
+            signature: msg.signature.clone(),
             is_verified: msg.is_verified,
             is_self,
             original_timestamp: msg.timestamp.clone(),

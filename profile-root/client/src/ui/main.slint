@@ -69,6 +69,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_1_sender_key_short: "";
     in property <string> chat_msg_1_content: "";
     in property <string> chat_msg_1_timestamp: "";
+    in property <string> chat_msg_1_signature: "";
     in property <bool> chat_msg_1_is_self: false;
     in property <bool> chat_msg_1_is_verified: true;
 
@@ -76,6 +77,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_2_sender_key_short: "";
     in property <string> chat_msg_2_content: "";
     in property <string> chat_msg_2_timestamp: "";
+    in property <string> chat_msg_2_signature: "";
     in property <bool> chat_msg_2_is_self: false;
     in property <bool> chat_msg_2_is_verified: true;
 
@@ -83,6 +85,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_3_sender_key_short: "";
     in property <string> chat_msg_3_content: "";
     in property <string> chat_msg_3_timestamp: "";
+    in property <string> chat_msg_3_signature: "";
     in property <bool> chat_msg_3_is_self: false;
     in property <bool> chat_msg_3_is_verified: true;
 
@@ -90,6 +93,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_4_sender_key_short: "";
     in property <string> chat_msg_4_content: "";
     in property <string> chat_msg_4_timestamp: "";
+    in property <string> chat_msg_4_signature: "";
     in property <bool> chat_msg_4_is_self: false;
     in property <bool> chat_msg_4_is_verified: true;
 
@@ -97,6 +101,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_5_sender_key_short: "";
     in property <string> chat_msg_5_content: "";
     in property <string> chat_msg_5_timestamp: "";
+    in property <string> chat_msg_5_signature: "";
     in property <bool> chat_msg_5_is_self: false;
     in property <bool> chat_msg_5_is_verified: true;
 
@@ -104,6 +109,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_6_sender_key_short: "";
     in property <string> chat_msg_6_content: "";
     in property <string> chat_msg_6_timestamp: "";
+    in property <string> chat_msg_6_signature: "";
     in property <bool> chat_msg_6_is_self: false;
     in property <bool> chat_msg_6_is_verified: true;
 
@@ -111,6 +117,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_7_sender_key_short: "";
     in property <string> chat_msg_7_content: "";
     in property <string> chat_msg_7_timestamp: "";
+    in property <string> chat_msg_7_signature: "";
     in property <bool> chat_msg_7_is_self: false;
     in property <bool> chat_msg_7_is_verified: true;
 
@@ -118,6 +125,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_8_sender_key_short: "";
     in property <string> chat_msg_8_content: "";
     in property <string> chat_msg_8_timestamp: "";
+    in property <string> chat_msg_8_signature: "";
     in property <bool> chat_msg_8_is_self: false;
     in property <bool> chat_msg_8_is_verified: true;
 
@@ -125,6 +133,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_9_sender_key_short: "";
     in property <string> chat_msg_9_content: "";
     in property <string> chat_msg_9_timestamp: "";
+    in property <string> chat_msg_9_signature: "";
     in property <bool> chat_msg_9_is_self: false;
     in property <bool> chat_msg_9_is_verified: true;
 
@@ -132,6 +141,7 @@ export component AppWindow inherits Window {
     in property <string> chat_msg_10_sender_key_short: "";
     in property <string> chat_msg_10_content: "";
     in property <string> chat_msg_10_timestamp: "";
+    in property <string> chat_msg_10_signature: "";
     in property <bool> chat_msg_10_is_self: false;
     in property <bool> chat_msg_10_is_verified: true;
 
@@ -144,6 +154,19 @@ export component AppWindow inherits Window {
     in property <bool> drill_down_is_verified: true;
     in property <string> drill_down_verification_text: "";
     in property <string> drill_down_verification_explanation: "";
+
+    // Drill-down modal copy button states (Story 4.2)
+    in property <bool> drill_down_key_copied: false;
+    in property <bool> drill_down_message_copied: false;
+    in property <bool> drill_down_signature_copied: false;
+    in property <bool> drill_down_key_error: false;
+    in property <bool> drill_down_message_error: false;
+    in property <bool> drill_down_signature_error: false;
+
+    // Drill-down modal copy callbacks (Story 4.2)
+    callback drill_down_copy_key;
+    callback drill_down_copy_message;
+    callback drill_down_copy_signature;
 
     // Callbacks that trigger Rust handlers
     callback generate_key_pressed;
@@ -491,9 +514,27 @@ export component AppWindow inherits Window {
             is_verified: root.drill_down_is_verified;
             verification_text: root.drill_down_verification_text;
             verification_explanation: root.drill_down_verification_explanation;
+            key_copied: root.drill_down_key_copied;
+            message_copied: root.drill_down_message_copied;
+            signature_copied: root.drill_down_signature_copied;
+            key_error: root.drill_down_key_error;
+            message_error: root.drill_down_message_error;
+            signature_error: root.drill_down_signature_error;
 
             close_requested => {
                 root.drill_down_modal_close();
+            }
+
+            copy_key => {
+                root.drill_down_copy_key();
+            }
+
+            copy_message => {
+                root.drill_down_copy_message();
+            }
+
+            copy_signature => {
+                root.drill_down_copy_signature();
             }
         }
     }
