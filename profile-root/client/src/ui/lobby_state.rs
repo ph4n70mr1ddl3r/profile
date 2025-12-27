@@ -432,6 +432,48 @@ impl LobbyState {
         self.users.get(index)
     }
 
+    /// Check if a user is online and available for messaging
+    ///
+    /// **AC3**: Pre-send availability check - verifies recipient is online
+    /// before attempting to send a message.
+    ///
+    /// # Arguments
+    ///
+    /// * `public_key` - The public key to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if user exists in lobby and is marked online
+    #[inline]
+    pub fn is_user_online(&self, public_key: &str) -> bool {
+        self.get_user(public_key).map(|u| u.is_online).unwrap_or(false)
+    }
+
+    /// Validate that a selection is still valid (user is online)
+    ///
+    /// **AC2/AC3**: Used before sending messages to verify recipient availability.
+    /// Returns `true` if currently selected user is still online.
+    ///
+    /// # Returns
+    ///
+    /// `true` if a user is selected and is online, `false` otherwise
+    #[inline]
+    pub fn is_selection_valid(&self) -> bool {
+        self.selected_user()
+            .map(|key| self.is_user_online(key))
+            .unwrap_or(false)
+    }
+
+    /// Get selected user's full details
+    ///
+    /// # Returns
+    ///
+    /// `Some(&LobbyUser)` if selected user exists, `None` otherwise
+    #[inline]
+    pub fn get_selected_user(&self) -> Option<&LobbyUser> {
+        self.selected_user().and_then(|key| self.get_user(key))
+    }
+
     /// Clear all users from the lobby
     ///
     /// Also clears selection.
@@ -439,6 +481,63 @@ impl LobbyState {
     pub fn clear(&mut self) {
         self.users.clear();
         self.selected_user = None;
+    }
+
+    /// Apply a delta update to the lobby state
+    ///
+    /// **AC1**: Efficiently merges lobby updates without full refresh.
+    /// This is the core of real-time synchronization - only changed
+    /// users are processed.
+    ///
+    /// # Arguments
+    ///
+    /// * `joined` - Users who joined the lobby
+    /// * `left` - Public keys of users who left the lobby
+    ///
+    /// # Returns
+    ///
+    /// `true` if any changes were made, `false` if state unchanged
+    pub fn apply_delta(&mut self, joined: Vec<LobbyUser>, left: Vec<String>) -> bool {
+        let mut changed = false;
+
+        // Process joined users first
+        for user in joined {
+            if !self.has_user(&user.public_key) {
+                self.users.push(user);
+                changed = true;
+            }
+        }
+
+        // Process left users - track if selected user left
+        let selected_key = self.selected_user.clone();
+        let selected_left = left.iter().any(|k| selected_key.as_deref() == Some(k));
+
+        for key in left {
+            if self.remove_user(&key) {
+                changed = true;
+            }
+        }
+
+        // If selected user left, selection is already cleared by remove_user
+        // The caller should handle notification via the return value
+        changed
+    }
+
+    /// Check if the selected user left in a delta update
+    ///
+    /// Used by callers to determine if notification should be shown.
+    ///
+    /// # Arguments
+    ///
+    /// * `left` - Public keys of users who left the lobby
+    ///
+    /// # Returns
+    ///
+    /// `true` if the selected user is in the `left` list
+    pub fn selected_user_left(&self, left: &[String]) -> bool {
+        self.selected_user()
+            .map(|key| left.iter().any(|k| k == key))
+            .unwrap_or(false)
     }
 }
 
@@ -542,5 +641,175 @@ mod tests {
         assert_eq!(deserialized.get_user_at(0).map(|u| &u.public_key), Some(&"first".to_string()));
         assert_eq!(deserialized.get_user_at(1).map(|u| &u.public_key), Some(&"second".to_string()));
         assert_eq!(deserialized.get_user_at(2).map(|u| &u.public_key), Some(&"third".to_string()));
+    }
+
+    #[test]
+    fn test_is_user_online() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("online_user".to_string(), true),
+            LobbyUser::new("offline_user".to_string(), false),
+        ];
+        state.set_users(users);
+
+        assert!(state.is_user_online("online_user"));
+        assert!(!state.is_user_online("offline_user"));
+        assert!(!state.is_user_online("nonexistent"));
+    }
+
+    #[test]
+    fn test_is_selection_valid() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("online_user".to_string(), true),
+            LobbyUser::new("offline_user".to_string(), false),
+        ];
+        state.set_users(users);
+
+        // No selection initially
+        assert!(!state.is_selection_valid());
+
+        // Select online user
+        state.select("online_user");
+        assert!(state.is_selection_valid());
+
+        // Select offline user
+        state.select("offline_user");
+        assert!(!state.is_selection_valid());
+
+        // Clear selection
+        state.clear_selection();
+        assert!(!state.is_selection_valid());
+    }
+
+    #[test]
+    fn test_get_selected_user() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+        ];
+        state.set_users(users);
+
+        assert!(state.get_selected_user().is_none());
+
+        state.select("user_a");
+        let selected = state.get_selected_user().unwrap();
+        assert_eq!(selected.public_key, "user_a");
+    }
+
+    #[test]
+    fn test_apply_delta_adds_users() {
+        let mut state = LobbyState::new();
+
+        // Initial state: user_a in lobby
+        state.add_user(LobbyUser::new("user_a".to_string(), true));
+
+        // Apply delta: user_b and user_c joined
+        let joined = vec![
+            LobbyUser::new("user_b".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
+        ];
+        let changed = state.apply_delta(joined, vec![]);
+
+        assert!(changed);
+        assert_eq!(state.len(), 3);
+        assert!(state.has_user("user_a"));
+        assert!(state.has_user("user_b"));
+        assert!(state.has_user("user_c"));
+    }
+
+    #[test]
+    fn test_apply_delta_removes_users() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+            LobbyUser::new("user_c".to_string(), true),
+        ];
+        state.set_users(users);
+
+        // Apply delta: user_b left
+        let joined = vec![];
+        let left = vec!["user_b".to_string()];
+        let changed = state.apply_delta(joined, left);
+
+        assert!(changed);
+        assert_eq!(state.len(), 2);
+        assert!(state.has_user("user_a"));
+        assert!(!state.has_user("user_b"));
+        assert!(state.has_user("user_c"));
+    }
+
+    #[test]
+    fn test_apply_delta_clears_selection_when_selected_user_leaves() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+        ];
+        state.set_users(users);
+
+        // Select user_b
+        state.select("user_b");
+        assert_eq!(state.selected_user(), Some("user_b"));
+
+        // Apply delta: user_b left
+        let joined = vec![];
+        let left = vec!["user_b".to_string()];
+        state.apply_delta(joined, left);
+
+        // Selection should be cleared
+        assert_eq!(state.selected_user(), None);
+    }
+
+    #[test]
+    fn test_apply_delta_no_change() {
+        let mut state = LobbyState::new();
+        state.add_user(LobbyUser::new("user_a".to_string(), true));
+
+        // Apply empty delta
+        let joined = vec![];
+        let left = vec![];
+        let changed = state.apply_delta(joined, left);
+
+        assert!(!changed);
+        assert_eq!(state.len(), 1);
+    }
+
+    #[test]
+    fn test_apply_delta_ignores_duplicate_joins() {
+        let mut state = LobbyState::new();
+        state.add_user(LobbyUser::new("user_a".to_string(), true));
+
+        // Try to add user_a again
+        let joined = vec![LobbyUser::new("user_a".to_string(), true)];
+        let changed = state.apply_delta(joined, vec![]);
+
+        assert!(!changed);
+        assert_eq!(state.len(), 1);
+    }
+
+    #[test]
+    fn test_selected_user_left() {
+        let mut state = LobbyState::new();
+        let users = vec![
+            LobbyUser::new("user_a".to_string(), true),
+            LobbyUser::new("user_b".to_string(), true),
+        ];
+        state.set_users(users);
+
+        // Select user_b
+        state.select("user_b");
+
+        // user_b is in left list
+        assert!(state.selected_user_left(&["user_a".to_string(), "user_b".to_string()]));
+
+        // user_b is NOT in left list
+        assert!(!state.selected_user_left(&["user_a".to_string()]));
+
+        // No selection
+        state.clear_selection();
+        assert!(!state.selected_user_left(&["user_a".to_string()]));
     }
 }

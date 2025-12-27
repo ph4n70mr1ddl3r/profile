@@ -60,7 +60,7 @@ development_status:
   2-2-query-display-current-online-user-list: done
   2-3-broadcast-user-join-notifications: done
   2-4-broadcast-user-leave-notifications: review
-  2-5-real-time-lobby-synchronization: backlog
+  2-5-real-time-lobby-synchronization: review
   epic-2-retrospective: optional
 
   # ==================

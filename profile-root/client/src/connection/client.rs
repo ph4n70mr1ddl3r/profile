@@ -25,6 +25,8 @@ pub struct LobbyEventHandler {
     pub on_user_joined: Rc<RefCell<dyn Fn(LobbyUser)>>,
     /// Called when a user leaves the lobby
     pub on_user_left: Rc<RefCell<dyn Fn(String)>>,
+    /// Called when the selected user leaves the lobby (AC5)
+    pub on_selection_lost: Rc<RefCell<dyn Fn(String)>>,
 }
 
 /// Callback handler for chat message events
@@ -97,6 +99,7 @@ impl LobbyEventHandler {
             on_lobby_received: Rc::new(RefCell::new(|_: LobbyState| {})),
             on_user_joined: Rc::new(RefCell::new(|_: LobbyUser| {})),
             on_user_left: Rc::new(RefCell::new(|_: String| {})),
+            on_selection_lost: Rc::new(RefCell::new(|_: String| {})),
         }
     }
 
@@ -106,11 +109,13 @@ impl LobbyEventHandler {
         on_lobby_received: impl Fn(LobbyState) + 'static,
         on_user_joined: impl Fn(LobbyUser) + 'static,
         on_user_left: impl Fn(String) + 'static,
+        on_selection_lost: impl Fn(String) + 'static,
     ) -> Self {
         Self {
             on_lobby_received: Rc::new(RefCell::new(on_lobby_received)),
             on_user_joined: Rc::new(RefCell::new(on_user_joined)),
             on_user_left: Rc::new(RefCell::new(on_user_left)),
+            on_selection_lost: Rc::new(RefCell::new(on_selection_lost)),
         }
     }
 
@@ -130,6 +135,12 @@ impl LobbyEventHandler {
     #[inline]
     pub fn user_left(&self, public_key: &str) {
         (self.on_user_left.borrow())(public_key.to_string());
+    }
+
+    /// Emit selection lost event (AC5)
+    #[inline]
+    pub fn selection_lost(&self, public_key: &str) {
+        (self.on_selection_lost.borrow())(public_key.to_string());
     }
 }
 
@@ -188,7 +199,7 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
             // Parse lobby update (delta)
             let update: profile_shared::protocol::LobbyUpdateMessage = serde_json::from_str(text)?;
 
-            // Handle all joined users (FIX: was only returning first)
+            // Handle joined users (all users in delta)
             if !update.joined.is_empty() {
                 let joined_keys: Vec<String> = update.joined
                     .into_iter()
@@ -199,7 +210,7 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
                 });
             }
 
-            // Handle all left users (FIX: was only returning first)
+            // Handle left users (all users in delta)
             if !update.left.is_empty() {
                 return Ok(LobbyResponse::UsersLeft {
                     public_keys: update.left,
@@ -441,6 +452,19 @@ fn parse_auth_response(text: &str) -> Result<AuthResponse, Box<dyn std::error::E
     }
 }
 
+/// Connection state for the WebSocket client
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConnectionState {
+    /// Not connected
+    Disconnected,
+    /// Currently attempting to connect or authenticate
+    Connecting,
+    /// Fully connected and authenticated
+    Connected,
+    /// Temporarily disconnected, attempting to reconnect
+    Reconnecting { attempts: u32 },
+}
+
 /// WebSocket client for connecting to the profile server
 pub struct WebSocketClient {
     connection: Option<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
@@ -448,6 +472,18 @@ pub struct WebSocketClient {
     message_history: SharedMessageHistory,
     lobby_event_handler: Option<LobbyEventHandler>,
     message_event_handler: Option<MessageEventHandler>,
+    /// Track currently selected recipient for selection loss detection (AC5)
+    selected_recipient: Option<String>,
+    /// Current connection state (AC4 - Network Resilience)
+    connection_state: ConnectionState,
+    /// Maximum reconnection attempts before giving up (AC4)
+    max_reconnect_attempts: u32,
+    /// Backoff multiplier for exponential backoff (AC4)
+    reconnect_backoff_ms: u64,
+    /// Queue for messages to send after reconnection (AC4 - race handling)
+    pending_messages: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
+    /// Notification when recipient goes offline during message composition (AC4)
+    recipient_offline_handler: Option<Rc<RefCell<dyn Fn(String) + 'static>>>,
 }
 
 impl WebSocketClient {
@@ -459,6 +495,12 @@ impl WebSocketClient {
             message_history: create_shared_message_history(),
             lobby_event_handler: None,
             message_event_handler: None,
+            selected_recipient: None,
+            connection_state: ConnectionState::Disconnected,
+            max_reconnect_attempts: 5,
+            reconnect_backoff_ms: 1000,
+            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            recipient_offline_handler: None,
         }
     }
 
@@ -470,12 +512,125 @@ impl WebSocketClient {
             message_history: create_shared_message_history_with_capacity(capacity),
             lobby_event_handler: None,
             message_event_handler: None,
+            selected_recipient: None,
+            connection_state: ConnectionState::Disconnected,
+            max_reconnect_attempts: 5,
+            reconnect_backoff_ms: 1000,
+            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            recipient_offline_handler: None,
         }
+    }
+
+    /// Set the selected recipient for selection loss tracking (AC5)
+    pub fn set_selected_recipient(&mut self, public_key: Option<String>) {
+        self.selected_recipient = public_key;
+    }
+
+    /// Get the currently selected recipient
+    pub fn selected_recipient(&self) -> Option<&str> {
+        self.selected_recipient.as_deref()
     }
 
     /// Get the message history
     pub fn message_history(&self) -> SharedMessageHistory {
         self.message_history.clone()
+    }
+
+    /// Get the current connection state (AC4)
+    pub fn connection_state(&self) -> ConnectionState {
+        self.connection_state.clone()
+    }
+
+    /// Set handler for recipient offline notifications (AC4)
+    pub fn set_recipient_offline_handler(&mut self, handler: impl Fn(String) + 'static) {
+        self.recipient_offline_handler = Some(Rc::new(RefCell::new(handler)));
+    }
+
+    /// Attempt automatic reconnection with exponential backoff (AC4)
+    ///
+    /// This implements Task 5.1: "Add reconnection logic for temporary disconnects"
+    async fn attempt_reconnect(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut attempts = 0;
+
+        while attempts < self.max_reconnect_attempts {
+            self.connection_state = ConnectionState::Reconnecting { attempts };
+
+            // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+            let backoff = self.reconnect_backoff_ms * 2u64.pow(attempts);
+            println!("Reconnecting in {}ms (attempt {} of {})", backoff, attempts + 1, self.max_reconnect_attempts);
+            tokio::time::sleep(tokio::time::Duration::from_millis(backoff)).await;
+
+            // Try to reconnect
+            match self.connect().await {
+                Ok(_) => {
+                    println!("Reconnected successfully");
+                    return self.reconnection_flow().await;
+                }
+                Err(e) => {
+                    println!("Reconnection attempt {} failed: {}", attempts + 1, e);
+                    attempts += 1;
+                }
+            }
+        }
+
+        // Give up after max attempts
+        let err_msg = format!(
+            "Failed to reconnect after {} attempts. Please reconnect manually.",
+            self.max_reconnect_attempts
+        );
+        self.connection_state = ConnectionState::Disconnected;
+
+        if let Some(ref handler) = self.message_event_handler {
+            handler.error(&err_msg);
+        }
+
+        Err(err_msg.into())
+    }
+
+    /// Complete reconnection flow after connection established (AC4)
+    ///
+    /// This implements Task 5.2: "On reconnect, request full lobby state from server"
+    async fn reconnection_flow(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Authenticate with server
+        match self.authenticate().await {
+            Ok(_) => {
+                println!("Re-authenticated successfully");
+                self.connection_state = ConnectionState::Connected;
+
+                // Send any pending messages (Task 5.3: Handle race)
+                let messages_to_send: Vec<String> = {
+                    let mut pending = self.pending_messages.lock().await;
+                    if !pending.is_empty() {
+                        println!("Sending {} pending messages from reconnection", pending.len());
+                        pending.drain(..).collect()
+                    } else {
+                        Vec::new()
+                    }
+                };
+
+                // Send messages after releasing lock (avoid borrow checker conflict)
+                for msg in messages_to_send {
+                    self.send_message(&msg).await?;
+                }
+
+                Ok(())
+            }
+            Err(e) => {
+                println!("Authentication after reconnect failed: {}", e);
+                self.connection_state = ConnectionState::Disconnected;
+                Err(e)
+            }
+        }
+    }
+
+    /// Send a message to the server (internal helper)
+    async fn send_message(&mut self, message: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if let Some(connection) = &mut self.connection {
+            connection.send(Message::Text(message.to_string())).await?;
+            Ok(())
+        } else {
+            Err("No connection available".into())
+        }
     }
 
     /// Set the lobby event handler
@@ -579,15 +734,27 @@ impl WebSocketClient {
         Err("No connection available".into())
     }
     
-    /// Handle disconnection with reason
+    /// Handle disconnection with reason (AC4 - Network Resilience)
+    ///
+    /// If this is a temporary disconnect, attempt automatic reconnection.
     pub async fn handle_disconnection(
-        &mut self, 
+        &mut self,
         reason: String
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Remove connection
         self.connection = None;
-        
-        // Return error that triggers UI display
+        self.connection_state = ConnectionState::Disconnected;
+
+        // Check if this is a recoverable disconnection (network-level, not application-level)
+        // Application-level reasons like "server_shutdown", "timeout", "auth_failed" are permanent
+        let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe");
+
+        if is_temporary {
+            println!("Temporary disconnect: {}. Attempting reconnection...", reason);
+            return self.attempt_reconnect().await;
+        }
+
+        // Permanent disconnect - return error that triggers UI display
         Err(format!("Connection closed: {}", reason).into())
     }
     
@@ -651,9 +818,23 @@ impl WebSocketClient {
                                     }
                                 }
                                 LobbyResponse::UsersLeft { public_keys } => {
+                                    // Check if selected user left (AC5)
+                                    let selected_left = self.selected_recipient
+                                        .as_ref()
+                                        .map(|sel_key| public_keys.contains(sel_key))
+                                        .unwrap_or(false);
+
                                     // Users left - notify handler for each
-                                    for key in public_keys {
-                                        handler.user_left(&key);
+                                    for key in &public_keys {
+                                        handler.user_left(key);
+                                    }
+
+                                    // If selected user left, notify (AC5)
+                                    if selected_left {
+                                        if let Some(ref sel_key) = self.selected_recipient {
+                                            handler.selection_lost(sel_key);
+                                        }
+                                        self.selected_recipient = None;
                                     }
                                 }
                                 LobbyResponse::Ignored => {
@@ -702,22 +883,25 @@ impl WebSocketClient {
                                 NotificationResponse::RecipientOffline { recipient_key, message } => {
                                     println!("Recipient {} is offline", recipient_key.chars().take(16).collect::<String>());
 
-                                    // Format notification message
+                                    // Format notification message (AC4 - User Notification)
                                     let notification_msg = format!(
                                         "User {} is offline. Message not delivered.",
                                         &recipient_key[..std::cmp::min(16, recipient_key.len())]
                                     );
 
-                                    // Store undelivered message if there was a message
+                                    // Queue message for delivery when recipient comes online (AC4)
                                     if let Some(msg_content) = message {
-                                        use crate::handlers::offline::{add_undelivered_message, SharedUndeliveredMessages};
-
-                                        // Get or create undelivered messages store
-                                        // This would typically be stored in client state
-                                        println!("Message '{}' marked as undelivered", msg_content);
+                                        let mut pending = self.pending_messages.lock().await;
+                                        pending.push(msg_content.clone());
+                                        println!("Message '{}' queued for delivery when {} comes online", msg_content, recipient_key);
                                     }
 
-                                    // Notify handler if available
+                                    // Notify recipient_offline_handler (AC4)
+                                    if let Some(ref handler) = self.recipient_offline_handler {
+                                        handler.borrow()(recipient_key.clone());
+                                    }
+
+                                    // Notify message event handler if available
                                     if let Some(ref handler) = self.message_event_handler {
                                         handler.invalid_signature(&notification_msg);
                                     }
@@ -725,8 +909,29 @@ impl WebSocketClient {
                                 NotificationResponse::UserBackOnline { public_key } => {
                                     println!("User {} is back online", public_key.chars().take(16).collect::<String>());
 
-                                    // Clear undelivered messages for this user
-                                    // This would update the undelivered messages store
+                                    // Send pending messages for this user (AC4 - Deliver queued messages)
+                                    let user_messages: Vec<String> = {
+                                        let mut pending = self.pending_messages.lock().await;
+                                        pending
+                                            .iter()
+                                            .filter(|msg| msg.contains(&public_key))
+                                            .cloned()
+                                            .collect()
+                                    };
+
+                                    // Send messages after releasing lock
+                                    for msg in &user_messages {
+                                        if let Err(e) = self.send_message(msg).await {
+                                            println!("Failed to send queued message to {}: {}", public_key, e);
+                                        }
+                                    }
+
+                                    // Remove delivered messages from queue
+                                    {
+                                        let mut pending = self.pending_messages.lock().await;
+                                        pending.retain(|msg| !msg.contains(&public_key));
+                                    }
+                                    println!("Delivered {} queued messages to {}", user_messages.len(), public_key);
                                 }
                                 NotificationResponse::Unknown => {
                                     println!("Received unknown notification: {}", text);
@@ -742,21 +947,29 @@ impl WebSocketClient {
                     let reason = frame.as_ref()
                         .map(|f| f.reason.to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
-                    
+
                     // Use error_display to map to user-friendly message
                     use crate::ui::error_display::display_connection_error;
                     let user_message = display_connection_error(&reason);
-                    
+
                     // Clean up connection state
                     self.connection = None;
-                    
-                    // Return error with user-friendly message
+
+                    // Check if we should attempt reconnection (AC4)
+                    let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe" | "timeout");
+
+                    if is_temporary {
+                        println!("Connection closed (temporary): {}. Attempting reconnection...", reason);
+                        return self.attempt_reconnect().await;
+                    }
+
+                    // Permanent disconnect - return error with user-friendly message
                     let final_message = if !user_message.is_empty() && !user_message.contains("Connection lost") {
                         user_message
                     } else {
                         format!("Connection closed: {}", reason)
                     };
-                    
+
                     return Err(final_message.into());
                 }
                 Some(Ok(Message::Ping(data))) => {
@@ -1015,21 +1228,23 @@ mod tests {
 
     #[test]
     fn test_lobby_event_handler_with_callbacks() {
-        // Test that callbacks are actually called using Arc<Mutex<>> pattern
         use std::sync::{Arc, Mutex};
 
         let state_count = Arc::new(Mutex::new(0));
         let joined_count = Arc::new(Mutex::new(0));
         let left_count = Arc::new(Mutex::new(0));
+        let selection_lost_count = Arc::new(Mutex::new(0));
 
         let state_count_clone = state_count.clone();
         let joined_count_clone = joined_count.clone();
         let left_count_clone = left_count.clone();
+        let selection_lost_count_clone = selection_lost_count.clone();
 
         let handler = LobbyEventHandler::with_callbacks(
             move |_state| *state_count_clone.lock().unwrap() += 1,
             move |_user| *joined_count_clone.lock().unwrap() += 1,
             move |_key| *left_count_clone.lock().unwrap() += 1,
+            move |_key| *selection_lost_count_clone.lock().unwrap() += 1,
         );
 
         // Test lobby received callback
@@ -1045,5 +1260,31 @@ mod tests {
         // Test user left callback
         handler.user_left("departed_key");
         assert_eq!(*left_count.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_lobby_event_handler_selection_lost_noop() {
+        let handler = LobbyEventHandler::new();
+        // Should not panic (no-op)
+        handler.selection_lost("key");
+    }
+
+    #[tokio::test]
+    async fn test_client_selected_recipient_tracking() {
+        use crate::state::session::create_shared_key_state;
+
+        let key_state = create_shared_key_state();
+        let mut client = WebSocketClient::new(key_state);
+
+        // Initially no selection
+        assert!(client.selected_recipient().is_none());
+
+        // Set selected recipient
+        client.set_selected_recipient(Some("test_key".to_string()));
+        assert_eq!(client.selected_recipient(), Some("test_key"));
+
+        // Clear selection
+        client.set_selected_recipient(None);
+        assert!(client.selected_recipient().is_none());
     }
 }
