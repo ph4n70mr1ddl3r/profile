@@ -12,8 +12,6 @@
 use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 use crate::state::messages::{ChatMessage, MessageHistory};
 use crate::ui::chat::format_timestamp;
-use zeroize::Zeroizing;
-use hex;
 
 /// Test unicode message handling
 mod unicode_tests {
@@ -360,6 +358,7 @@ mod binary_validation_tests {
     }
 
     /// Simple UTF-8 validation
+    #[allow(dead_code)]
     fn is_valid_utf8(s: &str) -> bool {
         std::str::from_utf8(s.as_bytes()).is_ok()
     }

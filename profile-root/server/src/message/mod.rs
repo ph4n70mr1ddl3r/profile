@@ -18,8 +18,6 @@ use profile_shared::verify_signature;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use std::collections::HashMap;
 
 /// Result of message validation
 #[derive(Debug, Clone, PartialEq)]
@@ -86,7 +84,7 @@ pub async fn handle_incoming_message(
     // AC1 Step 1: Check sender is authenticated (has active connection in lobby)
     // This is guaranteed by the handler - only authenticated users can send messages
     // But we double-check to be safe
-    let sender_connection = match get_sender_connection(lobby, sender_public_key).await {
+    let _sender_connection = match get_sender_connection(lobby, sender_public_key).await {
         Some(conn) => conn,
         None => {
             tracing::warn!(sender = %sender_public_key, "Sender not found in lobby - rejecting message");
@@ -243,7 +241,7 @@ pub async fn route_message(lobby: &Lobby, validated: &MessageValidationResult) -
             };
 
             // Serialize and send
-            let json = serde_json::to_string(&outbound_message)
+            let _json = serde_json::to_string(&outbound_message)
                 .map_err(|e| format!("Failed to serialize message: {}", e))?;
 
             // Send via the recipient's WebSocket sender

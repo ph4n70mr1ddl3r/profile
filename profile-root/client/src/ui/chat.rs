@@ -3,11 +3,10 @@
 //! This module provides components for displaying chat messages
 //! in chronological order with formatted timestamps.
 
-use crate::state::messages::{ChatMessage, MessageHistory, SharedMessageHistory};
-use crate::ui::lobby_state::LobbyUser;
+use crate::state::messages::{ChatMessage, SharedMessageHistory};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use chrono::{DateTime, Utc, Timelike};
+use chrono::{DateTime, Timelike};
 
 /// Formatted message for display
 #[derive(Debug, Clone)]

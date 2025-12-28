@@ -6,8 +6,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::state::messages::ChatMessage;
-use crate::ui::chat::SharedChatView;
 
 /// Notification type from server
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

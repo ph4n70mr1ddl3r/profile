@@ -911,7 +911,7 @@ impl WebSocketClient {
 
                                     // Send pending messages for this user (AC4 - Deliver queued messages)
                                     let user_messages: Vec<String> = {
-                                        let mut pending = self.pending_messages.lock().await;
+                                        let pending = self.pending_messages.lock().await;
                                         pending
                                             .iter()
                                             .filter(|msg| msg.contains(&public_key))

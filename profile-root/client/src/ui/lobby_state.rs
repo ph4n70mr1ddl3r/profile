@@ -510,7 +510,7 @@ impl LobbyState {
 
         // Process left users - track if selected user left
         let selected_key = self.selected_user.clone();
-        let selected_left = left.iter().any(|k| selected_key.as_deref() == Some(k));
+        let _selected_left = left.iter().any(|k| selected_key.as_deref() == Some(k));
 
         for key in left {
             if self.remove_user(&key) {
