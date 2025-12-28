@@ -77,12 +77,12 @@ development_status:
   3-8-handle-message-composition-edge-cases: backlog
   epic-3-retrospective: optional
 
-  # ==================
-  # EPIC 4: Transparency - Drill-Down Details & Signature Inspection
-  # ==================
-  epic-4: in-progress
-  4-1-click-message-to-open-drill-down-modal: backlog
-  4-2-display-message-details-in-drill-down-modal: backlog
-  4-3-verify-message-signature-in-modal: review
-  4-4-support-technical-signature-testing-validation: backlog
-  epic-4-retrospective: optional
+    # ==================
+    # EPIC 4: Transparency - Drill-Down Details & Signature Inspection
+    # ==================
+    epic-4: in-progress
+    4-1-click-message-to-open-drill-down-modal: backlog
+    4-2-display-message-details-in-drill-down-modal: backlog
+    4-3-verify-message-signature-in-modal: done
+    4-4-support-technical-signature-testing-validation: backlog
+    epic-4-retrospective: optional
