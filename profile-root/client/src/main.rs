@@ -132,234 +132,231 @@ async fn update_lobby_ui(
     }
 }
 
-/// Update chat message UI slots from message history
+/// Update chat message UI slots from message history using ChatUi
 ///
-/// This function reads messages from the history and updates the UI's
-/// slot-based properties (chat_msg_1_*, chat_msg_2_*, etc.) to display
-/// messages in the chat view. The UI uses fixed slots (up to 10 for MVP).
-///
-/// # Arguments
-///
-/// * `ui` - Reference to the Slint UI window
-/// * `message_history` - Reference to the shared message history
-/// * `my_public_key` - Current user's public key for self-detection
+/// This function creates a ChatUi instance and uses it to update the UI.
 async fn update_chat_messages_ui(
     ui: &AppWindow,
     message_history: &Arc<tokio::sync::Mutex<profile_client::state::MessageHistory>>,
     my_public_key: &str,
 ) {
-    use profile_client::ui::chat::format_timestamp;
+    use profile_client::ui::chat::{ChatView, DisplayMessage, ChatUi};
+
+    // Create a ChatUi bridge for this UI instance
+    let chat_ui = ChatUi::new(AppWindowChatBridge(ui.clone()));
 
     let history = message_history.lock().await;
     let messages: Vec<_> = history.messages().collect();
     let message_count = messages.len().min(10);
 
-    // Update message count
-    ui.set_chat_message_count(message_count as i32);
+    // Build a ChatView from the history
+    let mut chat_view = ChatView::new();
+    for msg in messages.iter().take(10) {
+        let is_self = msg.sender_public_key == my_public_key;
+        chat_view.messages.push(DisplayMessage::from_chat_message(msg, is_self));
+    }
 
-    // Clear all slots first
-    for i in 1..=10 {
-        match i {
+    // Update the UI
+    chat_ui.update(&chat_view);
+}
+
+/// ChatUiBridge implementation for AppWindow
+struct AppWindowChatBridge(AppWindow);
+
+impl profile_client::ui::chat::ChatUiBridge for AppWindowChatBridge {
+    fn set_chat_message_count(&self, count: i32) {
+        self.0.set_chat_message_count(count);
+    }
+
+    fn update_message_slot(&self, index: usize, msg: &profile_client::ui::chat::DisplayMessage) {
+        match index {
             1 => {
-                ui.set_chat_msg_1_sender_key("".into());
-                ui.set_chat_msg_1_sender_key_short("".into());
-                ui.set_chat_msg_1_content("".into());
-                ui.set_chat_msg_1_timestamp("".into());
-                ui.set_chat_msg_1_signature("".into());
-                ui.set_chat_msg_1_is_self(false);
-                ui.set_chat_msg_1_is_verified(true);
+                self.0.set_chat_msg_1_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_1_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_1_content(msg.content.clone().into());
+                self.0.set_chat_msg_1_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_1_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_1_is_self(msg.is_self);
+                self.0.set_chat_msg_1_is_verified(msg.is_verified);
             }
             2 => {
-                ui.set_chat_msg_2_sender_key("".into());
-                ui.set_chat_msg_2_sender_key_short("".into());
-                ui.set_chat_msg_2_content("".into());
-                ui.set_chat_msg_2_timestamp("".into());
-                ui.set_chat_msg_2_signature("".into());
-                ui.set_chat_msg_2_is_self(false);
-                ui.set_chat_msg_2_is_verified(true);
+                self.0.set_chat_msg_2_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_2_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_2_content(msg.content.clone().into());
+                self.0.set_chat_msg_2_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_2_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_2_is_self(msg.is_self);
+                self.0.set_chat_msg_2_is_verified(msg.is_verified);
             }
             3 => {
-                ui.set_chat_msg_3_sender_key("".into());
-                ui.set_chat_msg_3_sender_key_short("".into());
-                ui.set_chat_msg_3_content("".into());
-                ui.set_chat_msg_3_timestamp("".into());
-                ui.set_chat_msg_3_signature("".into());
-                ui.set_chat_msg_3_is_self(false);
-                ui.set_chat_msg_3_is_verified(true);
+                self.0.set_chat_msg_3_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_3_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_3_content(msg.content.clone().into());
+                self.0.set_chat_msg_3_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_3_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_3_is_self(msg.is_self);
+                self.0.set_chat_msg_3_is_verified(msg.is_verified);
             }
             4 => {
-                ui.set_chat_msg_4_sender_key("".into());
-                ui.set_chat_msg_4_sender_key_short("".into());
-                ui.set_chat_msg_4_content("".into());
-                ui.set_chat_msg_4_timestamp("".into());
-                ui.set_chat_msg_4_signature("".into());
-                ui.set_chat_msg_4_is_self(false);
-                ui.set_chat_msg_4_is_verified(true);
+                self.0.set_chat_msg_4_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_4_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_4_content(msg.content.clone().into());
+                self.0.set_chat_msg_4_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_4_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_4_is_self(msg.is_self);
+                self.0.set_chat_msg_4_is_verified(msg.is_verified);
             }
             5 => {
-                ui.set_chat_msg_5_sender_key("".into());
-                ui.set_chat_msg_5_sender_key_short("".into());
-                ui.set_chat_msg_5_content("".into());
-                ui.set_chat_msg_5_timestamp("".into());
-                ui.set_chat_msg_5_signature("".into());
-                ui.set_chat_msg_5_is_self(false);
-                ui.set_chat_msg_5_is_verified(true);
+                self.0.set_chat_msg_5_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_5_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_5_content(msg.content.clone().into());
+                self.0.set_chat_msg_5_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_5_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_5_is_self(msg.is_self);
+                self.0.set_chat_msg_5_is_verified(msg.is_verified);
             }
             6 => {
-                ui.set_chat_msg_6_sender_key("".into());
-                ui.set_chat_msg_6_sender_key_short("".into());
-                ui.set_chat_msg_6_content("".into());
-                ui.set_chat_msg_6_timestamp("".into());
-                ui.set_chat_msg_6_signature("".into());
-                ui.set_chat_msg_6_is_self(false);
-                ui.set_chat_msg_6_is_verified(true);
+                self.0.set_chat_msg_6_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_6_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_6_content(msg.content.clone().into());
+                self.0.set_chat_msg_6_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_6_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_6_is_self(msg.is_self);
+                self.0.set_chat_msg_6_is_verified(msg.is_verified);
             }
             7 => {
-                ui.set_chat_msg_7_sender_key("".into());
-                ui.set_chat_msg_7_sender_key_short("".into());
-                ui.set_chat_msg_7_content("".into());
-                ui.set_chat_msg_7_timestamp("".into());
-                ui.set_chat_msg_7_signature("".into());
-                ui.set_chat_msg_7_is_self(false);
-                ui.set_chat_msg_7_is_verified(true);
+                self.0.set_chat_msg_7_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_7_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_7_content(msg.content.clone().into());
+                self.0.set_chat_msg_7_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_7_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_7_is_self(msg.is_self);
+                self.0.set_chat_msg_7_is_verified(msg.is_verified);
             }
             8 => {
-                ui.set_chat_msg_8_sender_key("".into());
-                ui.set_chat_msg_8_sender_key_short("".into());
-                ui.set_chat_msg_8_content("".into());
-                ui.set_chat_msg_8_timestamp("".into());
-                ui.set_chat_msg_8_signature("".into());
-                ui.set_chat_msg_8_is_self(false);
-                ui.set_chat_msg_8_is_verified(true);
+                self.0.set_chat_msg_8_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_8_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_8_content(msg.content.clone().into());
+                self.0.set_chat_msg_8_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_8_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_8_is_self(msg.is_self);
+                self.0.set_chat_msg_8_is_verified(msg.is_verified);
             }
             9 => {
-                ui.set_chat_msg_9_sender_key("".into());
-                ui.set_chat_msg_9_sender_key_short("".into());
-                ui.set_chat_msg_9_content("".into());
-                ui.set_chat_msg_9_timestamp("".into());
-                ui.set_chat_msg_9_signature("".into());
-                ui.set_chat_msg_9_is_self(false);
-                ui.set_chat_msg_9_is_verified(true);
+                self.0.set_chat_msg_9_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_9_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_9_content(msg.content.clone().into());
+                self.0.set_chat_msg_9_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_9_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_9_is_self(msg.is_self);
+                self.0.set_chat_msg_9_is_verified(msg.is_verified);
             }
             10 => {
-                ui.set_chat_msg_10_sender_key("".into());
-                ui.set_chat_msg_10_sender_key_short("".into());
-                ui.set_chat_msg_10_content("".into());
-                ui.set_chat_msg_10_timestamp("".into());
-                ui.set_chat_msg_10_signature("".into());
-                ui.set_chat_msg_10_is_self(false);
-                ui.set_chat_msg_10_is_verified(true);
+                self.0.set_chat_msg_10_sender_key(msg.sender_key.clone().into());
+                self.0.set_chat_msg_10_sender_key_short(msg.sender_key_short.clone().into());
+                self.0.set_chat_msg_10_content(msg.content.clone().into());
+                self.0.set_chat_msg_10_timestamp(msg.timestamp.clone().into());
+                self.0.set_chat_msg_10_signature(msg.signature.clone().into());
+                self.0.set_chat_msg_10_is_self(msg.is_self);
+                self.0.set_chat_msg_10_is_verified(msg.is_verified);
             }
-            _ => break,
+            _ => {}
         }
     }
 
-    // Populate slots with message data (up to 10 for MVP)
-    for (i, msg) in messages.iter().enumerate().take(10) {
-        let is_self = msg.sender_public_key == my_public_key;
-        let sender_key_short = if msg.sender_public_key.len() > 16 {
-            format!(
-                "{}...{}",
-                &msg.sender_public_key[..8],
-                &msg.sender_public_key[msg.sender_public_key.len() - 8..]
-            )
-        } else {
-            msg.sender_public_key.clone()
-        };
-        let timestamp = format_timestamp(&msg.timestamp);
-
-        match i {
-            0 => {
-                ui.set_chat_msg_1_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_1_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_1_content(msg.message.clone().into());
-                ui.set_chat_msg_1_timestamp(timestamp.into());
-                ui.set_chat_msg_1_signature(msg.signature.clone().into());
-                ui.set_chat_msg_1_is_self(is_self);
-                ui.set_chat_msg_1_is_verified(msg.is_verified);
-            }
+    fn clear_message_slot(&self, index: usize) {
+        match index {
             1 => {
-                ui.set_chat_msg_2_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_2_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_2_content(msg.message.clone().into());
-                ui.set_chat_msg_2_timestamp(timestamp.into());
-                ui.set_chat_msg_2_signature(msg.signature.clone().into());
-                ui.set_chat_msg_2_is_self(is_self);
-                ui.set_chat_msg_2_is_verified(msg.is_verified);
+                self.0.set_chat_msg_1_sender_key("".into());
+                self.0.set_chat_msg_1_sender_key_short("".into());
+                self.0.set_chat_msg_1_content("".into());
+                self.0.set_chat_msg_1_timestamp("".into());
+                self.0.set_chat_msg_1_signature("".into());
+                self.0.set_chat_msg_1_is_self(false);
+                self.0.set_chat_msg_1_is_verified(false);
             }
             2 => {
-                ui.set_chat_msg_3_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_3_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_3_content(msg.message.clone().into());
-                ui.set_chat_msg_3_timestamp(timestamp.into());
-                ui.set_chat_msg_3_signature(msg.signature.clone().into());
-                ui.set_chat_msg_3_is_self(is_self);
-                ui.set_chat_msg_3_is_verified(msg.is_verified);
+                self.0.set_chat_msg_2_sender_key("".into());
+                self.0.set_chat_msg_2_sender_key_short("".into());
+                self.0.set_chat_msg_2_content("".into());
+                self.0.set_chat_msg_2_timestamp("".into());
+                self.0.set_chat_msg_2_signature("".into());
+                self.0.set_chat_msg_2_is_self(false);
+                self.0.set_chat_msg_2_is_verified(false);
             }
             3 => {
-                ui.set_chat_msg_4_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_4_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_4_content(msg.message.clone().into());
-                ui.set_chat_msg_4_timestamp(timestamp.into());
-                ui.set_chat_msg_4_signature(msg.signature.clone().into());
-                ui.set_chat_msg_4_is_self(is_self);
-                ui.set_chat_msg_4_is_verified(msg.is_verified);
+                self.0.set_chat_msg_3_sender_key("".into());
+                self.0.set_chat_msg_3_sender_key_short("".into());
+                self.0.set_chat_msg_3_content("".into());
+                self.0.set_chat_msg_3_timestamp("".into());
+                self.0.set_chat_msg_3_signature("".into());
+                self.0.set_chat_msg_3_is_self(false);
+                self.0.set_chat_msg_3_is_verified(false);
             }
             4 => {
-                ui.set_chat_msg_5_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_5_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_5_content(msg.message.clone().into());
-                ui.set_chat_msg_5_timestamp(timestamp.into());
-                ui.set_chat_msg_5_signature(msg.signature.clone().into());
-                ui.set_chat_msg_5_is_self(is_self);
-                ui.set_chat_msg_5_is_verified(msg.is_verified);
+                self.0.set_chat_msg_4_sender_key("".into());
+                self.0.set_chat_msg_4_sender_key_short("".into());
+                self.0.set_chat_msg_4_content("".into());
+                self.0.set_chat_msg_4_timestamp("".into());
+                self.0.set_chat_msg_4_signature("".into());
+                self.0.set_chat_msg_4_is_self(false);
+                self.0.set_chat_msg_4_is_verified(false);
             }
             5 => {
-                ui.set_chat_msg_6_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_6_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_6_content(msg.message.clone().into());
-                ui.set_chat_msg_6_timestamp(timestamp.into());
-                ui.set_chat_msg_6_signature(msg.signature.clone().into());
-                ui.set_chat_msg_6_is_self(is_self);
-                ui.set_chat_msg_6_is_verified(msg.is_verified);
+                self.0.set_chat_msg_5_sender_key("".into());
+                self.0.set_chat_msg_5_sender_key_short("".into());
+                self.0.set_chat_msg_5_content("".into());
+                self.0.set_chat_msg_5_timestamp("".into());
+                self.0.set_chat_msg_5_signature("".into());
+                self.0.set_chat_msg_5_is_self(false);
+                self.0.set_chat_msg_5_is_verified(false);
             }
             6 => {
-                ui.set_chat_msg_7_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_7_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_7_content(msg.message.clone().into());
-                ui.set_chat_msg_7_timestamp(timestamp.into());
-                ui.set_chat_msg_7_signature(msg.signature.clone().into());
-                ui.set_chat_msg_7_is_self(is_self);
-                ui.set_chat_msg_7_is_verified(msg.is_verified);
+                self.0.set_chat_msg_6_sender_key("".into());
+                self.0.set_chat_msg_6_sender_key_short("".into());
+                self.0.set_chat_msg_6_content("".into());
+                self.0.set_chat_msg_6_timestamp("".into());
+                self.0.set_chat_msg_6_signature("".into());
+                self.0.set_chat_msg_6_is_self(false);
+                self.0.set_chat_msg_6_is_verified(false);
             }
             7 => {
-                ui.set_chat_msg_8_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_8_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_8_content(msg.message.clone().into());
-                ui.set_chat_msg_8_timestamp(timestamp.into());
-                ui.set_chat_msg_8_signature(msg.signature.clone().into());
-                ui.set_chat_msg_8_is_self(is_self);
-                ui.set_chat_msg_8_is_verified(msg.is_verified);
+                self.0.set_chat_msg_7_sender_key("".into());
+                self.0.set_chat_msg_7_sender_key_short("".into());
+                self.0.set_chat_msg_7_content("".into());
+                self.0.set_chat_msg_7_timestamp("".into());
+                self.0.set_chat_msg_7_signature("".into());
+                self.0.set_chat_msg_7_is_self(false);
+                self.0.set_chat_msg_7_is_verified(false);
             }
             8 => {
-                ui.set_chat_msg_9_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_9_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_9_content(msg.message.clone().into());
-                ui.set_chat_msg_9_timestamp(timestamp.into());
-                ui.set_chat_msg_9_signature(msg.signature.clone().into());
-                ui.set_chat_msg_9_is_self(is_self);
-                ui.set_chat_msg_9_is_verified(msg.is_verified);
+                self.0.set_chat_msg_8_sender_key("".into());
+                self.0.set_chat_msg_8_sender_key_short("".into());
+                self.0.set_chat_msg_8_content("".into());
+                self.0.set_chat_msg_8_timestamp("".into());
+                self.0.set_chat_msg_8_signature("".into());
+                self.0.set_chat_msg_8_is_self(false);
+                self.0.set_chat_msg_8_is_verified(false);
             }
             9 => {
-                ui.set_chat_msg_10_sender_key(msg.sender_public_key.clone().into());
-                ui.set_chat_msg_10_sender_key_short(sender_key_short.into());
-                ui.set_chat_msg_10_content(msg.message.clone().into());
-                ui.set_chat_msg_10_timestamp(timestamp.into());
-                ui.set_chat_msg_10_signature(msg.signature.clone().into());
-                ui.set_chat_msg_10_is_self(is_self);
-                ui.set_chat_msg_10_is_verified(msg.is_verified);
+                self.0.set_chat_msg_9_sender_key("".into());
+                self.0.set_chat_msg_9_sender_key_short("".into());
+                self.0.set_chat_msg_9_content("".into());
+                self.0.set_chat_msg_9_timestamp("".into());
+                self.0.set_chat_msg_9_signature("".into());
+                self.0.set_chat_msg_9_is_self(false);
+                self.0.set_chat_msg_9_is_verified(false);
             }
-            _ => break,
+            10 => {
+                self.0.set_chat_msg_10_sender_key("".into());
+                self.0.set_chat_msg_10_sender_key_short("".into());
+                self.0.set_chat_msg_10_content("".into());
+                self.0.set_chat_msg_10_timestamp("".into());
+                self.0.set_chat_msg_10_signature("".into());
+                self.0.set_chat_msg_10_is_self(false);
+                self.0.set_chat_msg_10_is_verified(false);
+            }
+            _ => {}
         }
     }
 }
@@ -383,6 +380,41 @@ fn main() -> Result<(), slint::PlatformError> {
     let message_history = state::create_shared_message_history();
     let _message_history_update = message_history.clone();
     let message_history_select = message_history.clone();
+
+    // Message event handler for real-time message updates (Story 3.1)
+    let message_event_handler = profile_client::connection::client::MessageEventHandler::with_callbacks(
+        {
+            let message_history = message_history.clone();
+            let ui_weak = ui.as_weak();
+            let key_state = key_state.clone();
+
+            move |_message: profile_client::state::messages::ChatMessage| {
+                let ui_weak = ui_weak.clone();
+                let message_history = message_history.clone();
+                let key_state = key_state.clone();
+
+                let _ = slint::spawn_local(async move {
+                    let Some(ui) = ui_weak.upgrade() else {
+                        return;
+                    };
+
+                    // Get user's public key for self-detection
+                    let my_key = {
+                        let state = key_state.lock().await;
+                        state.public_key().map(hex::encode).unwrap_or_default()
+                    };
+
+                    update_chat_messages_ui(&ui, &message_history, &my_key).await;
+                });
+            }
+        },
+        |_notification: String| {
+            // Handle invalid signature notification (can be logged or shown to user)
+        },
+        |_error: String| {
+            // Handle error (can be logged or shown to user)
+        },
+    );
 
     // Initial lobby UI update (empty state)
     let ui_weak_lobby_update = ui.as_weak();

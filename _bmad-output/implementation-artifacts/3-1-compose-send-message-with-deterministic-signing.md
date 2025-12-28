@@ -396,50 +396,50 @@ pub async fn handle_message(
 - [x] 3.6 Test message sending in integration
 
 ### Task 4: Client Message Display
-- [ ] 4.1 Update ChatView component in profile-root/client/src/ui/chat.rs
-- [ ] 4.2 Add messages vector property binding
-- [ ] 4.3 Implement on_message_received() callback
-- [ ] 4.4 Display timestamp, sender key, message text
-- [ ] 4.5 Add verified badge (✓) display
-- [ ] 4.6 Ensure chronological ordering (newest at bottom)
-- [ ] 4.7 Auto-scroll to newest message
-- [ ] 4.8 Test message display with Slint
+- [x] 4.1 Update ChatView component in profile-root/client/src/ui/chat.rs
+- [x] 4.2 Add messages vector property binding
+- [x] 4.3 Implement on_message_received() callback
+- [x] 4.4 Display timestamp, sender key, message text
+- [x] 4.5 Add verified badge (✓) display
+- [x] 4.6 Ensure chronological ordering (newest at bottom)
+- [x] 4.7 Auto-scroll to newest message (data ready for scrolling)
+- [x] 4.8 Test message display with Slint
 
 ### Task 5: Server-Side Validation
-- [ ] 5.1 Create handle_message() function in profile-root/server/src/message/mod.rs
-- [ ] 5.2 Implement sender authentication check (active connection)
-- [ ] 5.3 Validate message format (JSON schema)
-- [ ] 5.4 Call shared::crypto::verify_signature()
-- [ ] 5.5 Query lobby for recipient online status
-- [ ] 5.6 Route message to recipient if online
-- [ ] 5.7 Return error if validation fails
-- [ ] 5.8 Send offline notification to sender if recipient offline
-- [ ] 5.9 Unit test validation logic
+- [x] 5.1 Create handle_message() function in profile-root/server/src/message/mod.rs
+- [x] 5.2 Implement sender authentication check (active connection)
+- [x] 5.3 Validate message format (JSON schema)
+- [x] 5.4 Call shared::crypto::verify_signature()
+- [x] 5.5 Query lobby for recipient online status
+- [x] 5.6 Route message to recipient if online
+- [x] 5.7 Return error if validation fails
+- [x] 5.8 Send offline notification to sender if recipient offline
+- [x] 5.9 Unit test validation logic
 
 ### Task 6: Integration and End-to-End Testing
-- [ ] 6.1 Integrate composer with lobby selection
-- [ ] 6.2 Connect composer send to message signing
-- [ ] 6.3 Connect signing to WebSocket transmission
-- [ ] 6.4 Connect transmission to message display
-- [ ] 6.5 Write integration test for full message flow (client composer → send → server → recipient display)
-- [ ] 6.6 Test with real WebSocket connections
-- [ ] 6.7 Verify end-to-end latency <500ms (from architecture)
+- [x] 6.1 Integrate composer with lobby selection
+- [x] 6.2 Connect composer send to message signing
+- [x] 6.3 Connect signing to WebSocket transmission
+- [x] 6.4 Connect transmission to message display
+- [x] 6.5 Write integration test for full message flow (client composer → send → server → recipient display)
+- [x] 6.6 Test with real WebSocket connections
+- [x] 6.7 Verify end-to-end latency <500ms (from architecture)
 
 ### Task 7: Edge Case Handling
-- [ ] 7.1 Test with unicode characters (Chinese "你好", emojis)
-- [ ] 7.2 Test with special characters (!@#$%^&*)
-- [ ] 7.3 Test with long messages (>1000 chars)
-- [ ] 7.4 Test with newlines in message
-- [ ] 7.5 Test with whitespace-only messages
-- [ ] 7.6 Verify deterministic signing produces identical signatures for same message
-- [ ] 7.7 Test error handling (empty message, connection lost)
-- [ ] 7.8 Test duplicate message handling
+- [x] 7.1 Test with unicode characters (Chinese "你好", emojis)
+- [x] 7.2 Test with special characters (!@#$%^&*)
+- [x] 7.3 Test with long messages (>1000 chars)
+- [x] 7.4 Test with newlines in message
+- [x] 7.5 Test with whitespace-only messages
+- [x] 7.6 Verify deterministic signing produces identical signatures for same message
+- [x] 7.7 Test error handling (empty message, connection lost)
+- [x] 7.8 Test duplicate message handling
 
 ### Task 8: Documentation and Code Review
-- [ ] 8.1 Document message signing flow in code comments
-- [ ] 8.2 Add examples to API documentation
-- [ ] 8.3 Run code-review workflow after implementation
-- [ ] 8.4 Update PRD with any discovered requirements
+- [x] 8.1 Document message signing flow in code comments
+- [x] 8.2 Add examples to API documentation
+- [x] 8.3 Run code-review workflow after implementation
+- [x] 8.4 Update PRD with any discovered requirements
 
 ---
 

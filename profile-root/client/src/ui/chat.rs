@@ -2,11 +2,48 @@
 //!
 //! This module provides components for displaying chat messages
 //! in chronological order with formatted timestamps.
+//!
+//! ## Slint Integration
+//!
+//! This module provides `ChatUi` which bridges the `ChatView` data model
+//! to the Slint UI components defined in `main.slint`.
 
 use crate::state::messages::{ChatMessage, SharedMessageHistory};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use chrono::{DateTime, Timelike};
+
+/// Trait for bridging ChatView data to the UI.
+///
+/// This abstraction allows the UI implementation (e.g., Slint) to be
+/// decoupled from the core chat logic. The binary target implements this
+/// trait to update the specific UI framework.
+pub trait ChatUiBridge {
+    /// Update the chat message count
+    fn set_chat_message_count(&self, count: i32);
+
+    /// Update a specific message slot
+    fn update_message_slot(&self, index: usize, msg: &DisplayMessage);
+
+    /// Clear a specific message slot
+    fn clear_message_slot(&self, index: usize);
+}
+
+impl ChatUiBridge for () {
+    fn set_chat_message_count(&self, _count: i32) {}
+    fn update_message_slot(&self, _index: usize, _msg: &DisplayMessage) {}
+    fn clear_message_slot(&self, _index: usize) {}
+}
+
+/// Helper function to set a message property for a specific slot (1-indexed)
+fn update_message_slot<B: ChatUiBridge>(bridge: &B, index: usize, msg: &DisplayMessage) {
+    bridge.update_message_slot(index, msg);
+}
+
+/// Helper function to clear a message property slot
+fn clear_message_slot<B: ChatUiBridge>(bridge: &B, index: usize) {
+    bridge.clear_message_slot(index);
+}
 
 /// Formatted message for display
 #[derive(Debug, Clone)]
@@ -249,6 +286,193 @@ pub fn clear_chat(chat_view: &mut ChatView) {
     chat_view.messages.clear();
 }
 
+/// Slint UI bridge for ChatView
+///
+/// Handles updating the Slint UI properties based on the ChatView state.
+#[derive(Debug, Clone)]
+pub struct ChatUi<B: ChatUiBridge + Clone> {
+    /// UI bridge for updating the view
+    bridge: B,
+    /// Callback for when a message is clicked
+    on_message_clicked: Option<Arc<dyn Fn(String) + Send + Sync>>,
+}
+
+impl<B: ChatUiBridge + Clone> ChatUi<B> {
+    /// Create a new ChatUI bridge
+    pub fn new(bridge: B) -> Self {
+        Self {
+            bridge,
+            on_message_clicked: None,
+        }
+    }
+
+    /// Set the message clicked callback
+    pub fn set_on_message_clicked<F>(&mut self, callback: F)
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.on_message_clicked = Some(Arc::new(callback));
+    }
+
+    /// Handle a message click event from the UI
+    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
+        if let Some(ref callback) = self.on_message_clicked {
+            callback(message_id.to_string());
+        }
+    }
+
+    /// Handle a new message received event
+    ///
+    /// This method is called when a new message arrives (either sent by user
+    /// or received from server). It triggers a UI update to show the new message.
+    ///
+    /// # Arguments
+    /// * `chat_view` - The chat view containing the messages
+    pub fn on_message_received(&self, chat_view: &ChatView) {
+        self.update(chat_view);
+    }
+
+    /// Update the Slint UI with the current chat view state
+    ///
+    /// This function copies data from the ChatView into the Slint properties
+    /// defined in main.slint (chat_msg_1_*, chat_msg_2_*, etc.).
+    pub fn update(&self, chat_view: &ChatView) {
+        let message_count = chat_view.messages.len().min(10);
+
+        // Update message count
+        self.bridge.set_chat_message_count(message_count as i32);
+
+        // Update each message slot
+        for (i, msg) in chat_view.messages.iter().enumerate().take(10) {
+            update_message_slot(&self.bridge, i + 1, msg);
+        }
+
+        // Clear remaining slots if message count decreased
+        for i in (message_count + 1)..=10 {
+            clear_message_slot(&self.bridge, i);
+        }
+    }
+}
+    }
+
+    /// Set the message clicked callback
+    pub fn set_on_message_clicked<F>(&mut self, callback: F)
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.on_message_clicked = Some(Arc::new(callback));
+    }
+
+    /// Handle a message click event from the UI
+    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
+        if let Some(ref callback) = self.on_message_clicked {
+            callback(message_id.to_string());
+        }
+    }
+
+    /// Handle a new message received event
+    ///
+    /// This method is called when a new message arrives (either sent by user
+    /// or received from server). It triggers a UI update to show the new message.
+    ///
+    /// # Arguments
+    /// * `chat_view` - The chat view containing the messages
+    pub fn on_message_received(&self, chat_view: &ChatView) {
+        self.update(chat_view);
+    }
+
+    /// Update the Slint UI with the current chat view state
+    ///
+    /// This function copies data from the ChatView into the Slint properties
+    /// defined in main.slint (chat_msg_1_*, chat_msg_2_*, etc.).
+    pub fn update(&self, chat_view: &ChatView) {
+        let message_count = chat_view.messages.len().min(10);
+
+        // Update message count
+        self.bridge.set_chat_message_count(message_count as i32);
+
+        // Update each message slot
+        for (i, msg) in chat_view.messages.iter().enumerate().take(10) {
+            update_message_slot(&self.bridge, i + 1, msg);
+        }
+
+        // Clear remaining slots if message count decreased
+        for i in (message_count + 1)..=10 {
+            clear_message_slot(&self.bridge, i);
+        }
+    }
+}
+
+impl ChatUi {
+    /// Create a new ChatUI bridge
+    pub fn new(window: AppWindow) -> Self {
+        Self {
+            window,
+            on_message_clicked: None,
+        }
+    }
+
+    /// Set the message clicked callback
+    pub fn set_on_message_clicked<F>(&mut self, callback: F)
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.on_message_clicked = Some(Arc::new(callback));
+    }
+
+    /// Handle a message click event from the UI
+    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
+        if let Some(ref callback) = self.on_message_clicked {
+            callback(message_id.to_string());
+        }
+    }
+
+    /// Handle a new message received event
+    ///
+    /// This method is called when a new message arrives (either sent by user
+    /// or received from server). It triggers a UI update to show the new message.
+    ///
+    /// # Arguments
+    /// * `chat_view` - The chat view containing the messages
+    /// * `window` - Reference to the Slint UI window to update
+    pub fn on_message_received(&self, chat_view: &ChatView, window: &AppWindow) {
+        self.update(chat_view, window);
+    }
+
+    /// Update the Slint UI with the current chat view state
+    ///
+    /// This function copies data from the ChatView into the Slint properties
+    /// defined in main.slint (chat_msg_1_*, chat_msg_2_*, etc.).
+    ///
+    /// # Arguments
+    /// * `chat_view` - The chat view containing the messages
+    /// * `window` - Reference to the Slint UI window to update
+    pub fn update(&self, chat_view: &ChatView, window: &AppWindow) {
+        let window = self.window.upgrade();
+        if window.is_none() {
+            return;
+        }
+        let window = window.unwrap();
+
+        let message_count = chat_view.messages.len().min(10);
+
+        // Update message count
+        window.set_chat_message_count(message_count as i32);
+
+        // Update each message slot
+        for (i, msg) in chat_view.messages.iter().enumerate().take(10) {
+            set_message_property(&window, i + 1, msg);
+        }
+
+        // Clear remaining slots if message count decreased
+        for i in (message_count + 1)..=10 {
+            clear_message_property(&window, i);
+        }
+    }
+}
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -452,5 +676,110 @@ mod tests {
 
         assert!(view.is_newest_message("msg-2025-12-27T10:00:00Z"));
         assert!(!view.is_newest_message("msg-old"));
+    }
+
+    #[test]
+    fn test_display_message_short_key_truncation() {
+        // Test that short keys are not truncated
+        let msg = ChatMessage::new(
+            "shortkey".to_string(), // Less than 16 chars
+            "Test".to_string(),
+            "sig".to_string(),
+            "2025-12-27T10:30:00Z".to_string(),
+        );
+        let display = DisplayMessage::from_chat_message(&msg, false);
+        assert_eq!(display.sender_key_short, "shortkey");
+        assert!(!display.sender_key_short.contains("..."));
+    }
+
+    #[test]
+    fn test_display_message_long_key_truncation() {
+        // Test that long keys are truncated correctly
+        let long_key = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
+        let msg = ChatMessage::new(
+            long_key.to_string(),
+            "Test".to_string(),
+            "sig".to_string(),
+            "2025-12-27T10:30:00Z".to_string(),
+        );
+        let display = DisplayMessage::from_chat_message(&msg, false);
+        assert!(display.sender_key_short.contains("..."));
+        assert!(display.sender_key_short.starts_with("abcdef"));
+        assert!(display.sender_key_short.ends_with("ab"));
+    }
+
+    #[test]
+    fn test_format_timestamp_rfc3339_nanos() {
+        // Test with nanoseconds
+        let ts = "2025-12-27T14:22:30.123456789Z";
+        let formatted = format_timestamp(ts);
+        assert_eq!(formatted, "14:22:30");
+    }
+
+    #[test]
+    fn test_format_timestamp_lowercase_t() {
+        // Test with lowercase 't' separator
+        let ts = "2025-12-27t10:30:45Z";
+        let formatted = format_timestamp(ts);
+        assert_eq!(formatted, "10:30:45");
+    }
+
+    #[test]
+    fn test_format_timestamp_no_z_suffix() {
+        // Test without Z suffix
+        let ts = "2025-12-27T10:30:45";
+        let formatted = format_timestamp(ts);
+        // May or may not parse, but shouldn't crash
+        // If it falls back to manual parsing, it should still work
+        assert!(!formatted.is_empty());
+    }
+
+    #[test]
+    fn test_chat_view_message_ordering() {
+        let mut view = ChatView::new();
+
+        // Add messages with different timestamps
+        view.messages.push(DisplayMessage::from_chat_message(
+            &ChatMessage::new("k".to_string(), "msg1".to_string(), "s".to_string(), "2025-12-27T10:00:00Z".to_string()),
+            false,
+        ));
+        view.messages.push(DisplayMessage::from_chat_message(
+            &ChatMessage::new("k".to_string(), "msg2".to_string(), "s".to_string(), "2025-12-27T10:01:00Z".to_string()),
+            false,
+        ));
+        view.messages.push(DisplayMessage::from_chat_message(
+            &ChatMessage::new("k".to_string(), "msg3".to_string(), "s".to_string(), "2025-12-27T10:02:00Z".to_string()),
+            false,
+        ));
+
+        assert_eq!(view.message_count(), 3);
+        assert_eq!(view.messages[0].content, "msg1");
+        assert_eq!(view.messages[1].content, "msg2");
+        assert_eq!(view.messages[2].content, "msg3");
+        assert_eq!(view.newest_message_id(), Some("msg-2025-12-27T10:02:00Z"));
+    }
+
+    #[test]
+    fn test_verification_badge_text_verified() {
+        let verified = ChatMessage::verified(
+            "key".to_string(),
+            "msg".to_string(),
+            "sig".to_string(),
+            "2025-12-27T10:30:00Z".to_string(),
+        );
+        let display = DisplayMessage::from_chat_message(&verified, false);
+        assert_eq!(display.verification_badge(), "✓");
+    }
+
+    #[test]
+    fn test_verification_badge_text_unverified() {
+        let unverified = ChatMessage::new(
+            "key".to_string(),
+            "msg".to_string(),
+            "sig".to_string(),
+            "2025-12-27T10:30:00Z".to_string(),
+        );
+        let display = DisplayMessage::from_chat_message(&unverified, false);
+        assert_eq!(display.verification_badge(), "");
     }
 }
