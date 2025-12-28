@@ -819,7 +819,7 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_drill_down_verification_text("Verified".into());
             if is_self {
                 ui.set_drill_down_verification_explanation(
-                    "This message came from your public key".into()
+                    "This message was cryptographically verified. It came from your public key.".into()
                 );
             } else {
                 // Show abbreviated fingerprint (first 8 chars + "...")
@@ -829,7 +829,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     sender_key.clone()
                 };
                 ui.set_drill_down_verification_explanation(
-                    format!("This message came from {}", fingerprint).into()
+                    format!("This message was cryptographically verified. It came from the owner of {}.", fingerprint).into()
                 );
             }
         } else {
