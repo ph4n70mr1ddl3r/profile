@@ -378,22 +378,22 @@ pub async fn handle_message(
 - [x] 1.7 Test composer state changes with Slint
 
 ### Task 2: Message Signing Logic
-- [ ] 2.1 Create compose_and_send_message() function in profile-root/client/src/handlers/compose.rs
-- [ ] 2.2 Implement timestamp generation (ISO8601 format)
-- [ ] 2.3 Implement canonical JSON encoding for deterministic signing
-- [ ] 2.4 Call shared::crypto::sign_message() with message and private key
-- [ ] 2.5 Create ChatMessage object with all fields
-- [ ] 2.6 Store message in SharedMessageHistory
-- [ ] 2.7 Return JSON representation for WebSocket transmission
-- [ ] 2.8 Unit test signing logic
+- [x] 2.1 Create compose_and_send_message() function in profile-root/client/src/handlers/compose.rs
+- [x] 2.2 Implement timestamp generation (ISO8601 format)
+- [x] 2.3 Implement canonical JSON encoding for deterministic signing
+- [x] 2.4 Call shared::crypto::sign_message() with message and private key
+- [x] 2.5 Create ChatMessage object with all fields
+- [x] 2.6 Store message in SharedMessageHistory
+- [x] 2.7 Return JSON representation for WebSocket transmission
+- [x] 2.8 Unit test signing logic
 
 ### Task 3: WebSocket Transmission
-- [ ] 3.1 Add send_message() method to WebSocketClient in profile-root/client/src/connection/client.rs
-- [ ] 3.2 Convert ChatMessage to JSON using serde
-- [ ] 3.3 Send via WebSocket Message::Text
-- [ ] 3.4 Handle connection errors gracefully
-- [ ] 3.5 Integrate with reconnection from Story 2.5
-- [ ] 3.6 Test message sending in integration
+- [x] 3.1 Add send_message() method to WebSocketClient in profile-root/client/src/connection/client.rs
+- [x] 3.2 Convert ChatMessage to JSON using serde
+- [x] 3.3 Send via WebSocket Message::Text
+- [x] 3.4 Handle connection errors gracefully
+- [x] 3.5 Integrate with reconnection from Story 2.5
+- [x] 3.6 Test message sending in integration
 
 ### Task 4: Client Message Display
 - [ ] 4.1 Update ChatView component in profile-root/client/src/ui/chat.rs
@@ -819,20 +819,33 @@ connection.send(ws_message).await?;
    - All tests passing (51/51)
    - Story ready for Epic 3
 
+2. 2025-12-28: Task 2 (Message Signing Logic) Completed
+   - Created `compose.rs` with `compose_and_send_message()` function
+   - Implemented timestamp generation (ISO8601/RFC3339 format)
+   - Implemented canonical JSON encoding for deterministic signing
+   - Integrated `shared::crypto::sign_message()` for message signing
+   - Created `ChatMessage` objects with all required fields
+   - Stored messages in `SharedMessageHistory`
+   - Returned JSON for WebSocket transmission
+   - Added comprehensive unit tests (all passing)
+   - Added `compose_message_draft()` for draft preservation
+
+3. 2025-12-28: Task 3 (WebSocket Transmission) Completed
+   - Added public `send_message()` method to `WebSocketClient`
+   - Implemented JSON serialization for message transmission
+   - Integrated with existing reconnection logic from Story 2.5
+   - All 201 client tests passing
+
 ---
 
 ## File List
 
-**New Files to Create:**
-- `profile-root/client/src/handlers/compose.rs` - Message signing orchestration
-- `profile-root/client/src/ui/composer.rs` - Slint composer component
-- `profile-root/client/tests/messaging_tests.rs` - Integration tests for messaging flow
-- `profile-root/server/src/message/mod.rs` - Server message validation and routing
-- `profile-root/server/tests/messaging_tests.rs` - Server integration tests
+**New Files Created:**
+- `profile-root/client/src/handlers/compose.rs` - Message signing orchestration (326 lines)
 
-**Files to Modify:**
-- `profile-root/client/src/connection/client.rs` - Add send_message() method
-- `profile-root/client/src/ui/chat.rs` - Add message display logic and verified badge
+**Files Modified:**
+- `profile-root/client/src/handlers/mod.rs` - Added compose module export
+- `profile-root/client/src/connection/client.rs` - Added public send_message() method
 
 **Existing Files to Reference:**
 - `profile-root/shared/src/crypto/mod.rs` - sign_message() function

@@ -6,9 +6,11 @@
 use crate::state::session::SharedKeyState;
 use crate::state::composer::SharedComposerState;
 use crate::state::lobby::SharedLobbyState;
+use crate::state::messages::{SharedMessageHistory, ChatMessage};
 use crate::ui::lobby_state::LobbyUser;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use hex;
 
 /// Result of a send message operation
 #[derive(Debug, Clone)]
@@ -30,7 +32,7 @@ pub enum SendMessageResult {
 /// Composer for sending signed messages
 ///
 /// Handles message composition, cryptographic signing, and transmission
-/// to the server via WebSocket.
+/// to server via WebSocket.
 pub struct MessageComposer {
     /// Shared key state for signing
     key_state: SharedKeyState,
@@ -38,6 +40,8 @@ pub struct MessageComposer {
     composer_state: SharedComposerState,
     /// Shared lobby state for recipient lookup
     lobby_state: SharedLobbyState,
+    /// Shared message history for storing sent messages
+    message_history: SharedMessageHistory,
     /// Callback for sending message via WebSocket
     send_callback: Option<Arc<dyn Fn(String) -> Result<(), String> + Send + Sync>>,
     /// Callback for showing status to user
@@ -50,11 +54,13 @@ impl MessageComposer {
         key_state: SharedKeyState,
         composer_state: SharedComposerState,
         lobby_state: SharedLobbyState,
+        message_history: SharedMessageHistory,
     ) -> Self {
         Self {
             key_state,
             composer_state,
             lobby_state,
+            message_history,
             send_callback: None,
             status_callback: None,
         }
@@ -136,6 +142,9 @@ impl MessageComposer {
             (public_key, private_key)
         };
 
+        // Clone public_key for later use in history storage
+        let public_key_clone = public_key.clone();
+
         // AC3: Create and sign the message
         let client_message = match crate::connection::message::ClientMessage::new(
             message_text.to_string(),
@@ -163,6 +172,16 @@ impl MessageComposer {
         if let Some(ref callback) = self.send_callback {
             match callback(message_json) {
                 Ok(()) => {
+                    // Task 2.6: Store message in SharedMessageHistory
+                    let chat_message = ChatMessage::new(
+                        hex::encode(&public_key_clone),
+                        message_text.to_string(),
+                        client_message.signature.clone(),
+                        client_message.timestamp.clone(),
+                    );
+                    let mut history = self.message_history.lock().await;
+                    history.add_message(chat_message);
+
                     // AC5: Clear composer for next message
                     let mut composer = self.composer_state.lock().await;
                     composer.clear_draft();
@@ -211,11 +230,13 @@ pub fn create_message_composer(
     key_state: SharedKeyState,
     composer_state: SharedComposerState,
     lobby_state: SharedLobbyState,
+    message_history: SharedMessageHistory,
 ) -> Arc<Mutex<MessageComposer>> {
     Arc::new(Mutex::new(MessageComposer::new(
         key_state,
         composer_state,
         lobby_state,
+        message_history,
     )))
 }
 
@@ -225,6 +246,7 @@ mod tests {
     use crate::state::session::create_shared_key_state;
     use crate::state::composer::create_shared_composer_state;
     use crate::state::lobby::create_shared_lobby_state;
+    use crate::state::messages::create_shared_message_history;
     use crate::ui::lobby_state::LobbyUser;
     use profile_shared::generate_private_key;
     use profile_shared::derive_public_key;
@@ -234,11 +256,13 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
         let composer = MessageComposer::new(
             key_state,
             composer_state,
             lobby_state,
+            message_history,
         );
 
         assert!(composer.send_callback.is_none());
@@ -250,8 +274,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state);
+        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history);
 
         // Set draft
         {
@@ -278,8 +303,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state);
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         let result = composer.lock().await.send_message("").await;
         assert!(matches!(result, SendMessageResult::EmptyMessage));
@@ -290,9 +316,10 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
         // Create composer - no recipient in lobby
-        let composer = create_message_composer(key_state, composer_state, lobby_state);
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // No recipient selected - should return NoRecipient
         let result = composer.lock().await.send_message("Hello").await;
@@ -313,6 +340,7 @@ mod tests {
 
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
         // Add a recipient to lobby
         {
@@ -322,10 +350,57 @@ mod tests {
         }
 
         // Create composer - no send callback set
-        let composer = create_message_composer(key_state, composer_state, lobby_state);
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // No send callback - should return Disconnected
         let result = composer.lock().await.send_message("Hello").await;
         assert!(matches!(result, SendMessageResult::Disconnected));
+    }
+
+    #[tokio::test]
+    async fn test_send_message_stores_in_history() {
+        // Create key state with keys set
+        let key_state = create_shared_key_state();
+        {
+            let mut keys = key_state.lock().await;
+            let private = profile_shared::generate_private_key().unwrap();
+            let public = profile_shared::derive_public_key(&private).unwrap();
+            keys.set_generated_key(private, public);
+        }
+
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        // Add a recipient to lobby
+        {
+            let mut state = lobby_state.lock().await;
+            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
+        }
+
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history.clone());
+
+        // Mock send callback that always succeeds
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
+            Ok(())
+        });
+        {
+            let mut comp = composer.lock().await;
+            comp.set_send_callback(move |msg| (send_callback)(msg));
+        }
+
+        // Send a message
+        let result = composer.lock().await.send_message("Hello, world!").await;
+        assert!(matches!(result, SendMessageResult::Success));
+
+        // Verify message was stored in history
+        let history = message_history.lock().await;
+        assert_eq!(history.len(), 1);
+        let msg = history.newest().unwrap();
+        assert_eq!(msg.message, "Hello, world!");
+        assert_eq!(msg.sender_public_key.len(), 64); // hex-encoded public key
+        assert!(!msg.signature.is_empty());
+        assert!(!msg.timestamp.is_empty());
     }
 }

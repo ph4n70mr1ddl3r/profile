@@ -7,6 +7,7 @@ use crate::ui::composer::{MessageComposer, SendMessageResult, create_message_com
 use crate::state::session::SharedKeyState;
 use crate::state::composer::SharedComposerState;
 use crate::state::lobby::SharedLobbyState;
+use crate::state::messages::SharedMessageHistory;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -113,8 +114,9 @@ pub fn create_composer_with_state(
     key_state: SharedKeyState,
     composer_state: SharedComposerState,
     lobby_state: SharedLobbyState,
+    message_history: SharedMessageHistory,
 ) -> Arc<Mutex<MessageComposer>> {
-    create_message_composer(key_state, composer_state, lobby_state)
+    create_message_composer(key_state, composer_state, lobby_state, message_history)
 }
 
 /// Map send result to user-friendly message
@@ -135,6 +137,7 @@ mod tests {
     use crate::state::session::create_shared_key_state;
     use crate::state::composer::create_shared_composer_state;
     use crate::state::lobby::create_shared_lobby_state;
+    use crate::state::messages::create_shared_message_history;
     use crate::ui::lobby_state::LobbyUser;
 
     #[tokio::test]
@@ -142,8 +145,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_composer_with_state(key_state, composer_state, lobby_state);
+        let composer = create_composer_with_state(key_state, composer_state, lobby_state, message_history);
 
         let result = handle_send_message(&composer, "").await;
         assert!(matches!(result, SendMessageResult::EmptyMessage));
@@ -154,8 +158,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_composer_with_state(key_state, composer_state.clone(), lobby_state);
+        let composer = create_composer_with_state(key_state, composer_state.clone(), lobby_state, message_history);
 
         handle_composer_text_change(&composer, "Hello").await;
 
@@ -168,8 +173,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_composer_with_state(key_state, composer_state.clone(), lobby_state);
+        let composer = create_composer_with_state(key_state, composer_state.clone(), lobby_state, message_history);
 
         // Set some text
         handle_composer_text_change(&composer, "Test").await;
@@ -187,8 +193,9 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
-        let composer = create_composer_with_state(key_state, composer_state, lobby_state);
+        let composer = create_composer_with_state(key_state, composer_state, lobby_state, message_history);
 
         // No connection, no recipient - should return false
         let can_send = handle_composer_can_send(&composer).await;
@@ -200,6 +207,7 @@ mod tests {
         let key_state = create_shared_key_state();
         let composer_state = create_shared_composer_state();
         let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
 
         // Add a recipient
         {
@@ -208,7 +216,7 @@ mod tests {
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_composer_with_state(key_state, composer_state, lobby_state);
+        let composer = create_composer_with_state(key_state, composer_state, lobby_state, message_history);
 
         // Has recipient but no connection - should still be false
         let can_send = handle_composer_can_send(&composer).await;

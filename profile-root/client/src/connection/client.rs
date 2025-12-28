@@ -610,7 +610,7 @@ impl WebSocketClient {
 
                 // Send messages after releasing lock (avoid borrow checker conflict)
                 for msg in messages_to_send {
-                    self.send_message(&msg).await?;
+                    self.send_message_internal(&msg).await?;
                 }
 
                 Ok(())
@@ -624,13 +624,27 @@ impl WebSocketClient {
     }
 
     /// Send a message to the server (internal helper)
-    async fn send_message(&mut self, message: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn send_message_internal(&mut self, message: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(connection) = &mut self.connection {
             connection.send(Message::Text(message.to_string())).await?;
             Ok(())
         } else {
             Err("No connection available".into())
         }
+    }
+
+    /// Send a message to the server (public API)
+    ///
+    /// # Arguments
+    /// * `message` - The JSON message to send
+    ///
+    /// # Returns
+    /// Ok(()) if message was sent successfully
+    ///
+    /// # Errors
+    /// Returns error if connection is not available or send fails
+    pub async fn send_message(&mut self, message: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.send_message_internal(&message).await
     }
 
     /// Set the lobby event handler
@@ -921,7 +935,7 @@ impl WebSocketClient {
 
                                     // Send messages after releasing lock
                                     for msg in &user_messages {
-                                        if let Err(e) = self.send_message(msg).await {
+                                        if let Err(e) = self.send_message_internal(msg).await {
                                             println!("Failed to send queued message to {}: {}", public_key, e);
                                         }
                                     }

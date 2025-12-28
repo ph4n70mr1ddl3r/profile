@@ -4,6 +4,7 @@ pub mod key_generation;
 pub mod key_import;
 pub mod lobby;
 pub mod composer;
+pub mod compose;
 pub mod verify;
 pub mod offline;
 pub mod edge_cases;
@@ -43,6 +44,11 @@ pub use verify::{
     VerificationResult,
     create_invalid_signature_notification,
     format_public_key,
+};
+pub use compose::{
+    compose_and_send_message,
+    compose_message_draft,
+    ComposeError,
 };
 pub use offline::{
     parse_offline_notification,
