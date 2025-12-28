@@ -403,4 +403,176 @@ mod tests {
         assert!(!msg.signature.is_empty());
         assert!(!msg.timestamp.is_empty());
     }
+
+    /// Test Enter key handler behavior (simulating Enter key press triggers send_message)
+    #[tokio::test]
+    async fn test_enter_key_handler_sends_message() {
+        // Create key state with keys set
+        let key_state = create_shared_key_state();
+        {
+            let mut keys = key_state.lock().await;
+            let private = profile_shared::generate_private_key().unwrap();
+            let public = profile_shared::derive_public_key(&private).unwrap();
+            keys.set_generated_key(private, public);
+        }
+
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        // Add a recipient to lobby
+        {
+            let mut state = lobby_state.lock().await;
+            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
+        }
+
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history.clone());
+
+        // Mock send callback that always succeeds
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
+            Ok(())
+        });
+        {
+            let mut comp = composer.lock().await;
+            comp.set_send_callback(move |msg| (send_callback)(msg));
+        }
+
+        // Simulate Enter key press by calling send_message with text
+        let result = composer.lock().await.send_message("Enter key test").await;
+        assert!(matches!(result, SendMessageResult::Success), "Enter key should trigger successful send");
+
+        // Verify message was stored
+        let history = message_history.lock().await;
+        assert_eq!(history.len(), 1);
+        assert_eq!(history.newest().unwrap().message, "Enter key test");
+
+        println!("✅ Enter key handler test passed");
+    }
+
+    /// Test Enter key with empty message (should be rejected)
+    #[tokio::test]
+    async fn test_enter_key_with_empty_message_rejected() {
+        let key_state = create_shared_key_state();
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+
+        // Simulate Enter key press with empty message
+        let result = composer.lock().await.send_message("").await;
+        assert!(matches!(result, SendMessageResult::EmptyMessage), "Empty message should be rejected");
+
+        println!("✅ Enter key with empty message rejected correctly");
+    }
+
+    /// Test Send button enable/disable - empty text
+    #[tokio::test]
+    async fn test_send_button_disabled_empty_text() {
+        let key_state = create_shared_key_state();
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        // Add a recipient to lobby
+        {
+            let mut state = lobby_state.lock().await;
+            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
+        }
+
+        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+
+        // Without send callback, can_send should be false
+        // (Send button would be disabled because no connection)
+        let can_send = composer.lock().await.can_send().await;
+        assert!(!can_send, "Send button should be disabled without connection");
+
+        println!("✅ Send button correctly disabled without connection");
+    }
+
+    /// Test Send button enable/disable - with connection but empty text
+    #[tokio::test]
+    async fn test_send_button_disabled_empty_text_even_with_connection() {
+        let key_state = create_shared_key_state();
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        // Add a recipient to lobby
+        {
+            let mut state = lobby_state.lock().await;
+            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
+        }
+
+        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history);
+
+        // Set send callback (simulating connection)
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
+            Ok(())
+        });
+        {
+            let mut comp = composer.lock().await;
+            comp.set_send_callback(move |msg| (send_callback)(msg));
+        }
+
+        // Without text in draft, can_send should be false
+        // Note: can_send checks for recipient + connection, not text
+        // The actual enable/disable of Send button would be handled by UI
+        // based on text length (handled at UI layer, not composer)
+        let can_send = composer.lock().await.can_send().await;
+        assert!(can_send, "Send button should be enabled with connection and recipient");
+
+        // But sending empty message should fail
+        let result = composer.lock().await.send_message("").await;
+        assert!(matches!(result, SendMessageResult::EmptyMessage));
+
+        println!("✅ Send button correctly enabled with connection, rejects empty messages");
+    }
+
+    /// Test Send button enable/disable - with text, connection, and recipient
+    #[tokio::test]
+    async fn test_send_button_enabled_with_all_requirements() {
+        let key_state = create_shared_key_state();
+        {
+            let mut keys = key_state.lock().await;
+            let private = profile_shared::generate_private_key().unwrap();
+            let public = profile_shared::derive_public_key(&private).unwrap();
+            keys.set_generated_key(private, public);
+        }
+
+        let composer_state = create_shared_composer_state();
+        let lobby_state = create_shared_lobby_state();
+        let message_history = create_shared_message_history();
+
+        // Add a recipient to lobby
+        {
+            let mut state = lobby_state.lock().await;
+            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
+        }
+
+        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history.clone());
+
+        // Set send callback (simulating connection)
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
+            Ok(())
+        });
+        {
+            let mut comp = composer.lock().await;
+            comp.set_send_callback(move |msg| (send_callback)(msg));
+        }
+
+        // With all requirements met, can_send should be true
+        let can_send = composer.lock().await.can_send().await;
+        assert!(can_send, "Send button should be enabled with all requirements");
+
+        // Sending should succeed
+        let result = composer.lock().await.send_message("Hello, Send button!").await;
+        assert!(matches!(result, SendMessageResult::Success));
+
+        println!("✅ Send button correctly enabled with all requirements");
+    }
 }

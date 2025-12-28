@@ -289,7 +289,7 @@ pub fn clear_chat(chat_view: &mut ChatView) {
 /// Slint UI bridge for ChatView
 ///
 /// Handles updating the Slint UI properties based on the ChatView state.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ChatUi<B: ChatUiBridge + Clone> {
     /// UI bridge for updating the view
     bridge: B,
@@ -352,125 +352,6 @@ impl<B: ChatUiBridge + Clone> ChatUi<B> {
             clear_message_slot(&self.bridge, i);
         }
     }
-}
-    }
-
-    /// Set the message clicked callback
-    pub fn set_on_message_clicked<F>(&mut self, callback: F)
-    where
-        F: Fn(String) + Send + Sync + 'static,
-    {
-        self.on_message_clicked = Some(Arc::new(callback));
-    }
-
-    /// Handle a message click event from the UI
-    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
-        if let Some(ref callback) = self.on_message_clicked {
-            callback(message_id.to_string());
-        }
-    }
-
-    /// Handle a new message received event
-    ///
-    /// This method is called when a new message arrives (either sent by user
-    /// or received from server). It triggers a UI update to show the new message.
-    ///
-    /// # Arguments
-    /// * `chat_view` - The chat view containing the messages
-    pub fn on_message_received(&self, chat_view: &ChatView) {
-        self.update(chat_view);
-    }
-
-    /// Update the Slint UI with the current chat view state
-    ///
-    /// This function copies data from the ChatView into the Slint properties
-    /// defined in main.slint (chat_msg_1_*, chat_msg_2_*, etc.).
-    pub fn update(&self, chat_view: &ChatView) {
-        let message_count = chat_view.messages.len().min(10);
-
-        // Update message count
-        self.bridge.set_chat_message_count(message_count as i32);
-
-        // Update each message slot
-        for (i, msg) in chat_view.messages.iter().enumerate().take(10) {
-            update_message_slot(&self.bridge, i + 1, msg);
-        }
-
-        // Clear remaining slots if message count decreased
-        for i in (message_count + 1)..=10 {
-            clear_message_slot(&self.bridge, i);
-        }
-    }
-}
-
-impl ChatUi {
-    /// Create a new ChatUI bridge
-    pub fn new(window: AppWindow) -> Self {
-        Self {
-            window,
-            on_message_clicked: None,
-        }
-    }
-
-    /// Set the message clicked callback
-    pub fn set_on_message_clicked<F>(&mut self, callback: F)
-    where
-        F: Fn(String) + Send + Sync + 'static,
-    {
-        self.on_message_clicked = Some(Arc::new(callback));
-    }
-
-    /// Handle a message click event from the UI
-    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
-        if let Some(ref callback) = self.on_message_clicked {
-            callback(message_id.to_string());
-        }
-    }
-
-    /// Handle a new message received event
-    ///
-    /// This method is called when a new message arrives (either sent by user
-    /// or received from server). It triggers a UI update to show the new message.
-    ///
-    /// # Arguments
-    /// * `chat_view` - The chat view containing the messages
-    /// * `window` - Reference to the Slint UI window to update
-    pub fn on_message_received(&self, chat_view: &ChatView, window: &AppWindow) {
-        self.update(chat_view, window);
-    }
-
-    /// Update the Slint UI with the current chat view state
-    ///
-    /// This function copies data from the ChatView into the Slint properties
-    /// defined in main.slint (chat_msg_1_*, chat_msg_2_*, etc.).
-    ///
-    /// # Arguments
-    /// * `chat_view` - The chat view containing the messages
-    /// * `window` - Reference to the Slint UI window to update
-    pub fn update(&self, chat_view: &ChatView, window: &AppWindow) {
-        let window = self.window.upgrade();
-        if window.is_none() {
-            return;
-        }
-        let window = window.unwrap();
-
-        let message_count = chat_view.messages.len().min(10);
-
-        // Update message count
-        window.set_chat_message_count(message_count as i32);
-
-        // Update each message slot
-        for (i, msg) in chat_view.messages.iter().enumerate().take(10) {
-            set_message_property(&window, i + 1, msg);
-        }
-
-        // Clear remaining slots if message count decreased
-        for i in (message_count + 1)..=10 {
-            clear_message_property(&window, i);
-        }
-    }
-}
-
 }
 
 #[cfg(test)]

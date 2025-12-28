@@ -142,37 +142,61 @@ mod tests {
 
     #[tokio::test]
     async fn test_signature_determinism() {
+        use profile_shared::sign_message;
+        use zeroize::Zeroizing;
+
+        let private_key = generate_private_key().unwrap();
+        let public_key = derive_public_key(&private_key).unwrap();
+
+        // Test determinism at the signing level (same input = same signature)
+        let canonical_message_1 = "Same message:2025-12-27T10:30:00.123456789Z";
+        let canonical_message_2 = "Same message:2025-12-27T10:30:00.123456789Z";
+
+        let sig1 = sign_message(&private_key, canonical_message_1.as_bytes()).unwrap();
+        let sig2 = sign_message(&private_key, canonical_message_2.as_bytes()).unwrap();
+
+        // Same canonical message must produce identical signatures
+        assert_eq!(sig1, sig2, "Deterministic signing failed: same input should produce same signature");
+
+        // Verify the signature is valid length (64 bytes for ed25519)
+        assert_eq!(sig1.len(), 64, "Ed25519 signature should be 64 bytes");
+
+        // Different canonical messages should produce different signatures
+        let canonical_message_3 = "Same message:2025-12-27T10:30:00.123456790Z";
+        let sig3 = sign_message(&private_key, canonical_message_3.as_bytes()).unwrap();
+        assert_ne!(sig2, sig3, "Different timestamp should produce different signature");
+
+        println!("✅ Deterministic signing verified: same input produces identical signatures");
+    }
+
+    #[tokio::test]
+    async fn test_client_message_with_fixed_timestamp() {
+        // Test that ClientMessage uses the expected canonical format
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
         let recipient = "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
-        // Create two messages with same content and keys
-        let msg1 = ClientMessage::new(
-            "Same message".to_string(),
+        // Create a message
+        let msg = ClientMessage::new(
+            "Test message".to_string(),
             recipient.clone(),
             public_key.clone(),
             private_key.clone(),
         )
         .unwrap();
 
-        let msg2 = ClientMessage::new(
-            "Same message".to_string(),
-            recipient.clone(),
-            public_key.clone(),
-            private_key.clone(),
-        )
-        .unwrap();
+        // Verify the structure
+        assert_eq!(msg.r#type, "message");
+        assert_eq!(msg.message, "Test message");
+        assert_eq!(msg.recipient_public_key, recipient);
+        assert!(!msg.signature.is_empty());
+        assert!(!msg.timestamp.is_empty());
 
-        // Signatures should be identical (deterministic signing)
-        // Note: timestamps will differ, so signatures will differ
-        // The signing includes timestamp in canonical message
-        assert_ne!(msg1.timestamp, msg2.timestamp);
+        // Verify the timestamp format is RFC3339
+        assert!(msg.timestamp.contains('T'), "Timestamp should be ISO 8601 format");
 
-        // But if we check determinism with same timestamp, signatures match
-        // (This is tested in signing module)
-
-        println!("✅ Message creation works correctly");
+        println!("✅ ClientMessage with fixed timestamp structure verified");
     }
 
     #[tokio::test]

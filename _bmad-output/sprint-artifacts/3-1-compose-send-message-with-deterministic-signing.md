@@ -1,6 +1,6 @@
 # Story 3.1: Compose & Send Message with Deterministic Signing
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -213,6 +213,7 @@ clear composer
 
 ---
 
+
 ## Dev Notes
 
 ### Source Citations & Requirements Traceability
@@ -253,8 +254,8 @@ clear composer
 - `profile-root/client/Cargo.toml` - Added chrono = "0.4"
 
 **Tests:**
-- 12 new tests in message.rs
-- 5 new tests in ui/composer.rs  
+- 7 new tests in message.rs
+- 11 new tests in ui/composer.rs
 - 6 new tests in handlers/composer.rs
 
 ### Completion Notes
@@ -277,11 +278,11 @@ This story implements the core messaging capability where users can compose and 
 ## Testing Summary
 
 ### Unit Tests (Client)
-- 12 tests in connection/message.rs
-- Tests for: creation, JSON serialization, determinism, unicode, long content, hex encoding
+- 7 tests in connection/message.rs
+- Tests for: creation, JSON serialization, determinism, fixed timestamp, unicode, long content, hex encoding
 
 ### Component Tests (Client)
-- 5 tests in ui/composer.rs
+- 11 tests in ui/composer.rs
 - Tests for: creation, drafts, empty message, no recipient, no connection
 
 ### Handler Tests (Client)
@@ -295,7 +296,7 @@ This story implements the core messaging capability where users can compose and 
 
 ---
 
-## Status: in-progress
+## Status: done
 
 **Next Steps:**
 - Story 3.2: Send Message to Server with Validation
