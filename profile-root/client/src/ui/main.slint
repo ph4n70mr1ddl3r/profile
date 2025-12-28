@@ -39,6 +39,12 @@ export component AppWindow inherits Window {
     in property <int> lobby_user_count: 0;
     in property <bool> composer_focused: false;
 
+    // Composer state (Story 3.1)
+    in property <string> composer_recipient: "";
+    in property <string> composer_message_text: "";
+    in property <bool> composer_can_send: false;
+    in property <bool> composer_message_text_focused: false;
+
     // Lobby user slot properties (up to 5 users shown for MVP)
     // Each slot has: public_key, is_online, is_selected
     in property <string> lobby_user_1_public_key: "";
@@ -174,6 +180,10 @@ export component AppWindow inherits Window {
     callback import_key_attempt(string);
     callback cancel_import;
     callback copy_public_key;
+
+    // Composer callbacks (Story 3.1)
+    callback composer_send_message(string);
+    callback composer_enter_pressed();
 
     // Lobby callbacks (Story 2.2)
     callback lobby_user_selected(string);
@@ -352,6 +362,20 @@ export component AppWindow inherits Window {
                 color: #0066CC;
             }
 
+            // Composer (Story 3.1)
+            MessageComposer {
+                visible: root.current_view == "lobby" || root.current_view == "chat";
+                recipient: root.composer_recipient;
+                focused: root.composer_message_text_focused;
+                message_text: root.composer_message_text;
+                send_message(text) => {
+                    root.composer_send_message(text);
+                }
+                enter_pressed() => {
+                    root.composer_enter_pressed();
+                }
+            }
+
             // Chat messages display area (Story 4.1 - message slots)
             Rectangle {
                 visible: root.chat_message_count > 0;
@@ -494,12 +518,6 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
-            }
-
-            // Message composer (Story 2.2 - placeholder, full chat in Story 3.x)
-            MessageComposer {
-                recipient: root.lobby_selected_user;
-                focused: root.composer_focused;
             }
         }
 

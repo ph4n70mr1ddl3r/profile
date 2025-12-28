@@ -67,7 +67,7 @@ development_status:
   # EPIC 3: Core Messaging - Send, Receive & Cryptographic Verification
   # ==================
   epic-3: in-progress
-  3-1-compose-send-message-with-deterministic-signing: ready-for-dev
+  3-1-compose-send-message-with-deterministic-signing: in-progress
   3-2-send-message-to-server-with-validation: backlog
   3-3-push-message-to-online-recipient-in-real-time: backlog
   3-4-receive-verify-message-signature-client-side: backlog

@@ -1,12 +1,11 @@
-//! Message composer component (Story 2.2 - minimal implementation)
-//!
-//! This component provides the message input field for the chat interface.
-//! For Story 2.2, this is a placeholder that can receive focus
-//! but message sending is implemented in Story 3.x.
-
 export component MessageComposer {
     in property <string> recipient: "";
     in property <bool> focused: false;
+    in-out property <string> message_text: "";
+    callback send_message(string);
+    callback enter_pressed();
+
+    property <bool> internal_can_send: message_text != "";
 
     Rectangle {
         background: #1f2937;
@@ -19,7 +18,6 @@ export component MessageComposer {
             padding: 12px;
             spacing: 8px;
 
-            // Recipient display
             Text {
                 visible: recipient != "";
                 text: "Messaging: " + recipient;
@@ -27,19 +25,37 @@ export component MessageComposer {
                 color: #6b7280;
             }
 
-            // Composer placeholder (not functional in Story 2.2)
-            Text {
-                text: "Type your message here... (Message sending in Story 3.x)";
-                font-size: 14px;
-                color: #9ca3af;
-                vertical-alignment: center;
-            }
+            HorizontalLayout {
+                spacing: 8px;
 
-            // Focus indicator
-            Rectangle {
-                visible: focused;
-                height: 2px;
-                background: #0066CC;
+                TextInput {
+                    text: message_text;
+                    enabled: true;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    background: internal_can_send ? #0066CC : #6b7280;
+                    border-radius: 4px;
+                    height: 30px;
+                    min-width: 80px;
+
+                    Text {
+                        text: "Send";
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => {
+                            if internal_can_send {
+                                root.send_message(message_text);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
