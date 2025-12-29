@@ -9,6 +9,7 @@ use hex;
 use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::{Lobby, PublicKey, ActiveConnection};
 use crate::protocol::{AuthMessage, AuthSuccessMessage, AuthErrorMessage};
+use crate::message::{handle_incoming_message, route_message, MessageValidationResult};
 use profile_shared::LobbyError;
 
 /// Atomic counter for generating unique connection IDs
@@ -142,8 +143,76 @@ pub async fn handle_connection(
     // Connection loop - handle messages and disconnections
     while let Some(msg_result) = read.next().await {
         match msg_result {
-            Ok(Message::Text(_text)) => {
-                // Handle future message types here (Story 3.x)
+            Ok(Message::Text(text)) => {
+                // Handle incoming message from authenticated user (Story 3.2 + 3.3)
+                // AC1: Route validated message to recipient via real-time push
+                if let Some(ref sender_key) = authenticated_key {
+                    tracing::debug!(sender = %sender_key, "Received message, validating and routing...");
+
+                    // Validate the message (Story 3.2)
+                    let validation_result = handle_incoming_message(&lobby, sender_key, &text).await;
+
+                    // Handle validation result
+                    match validation_result {
+                        MessageValidationResult::Valid { .. } => {
+                            // Message is valid, route to recipient (Story 3.3)
+                            match route_message(&lobby, &validation_result).await {
+                                Ok(()) => {
+                                    tracing::debug!("Message routed successfully");
+                                }
+                                Err(e) => {
+                                    // AC7: Log failed delivery but don't return error to sender
+                                    tracing::warn!("Message delivery failed: {}", e);
+                                    // No error returned to sender - server-side issue
+                                }
+                            }
+                        }
+                        MessageValidationResult::Invalid { reason } => {
+                            // Validation failed - send error response back to sender
+                            tracing::debug!(sender = %sender_key, ?reason, "Message validation failed");
+
+                            // Get sender's connection to send error response
+                            if let Ok(Some(sender_conn)) = crate::lobby::get_user(&lobby, sender_key).await {
+                                // Create error message format matching protocol spec (AC3, AC4, AC5)
+                                let error_response = match &reason {
+                                    crate::message::ValidationError::NotAuthenticated { details } => {
+                                        profile_shared::Message::Error {
+                                            reason: "auth_failed".to_string(),
+                                            details: Some(details.clone()),
+                                        }
+                                    }
+                                    crate::message::ValidationError::MalformedJson { details } => {
+                                        profile_shared::Message::Error {
+                                            reason: "malformed_json".to_string(),
+                                            details: Some(details.clone()),
+                                        }
+                                    }
+                                    crate::message::ValidationError::SignatureInvalid { details } => {
+                                        profile_shared::Message::Error {
+                                            reason: "signature_invalid".to_string(),
+                                            details: Some(details.clone()),
+                                        }
+                                    }
+                                    crate::message::ValidationError::RecipientOffline { recipient_key } => {
+                                        profile_shared::Message::Error {
+                                            reason: "offline".to_string(),
+                                            details: Some(format!("User {} is not currently online", recipient_key)),
+                                        }
+                                    }
+                                    crate::message::ValidationError::CannotMessageSelf => {
+                                        profile_shared::Message::Error {
+                                            reason: "invalid_recipient".to_string(),
+                                            details: Some("Cannot send message to yourself".to_string()),
+                                        }
+                                    }
+                                };
+
+                                // Send error via the sender's WebSocket connection
+                                let _ = sender_conn.sender.send(error_response);
+                            }
+                        }
+                    }
+                }
             }
             Ok(Message::Close(_frame)) => {
                 // Log disconnect event with tracing (subscriber configured in main.rs)
