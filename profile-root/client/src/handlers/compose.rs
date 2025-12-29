@@ -7,17 +7,18 @@ use std::fmt::{self, Display, Formatter};
 use std::error::Error;
 use chrono::{Utc, SecondsFormat};
 use serde_json;
-use zeroize::Zeroizing;
 
 use crate::state::messages::{ChatMessage, SharedMessageHistory};
 use crate::state::session::SharedKeyState;
-use profile_shared::crypto::{self, sign_message, CryptoError, PrivateKey};
+use profile_shared::crypto::sign_message;
+use profile_shared::crypto::PrivateKey;
 
 /// Error types for message composition operations
 #[derive(Debug, Clone)]
 pub enum ComposeError {
     NoPrivateKey,
     NoPublicKey,
+    EmptyMessage,
     TimestampError(String),
     SerializationError(String),
     SigningError(String),
@@ -30,6 +31,7 @@ impl Display for ComposeError {
         match self {
             ComposeError::NoPrivateKey => write!(f, "No private key available for signing"),
             ComposeError::NoPublicKey => write!(f, "No public key available"),
+            ComposeError::EmptyMessage => write!(f, "Message cannot be empty"),
             ComposeError::TimestampError(msg) => write!(f, "Failed to generate timestamp: {}", msg),
             ComposeError::SerializationError(msg) => write!(f, "Failed to serialize message: {}", msg),
             ComposeError::SigningError(msg) => write!(f, "Failed to sign message: {}", msg),
@@ -40,6 +42,15 @@ impl Display for ComposeError {
 }
 
 impl Error for ComposeError {}
+
+/// Validate that message is not empty
+fn validate_message_not_empty(message: &str) -> Result<(), ComposeError> {
+    if message.trim().is_empty() {
+        Err(ComposeError::EmptyMessage)
+    } else {
+        Ok(())
+    }
+}
 
 /// Compose and send a message with cryptographic signing
 ///
@@ -73,6 +84,9 @@ pub async fn compose_and_send_message(
     key_state: &SharedKeyState,
     message_history: &SharedMessageHistory,
 ) -> Result<String, ComposeError> {
+    // Validate message is not empty
+    validate_message_not_empty(&message_text)?;
+
     // 1. Get keys from shared state
     let (public_key, private_key) = {
         let key_guard = key_state.lock().await;
@@ -269,17 +283,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compose_and_send_empty_message_fails() {
-        // Setup
-        let private_key = generate_private_key().unwrap();
-        let public_key = derive_public_key(&private_key).unwrap();
-
+    async fn test_compose_empty_message_fails() {
         let key_state = create_shared_key_state();
-        key_state.lock().await.set_generated_key(private_key, public_key.clone());
-
         let message_history = create_shared_message_history();
 
-        // Empty message should still succeed (business logic decides if valid)
+        // Empty message should fail validation
         let result = compose_and_send_message(
             "".to_string(),
             "recipient_key".to_string(),
@@ -287,7 +295,9 @@ mod tests {
             &message_history,
         ).await;
 
-        assert!(result.is_ok(), "Empty message should still compose");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ComposeError::EmptyMessage), "Expected EmptyMessage, got {:?}", err);
     }
 
     #[tokio::test]
@@ -295,7 +305,7 @@ mod tests {
         let key_state = create_shared_key_state();
         let message_history = create_shared_message_history();
 
-        // Without keys, composition should fail
+        // Without keys, composition should fail with NoPublicKey (checked first)
         let result = compose_and_send_message(
             "Test".to_string(),
             "recipient".to_string(),
@@ -305,7 +315,6 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        // KeyState is initialized empty, so NoPublicKey is returned first
         assert!(matches!(err, ComposeError::NoPublicKey), "Expected NoPublicKey, got {:?}", err);
     }
 
@@ -324,5 +333,8 @@ mod tests {
     fn test_compose_error_display() {
         let error = ComposeError::NoPrivateKey;
         assert!(!error.to_string().is_empty());
+
+        let empty_error = ComposeError::EmptyMessage;
+        assert!(!empty_error.to_string().is_empty());
     }
 }

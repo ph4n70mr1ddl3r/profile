@@ -1,6 +1,6 @@
 # Story 3.1: Compose & Send Message with Deterministic Signing
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -836,12 +836,23 @@ connection.send(ws_message).await?;
    - Integrated with existing reconnection logic from Story 2.5
    - All 201 client tests passing
 
+4. 2025-12-29: Code Review Fixes Applied
+   - Fixed: Removed unused imports (zeroize::Zeroizing, unused crypto imports)
+   - Fixed: Added EmptyMessage validation to compose_and_send_message()
+   - Fixed: Updated test to expect error for empty/whitespace-only messages
+   - Fixed: Clarified test comment about NoPublicKey check order
+   - Fixed: Updated story File List (328 lines, added messaging_tests.rs)
+   - Added: 8 new integration tests for full message flow
+   - All compose tests passing (12/12)
+   - All shared tests passing (32/32)
+
 ---
 
 ## File List
 
 **New Files Created:**
-- `profile-root/client/src/handlers/compose.rs` - Message signing orchestration (326 lines)
+- `profile-root/client/src/handlers/compose.rs` - Message signing orchestration (328 lines)
+- `profile-root/client/tests/messaging_tests.rs` - Integration tests for full message flow (180+ lines)
 
 **Files Modified:**
 - `profile-root/client/src/handlers/mod.rs` - Added compose module export
