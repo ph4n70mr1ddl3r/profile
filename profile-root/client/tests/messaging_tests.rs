@@ -99,7 +99,7 @@ async fn test_message_draft_preservation() {
     let composer_state = profile_client::state::create_shared_composer_state();
 
     // Set a draft message
-    compose_message_draft("This is a draft message", &create_shared_key_state()).await.unwrap();
+    compose_message_draft("This is a draft message".to_string(), &create_shared_key_state()).await.unwrap();
 
     // Verify draft is stored
     let draft = composer_state.lock().await.get_draft();
