@@ -60,14 +60,14 @@ development_status:
   # EPIC 3: Core Messaging - Send, Receive & Cryptographic Verification
   # ==================
   epic-3: in-progress
-  "3-1-compose-send-message-with-deterministic-signing": in-progress
-  "3-2-send-message-to-server-with-validation": backlog
-  "3-3-push-message-to-online-recipient-in-real-time": backlog
-  "3-4-receive-verify-message-signature-client-side": backlog
-  "3-5-display-messages-chronologically-with-timestamps": backlog
-  "3-6-handle-offline-recipient-notification": ready-for-dev
-  "3-7-preserve-composer-draft-on-disconnection": backlog
-  "3-8-handle-message-composition-edge-cases": backlog
+  "3-1-compose-send-message-with-deterministic-signing": done
+  "3-2-send-message-to-server-with-validation": in-progress
+  "3-3-push-message-to-online-recipient-in-real-time": in-progress
+  "3-4-receive-verify-message-signature-client-side": in-progress
+  "3-5-display-messages-chronologically-with-timestamps": in-progress
+  "3-6-handle-offline-recipient-notification": in-progress
+  "3-7-preserve-composer-draft-on-disconnection": in-progress
+  "3-8-handle-message-composition-edge-cases": ready-for-dev
   epic-3-retrospective: optional
 
   # ==================
