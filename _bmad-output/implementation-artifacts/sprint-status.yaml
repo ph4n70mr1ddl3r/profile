@@ -71,7 +71,7 @@ development_status:
   3-2-send-message-to-server-with-validation: done
   3-3-push-message-to-online-recipient-in-real-time: done
   3-4-receive-verify-message-signature-client-side: done
-  3-5-display-messages-chronologically-with-timestamps: backlog
+  3-5-display-messages-chronologically-with-timestamps: done
   3-6-handle-offline-recipient-notification: backlog
   3-7-preserve-composer-draft-on-disconnection: backlog
   3-8-handle-message-composition-edge-cases: backlog
