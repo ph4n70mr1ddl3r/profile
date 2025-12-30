@@ -458,7 +458,7 @@ async fn test_deterministic_signing_1000_iterations() {
     let timestamp = "2025-12-30T10:00:00Z";
 
     // Sign the same message 1000 times
-    let mut first_signature: Option<Vec<u8>> = None;
+    let mut first_signature_bytes: Option<Vec<u8>> = None;
 
     for i in 0..1000 {
         let canonical = format!("{}:{}", message, timestamp);
@@ -468,13 +468,12 @@ async fn test_deterministic_signing_1000_iterations() {
         if i == 0 {
             // Store first signature for comparison
             assert_eq!(signature_hex.len(), 128);
-            first_signature = Some(signature);
+            first_signature_bytes = Some(signature);
         } else {
-            // All signatures should be identical
-            let canonical = format!("{}:{}", message, timestamp);
-            let new_signature = sign_message(&private_key, canonical.as_bytes()).unwrap();
+            // All signatures should be identical to the first one
+            let first_sig = first_signature_bytes.as_ref().unwrap();
             assert_eq!(
-                signature, new_signature,
+                signature.as_slice(), first_sig,
                 "Iteration {}: All signatures should be identical (deterministic)",
                 i
             );
