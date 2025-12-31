@@ -165,7 +165,7 @@ Profile is a privacy-forward instant messaging application where users authentic
 | Data Persistence (FR40-44) | 5 | Architectural Constraint (All Epics) |
 | Offline Behavior (FR45-47) | 3 | Epic 3 (Core Messaging) |
 | **TOTAL FRs COVERED** | **45** | **Across 4 Epics** |
-| **Architectural Constraints** | **2** | **Applies to All Epics** |
+| **Architectural Constraints (FR40-44)** | **5** | **Applies to All Epics** |
 | **TOTAL FRs** | **47** | **Complete Coverage** |
 | Non-Functional Requirements | 6 categories | All Epics |
 | Implementation Patterns | 5 patterns | Engineering foundation |

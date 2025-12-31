@@ -23,15 +23,16 @@ workflow_status:
   # (Skipped by user choice)
 
   # Phase 1: Planning
-  prd: "required"
-  create-ux-design: "conditional"
+  prd: "_bmad-output/prd.md"
+  create-ux-design: "_bmad-output/ux-redesign-specification.md"
 
   # Phase 2: Solutioning
-  create-architecture: "required"
-  create-epics-and-stories: "required"
+  create-architecture: "_bmad-output/architecture.md"
+  create-epics-and-stories: "_bmad-output/epics.md"
   test-design: "recommended"
   validate-architecture: "optional"
-  implementation-readiness: "required"
+  implementation-readiness: "_bmad-output/implementation-readiness-report-2026-01-01.md"
+  nfr-validation: "_bmad-output/nfr-validation-test-suite.md"
 
   # Phase 3: Implementation (tracked in sprint-status.yaml)
   sprint-planning: "required"
