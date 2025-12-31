@@ -456,6 +456,9 @@ MiniMax-M2.1
 
 ### Completion Notes List
 
+**2025-12-31 - Code Review Round 12 Fixes Applied:**
+- ✅ **[LOW]** Removed unused `LobbyError::DuplicateUser` variant from error enum - was defined but never returned by production code [shared/src/errors/lobby_error.rs]
+
 **2025-12-23 - Code Review Follow-ups Resolved:**
 - ✅ **[HIGH]** Implemented unique connection ID generation using atomic counter (`CONNECTION_COUNTER`) in `handler.rs`
 - ✅ **[HIGH]** Documented dead-end channel as intentional design for Epic 3 message routing - sender is placeholder for future broadcast functionality
@@ -545,4 +548,9 @@ MiniMax-M2.1
 - ✅ AC2 reconnection now broadcasts "left" then "joined" as required
 - ✅ Lock failures are properly logged and returned as errors
 - ✅ Public key validation thoroughly tested at integration level
+
+### **Review Follow-ups (Round 12 - Auto-Fixed)**
+
+#### 🟢 LOW (1)
+- **[AI-Review][LOW]** Removed unused `LobbyError::DuplicateUser` variant - The enum defined this error but `manager.rs` never returned it (reconnection handles duplicates by replacing, not erroring). Simplifies error type usage. [shared/src/errors/lobby_error.rs:7]
 
