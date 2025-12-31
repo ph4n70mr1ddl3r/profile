@@ -140,7 +140,7 @@ async fn update_chat_messages_ui(
     message_history: &Arc<tokio::sync::Mutex<profile_client::state::MessageHistory>>,
     my_public_key: &str,
 ) {
-    use profile_client::ui::chat::{ChatView, DisplayMessage};
+    use profile_client::ui::chat::DisplayMessage;
 
     let history = message_history.lock().await;
     let messages: Vec<_> = history.messages().collect();
@@ -272,7 +272,9 @@ fn main() -> Result<(), slint::PlatformError> {
     let message_history_select = message_history.clone();
 
     // Message event handler for real-time message updates (Story 3.1)
-    let message_event_handler = profile_client::connection::client::MessageEventHandler::with_callbacks(
+    // NOTE: Handler is created but stored value is intentionally unused for now
+    // The callbacks are defined but the handler pattern may be refactored in future stories
+    let _message_event_handler = profile_client::connection::client::MessageEventHandler::with_callbacks(
         {
             let message_history = message_history.clone();
             let ui_weak = ui.as_weak();

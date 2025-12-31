@@ -67,6 +67,27 @@ export component AppWindow inherits Window {
     in property <bool> lobby_user_5_online: true;
     in property <bool> lobby_user_5_selected: false;
 
+    // Extended lobby user slots (users 6-10 for improved capacity)
+    in property <string> lobby_user_6_public_key: "";
+    in property <bool> lobby_user_6_online: true;
+    in property <bool> lobby_user_6_selected: false;
+
+    in property <string> lobby_user_7_public_key: "";
+    in property <bool> lobby_user_7_online: true;
+    in property <bool> lobby_user_7_selected: false;
+
+    in property <string> lobby_user_8_public_key: "";
+    in property <bool> lobby_user_8_online: true;
+    in property <bool> lobby_user_8_selected: false;
+
+    in property <string> lobby_user_9_public_key: "";
+    in property <bool> lobby_user_9_online: true;
+    in property <bool> lobby_user_9_selected: false;
+
+    in property <string> lobby_user_10_public_key: "";
+    in property <bool> lobby_user_10_online: true;
+    in property <bool> lobby_user_10_selected: false;
+
     // Chat message slot properties (up to 10 messages for MVP)
     // Story 4.1: Fixed slots since Slint 1.5 doesn't support dynamic for-each
     in property <int> chat_message_count: 0;

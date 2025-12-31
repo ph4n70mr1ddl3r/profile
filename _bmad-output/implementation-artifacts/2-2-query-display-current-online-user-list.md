@@ -998,3 +998,15 @@ MiniMax-M1.5
 **NOT Modified (no changes needed):**
 - `profile-root/server/src/` - Server lobby already implemented in Story 2.1
 - `profile-root/shared/src/crypto/` - Cryptographic operations already complete
+
+### **Review Follow-ups (Round 8 - Auto-Fixed)**
+
+#### 🟡 MEDIUM (3)
+- **[AI-Review][MEDIUM]** Removed `LobbyItemCompact` component from lobby_item.slint - was marked as removed in story but still existed [lobby_item.slint:81-125]
+- **[AI-Review][MEDIUM]** Extended lobby user slots from 5 to 10 users - Added lobby_user_6 through lobby_user_10 slot properties to main.slint for improved capacity [main.slint:69-89]
+- **[AI-Review][MEDIUM]** Protocol type redundancy already documented - TODO exists at protocol/mod.rs:49-50 about consolidating LobbyUser, LobbyUserWithStatus, and LobbyUserCompact
+
+#### 🟢 LOW (3)
+- **[AI-Review][LOW]** Removed unused `ChatView` import from main.rs:143 [main.rs:143]
+- **[AI-Review][LOW]** Suppressed unused variable warning for `message_event_handler` with `_` prefix and documented as intentional [main.rs:275]
+- **[AI-Review][LOW]** Note: chat_screen.rs references in story remain - file path verification may be needed for future stories
