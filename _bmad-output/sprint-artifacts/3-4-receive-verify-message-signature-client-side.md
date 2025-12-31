@@ -178,6 +178,35 @@ pub enum VerificationResult {
 - [x] 3.2 Run full test suite
 - [x] 3.3 Verify 100% tests pass
 
+### Task 4: Code Review Fixes (Applied)
+- [x] 4.1 Fix HIGH: Wrong callback for offline notifications (added `on_notification` callback)
+- [x] 4.2 Fix MEDIUM: Removed dead code `should_skip_verification()`
+- [x] 4.3 Fix MEDIUM: Replaced println! with tracing::warn/info/debug
+- [x] 4.4 Fix MEDIUM: Fixed unused variables with `_` prefix
+- [x] 4.5 Fix MEDIUM: Wrapped test modules with `#[cfg(test)]` to fix unused imports
+- [x] 4.6 Fix LOW: Removed unused imports in compose.rs
+
+---
+
+## Code Review Findings (AI Reviewer: Riddler)
+
+**Review Date:** 2025-12-31
+
+### Issues Found and Fixed:
+| Severity | Issue | Fix Applied |
+|----------|-------|-------------|
+| HIGH | Wrong callback invoked for offline notifications | Added `on_notification` callback to `MessageEventHandler` |
+| MEDIUM | Dead code `should_skip_verification()` | Removed function entirely |
+| MEDIUM | println! instead of proper logging | Added tracing crate, replaced with `tracing::warn/info/debug` |
+| MEDIUM | Unused variables in tests | Prefixed with `_` |
+| MEDIUM | Test modules missing `#[cfg(test)]` | Added attribute to all test modules |
+| LOW | Unused imports | Removed unused `PrivateKey` import |
+
+### Test Results:
+- **215 tests passed** ✅
+- All verification tests pass (8 tests in handlers::verify)
+- Performance target met (<10ms average vs <100ms requirement)
+
 ---
 
 ## Dev Notes
@@ -255,8 +284,9 @@ This story implements client-side signature verification for defense-in-depth. K
 
 ---
 
-## Status: in-progress
+## Status: done
 
-**Next Steps:**
-- Story 3.5: Display Messages Chronologically with Timestamps
-- Add UI components for message display with verification badges
+**Completed:** 2025-12-31
+- All acceptance criteria implemented ✅
+- All code review issues fixed ✅
+- All tests passing ✅

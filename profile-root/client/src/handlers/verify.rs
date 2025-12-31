@@ -147,22 +147,6 @@ pub fn format_public_key(public_key: &str) -> String {
     }
 }
 
-/// Check if verification should be skipped (for testing or trusted sources)
-///
-/// In production, this should always return false.
-/// This is a hook for testing scenarios where you want to skip verification.
-///
-/// # Returns
-/// false in production, configurable for testing
-#[allow(dead_code)]
-pub fn should_skip_verification() -> bool {
-    // In production, never skip verification
-    // This function exists to support testing scenarios
-    std::env::var("SKIP_MESSAGE_VERIFICATION")
-        .map(|v| v == "1" || v == "true")
-        .unwrap_or(false)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,7 +203,7 @@ mod tests {
     fn test_verify_wrong_key() {
         // Generate two key pairs
         let private_key1 = generate_private_key().unwrap();
-        let public_key1 = derive_public_key(&private_key1).unwrap();
+        let _public_key1 = derive_public_key(&private_key1).unwrap();
         let private_key2 = generate_private_key().unwrap();
         let public_key2 = derive_public_key(&private_key2).unwrap();
 

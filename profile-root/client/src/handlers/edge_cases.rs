@@ -14,8 +14,10 @@ use crate::state::messages::{ChatMessage, MessageHistory};
 use crate::ui::chat::format_timestamp;
 
 /// Test unicode message handling
+#[cfg(test)]
 mod unicode_tests {
     use super::*;
+    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_chinese_characters() {
@@ -94,8 +96,10 @@ mod unicode_tests {
 }
 
 /// Test special character handling
+#[cfg(test)]
 mod special_char_tests {
     use super::*;
+    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_special_symbols() {
@@ -144,8 +148,11 @@ mod special_char_tests {
 }
 
 /// Test long message handling
+#[cfg(test)]
 mod long_message_tests {
     use super::*;
+    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
+    use crate::state::messages::{ChatMessage, MessageHistory};
 
     #[tokio::test]
     async fn test_10kb_message() {
@@ -228,8 +235,10 @@ mod long_message_tests {
 }
 
 /// Test whitespace handling
+#[cfg(test)]
 mod whitespace_tests {
     use super::*;
+    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_multiple_spaces() {
@@ -321,8 +330,10 @@ mod whitespace_tests {
 }
 
 /// Test binary content validation
+#[cfg(test)]
 mod binary_validation_tests {
     use super::*;
+    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 
     #[test]
     fn test_valid_utf8_detection() {
@@ -365,8 +376,10 @@ mod binary_validation_tests {
 }
 
 /// Test timestamp formatting edge cases
+#[cfg(test)]
 mod timestamp_tests {
     use super::*;
+    use crate::ui::chat::format_timestamp;
 
     #[test]
     fn test_rfc3339_timestamp() {
@@ -406,8 +419,10 @@ mod timestamp_tests {
 }
 
 /// Test message history edge cases
+#[cfg(test)]
 mod history_edge_tests {
     use super::*;
+    use crate::state::messages::MessageHistory;
 
     #[tokio::test]
     async fn test_empty_history() {
@@ -486,8 +501,10 @@ mod history_edge_tests {
 }
 
 /// Test ChatMessage edge cases
+#[cfg(test)]
 mod chat_message_edge_tests {
     use super::*;
+    use crate::state::messages::ChatMessage;
 
     #[test]
     fn test_empty_message() {

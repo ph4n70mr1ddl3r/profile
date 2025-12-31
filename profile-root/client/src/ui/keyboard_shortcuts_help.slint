@@ -1,0 +1,262 @@
+// KeyboardShortcutsHelp Component (Phase 2 UX Redesign)
+// Modal displaying all keyboard shortcuts
+//
+// Slint 1.14 Features Used:
+// - @dynamic-property for reactive state
+// - Improved modal focus management
+// - Smooth animations for open/close
+//
+// Properties:
+//   - is_visible: Controls modal visibility
+//
+// Callbacks:
+//   - close_requested: User requests to close modal
+
+export component KeyboardShortcutsHelp {
+    in property <bool> is_visible: false;
+    
+    callback close_requested;
+    
+    // Fade animation for backdrop
+    property <float> backdrop-opacity: 0;
+    
+    // Animate backdrop opacity
+    animate backdrop-opacity {
+        duration: 200ms;
+        easing: ease-out;
+    }
+    
+    // Modal container - only visible when is_visible is true
+    Rectangle {
+        visible: root.is_visible;
+        
+        // Backdrop with fade animation
+        Rectangle {
+            width: parent.width;
+            height: parent.height;
+            background: #000000;
+            opacity: 0.5;
+            
+            TouchArea {
+                width: parent.width;
+                height: parent.height;
+                clicked => {
+                    root.close_requested();
+                }
+            }
+        }
+        
+        // Modal content (centered)
+        Rectangle {
+            x: (parent.width - 420px) / 2;
+            y: (parent.height - 400px) / 2;
+            width: 420px;
+            height: 400px;
+            background: #1e1e2e;
+            border-radius: 16px;
+            border-width: 1px;
+            border-color: #3d3d5c;
+            
+            // Slide animation
+            property <float> y-offset: 20px;
+            opacity: 0;
+            
+            animate y-offset, opacity {
+                duration: 250ms;
+                easing: ease-out;
+            }
+            
+            // Show modal when visible
+            if (root.is_visible) {
+                y-offset: 0px;
+                opacity: 1;
+            }
+            
+            VerticalLayout {
+                padding: 20px;
+                spacing: 16px;
+                
+                // Header
+                HorizontalLayout {
+                    spacing: 12px;
+                    
+                    Text {
+                        text: "⌨️";
+                        font-size: 24px;
+                    }
+                    
+                    Text {
+                        text: "Keyboard Shortcuts";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: #ffffff;
+                        vertical-alignment: center;
+                    }
+                    
+                    Rectangle { horizontal-stretch: 1; }
+                    
+                    // Close button
+                    close_btn := FocusScope {
+                        width: 32px;
+                        height: 32px;
+                        accessible-role: button;
+                        accessible-label: "Close";
+                        accessible-description: "Press Enter or Space to close";
+                        
+                        key-pressed(event) => {
+                            if (event.text == "\n" || event.text == " " || event.text == "\x1B") {
+                                root.close_requested();
+                                return accept;
+                            }
+                            return reject;
+                        }
+                        
+                        Rectangle {
+                            width: parent.width;
+                            height: parent.height;
+                            background: #ef4444;
+                            border-radius: 6px;
+                            
+                            Text {
+                                text: "✕";
+                                color: #ffffff;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        
+                        TouchArea {
+                            width: parent.width;
+                            height: parent.height;
+                            clicked => {
+                                root.close_requested();
+                            }
+                        }
+                    }
+                }
+                
+                // Divider
+                Rectangle {
+                    height: 1px;
+                    background: #3d3d5c;
+                }
+                
+                // Shortcuts grid
+                HorizontalLayout {
+                    spacing: 24px;
+                    
+                    // Left column - Core shortcuts
+                    VerticalLayout {
+                        spacing: 8px;
+                        
+                        Text {
+                            text: "Core";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #888888;
+                            horizontal-alignment: left;
+                        }
+                        
+                        shortcut_item("Enter", "Send message", @keyframes-pulse);
+                        shortcut_item("Escape", "Close modal / Cancel");
+                        shortcut_item("?", "Show this help");
+                    }
+                    
+                    // Right column - Navigation
+                    VerticalLayout {
+                        spacing: 8px;
+                        
+                        Text {
+                            text: "Navigation";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #888888;
+                            horizontal-alignment: left;
+                        }
+                        
+                        shortcut_item("↑ / ↓", "Navigate lobby list");
+                        shortcut_item("Tab", "Next element");
+                        shortcut_item("Shift+Tab", "Previous element");
+                    }
+                }
+                
+                HorizontalLayout {
+                    spacing: 24px;
+                    
+                    // Third column - Actions
+                    VerticalLayout {
+                        spacing: 8px;
+                        
+                        Text {
+                            text: "Actions";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #888888;
+                            horizontal-alignment: left;
+                        }
+                        
+                        shortcut_item("Ctrl+C", "Copy selected item");
+                        shortcut_item("1-9", "Quick select user");
+                    }
+                    
+                    // Fourth column - Advanced
+                    VerticalLayout {
+                        spacing: 8px;
+                        
+                        Text {
+                            text: "Advanced";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #888888;
+                            horizontal-alignment: left;
+                        }
+                        
+                        shortcut_item("F1", "Focus composer");
+                        shortcut_item("F2", "Focus lobby");
+                    }
+                }
+                
+                Rectangle { horizontal-stretch: 1; }
+                
+                // Footer hint
+                Text {
+                    text: "Press ? or Escape anywhere to show/hide this help";
+                    font-size: 11px;
+                    color: #888888;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+    
+    // Helper component for shortcut items
+    shortcut_item(key_desc: string, action: string) {
+        HorizontalLayout {
+            spacing: 8px;
+            
+            Rectangle {
+                width: 90px;
+                background: #333333;
+                border-radius: 6px;
+                height: 28px;
+                
+                Text {
+                    text: key_desc;
+                    color: #ffffff;
+                    font-size: 11px;
+                    font-weight: 500;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            
+            Text {
+                text: action;
+                color: #cccccc;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

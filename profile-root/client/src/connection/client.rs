@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
+use tracing::{warn, debug, info};
 use crate::state::session::SharedKeyState;
 use crate::state::messages::{ChatMessage, SharedMessageHistory, create_shared_message_history, create_shared_message_history_with_capacity};
 use crate::ui::lobby_state::{LobbyState, LobbyUser};
@@ -38,6 +39,8 @@ pub struct MessageEventHandler {
     pub on_invalid_signature: Rc<RefCell<dyn Fn(String)>>,
     /// Called when an error occurs
     pub on_error: Rc<RefCell<dyn Fn(String)>>,
+    /// Called for general notifications (e.g., offline status, info messages)
+    pub on_notification: Rc<RefCell<dyn Fn(String)>>,
 }
 
 impl MessageEventHandler {
@@ -48,6 +51,7 @@ impl MessageEventHandler {
             on_message_received: Rc::new(RefCell::new(|_: ChatMessage| {})),
             on_invalid_signature: Rc::new(RefCell::new(|_: String| {})),
             on_error: Rc::new(RefCell::new(|_: String| {})),
+            on_notification: Rc::new(RefCell::new(|_: String| {})),
         }
     }
 
@@ -57,11 +61,13 @@ impl MessageEventHandler {
         on_message_received: impl Fn(ChatMessage) + 'static,
         on_invalid_signature: impl Fn(String) + 'static,
         on_error: impl Fn(String) + 'static,
+        on_notification: impl Fn(String) + 'static,
     ) -> Self {
         Self {
             on_message_received: Rc::new(RefCell::new(on_message_received)),
             on_invalid_signature: Rc::new(RefCell::new(on_invalid_signature)),
             on_error: Rc::new(RefCell::new(on_error)),
+            on_notification: Rc::new(RefCell::new(on_notification)),
         }
     }
 
@@ -81,6 +87,12 @@ impl MessageEventHandler {
     #[inline]
     pub fn error(&self, error: &str) {
         (self.on_error.borrow())(error.to_string());
+    }
+
+    /// Emit notification event (for general notifications like offline status)
+    #[inline]
+    pub fn notification(&self, message: &str) {
+        (self.on_notification.borrow())(message.to_string());
     }
 }
 
@@ -338,10 +350,10 @@ pub async fn verify_and_store_message(
         }
         crate::handlers::verify::VerificationResult::Invalid { sender_public_key, reason } => {
             // Log warning and notify user
-            println!(
-                "WARNING: Invalid signature received from {} - {}",
-                format_public_key(&sender_public_key),
-                reason
+            warn!(
+                key = %format_public_key(&sender_public_key),
+                reason = %reason,
+                "Invalid signature received"
             );
 
             // Create notification
@@ -557,17 +569,17 @@ impl WebSocketClient {
 
             // Exponential backoff: 1s, 2s, 4s, 8s, 16s
             let backoff = self.reconnect_backoff_ms * 2u64.pow(attempts);
-            println!("Reconnecting in {}ms (attempt {} of {})", backoff, attempts + 1, self.max_reconnect_attempts);
+            debug!(backoff_ms = backoff, attempt = attempts + 1, max_attempts = self.max_reconnect_attempts, "Reconnecting");
             tokio::time::sleep(tokio::time::Duration::from_millis(backoff)).await;
 
             // Try to reconnect
             match self.connect().await {
                 Ok(_) => {
-                    println!("Reconnected successfully");
+                    info!("Reconnected successfully");
                     return self.reconnection_flow().await;
                 }
                 Err(e) => {
-                    println!("Reconnection attempt {} failed: {}", attempts + 1, e);
+                    warn!(attempt = attempts + 1, error = %e, "Reconnection attempt failed");
                     attempts += 1;
                 }
             }
@@ -594,17 +606,17 @@ impl WebSocketClient {
         // Authenticate with server
         match self.authenticate().await {
             Ok(_) => {
-                println!("Re-authenticated successfully");
+                info!("Re-authenticated successfully");
                 self.connection_state = ConnectionState::Connected;
 
                 // Send any pending messages (Task 5.3: Handle race)
                 let messages_to_send: Vec<String> = {
                     let mut pending = self.pending_messages.lock().await;
                     if !pending.is_empty() {
-                        println!("Sending {} pending messages from reconnection", pending.len());
+                        info!(count = pending.len(), "Sending pending messages from reconnection");
                         pending.drain(..).collect()
                     } else {
-                        Vec::new()
+                        vec![]
                     }
                 };
 
@@ -616,7 +628,7 @@ impl WebSocketClient {
                 Ok(())
             }
             Err(e) => {
-                println!("Authentication after reconnect failed: {}", e);
+                warn!(error = %e, "Authentication after reconnect failed");
                 self.connection_state = ConnectionState::Disconnected;
                 Err(e)
             }
@@ -764,7 +776,7 @@ impl WebSocketClient {
         let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe");
 
         if is_temporary {
-            println!("Temporary disconnect: {}. Attempting reconnection...", reason);
+            warn!(reason = %reason, "Temporary disconnect - attempting reconnection");
             return self.attempt_reconnect().await;
         }
 
@@ -814,7 +826,7 @@ impl WebSocketClient {
                 Some(Ok(Message::Text(text))) => {
                     // Try to parse as lobby message first (Story 2.2)
                     if let Ok(lobby_response) = parse_lobby_message(&text) {
-                        println!("Received lobby message: {:?}", lobby_response);
+                        debug!(?lobby_response, "Received lobby message");
 
                         // Handle lobby responses
                         if let Some(ref handler) = self.lobby_event_handler {
@@ -860,7 +872,7 @@ impl WebSocketClient {
                         // Handle chat message with verification (Story 3.3 + 3.4)
                         match chat_response {
                             ChatResponse::Message(message) => {
-                                println!("Received chat message from: {}, verifying...", message.sender_public_key.chars().take(16).collect::<String>());
+                                debug!(sender = %message.sender_public_key.chars().take(16).collect::<String>(), "Received chat message - verifying");
 
                                 // Verify and store the message
                                 verify_and_store_message(
@@ -878,14 +890,14 @@ impl WebSocketClient {
                         if let Ok(server_msg) = parse_server_message(&text) {
                             match server_msg {
                                 ServerMessageResponse::Error(error) => {
-                                    println!("Server error: {} - {}", error.reason, error.details.clone().unwrap_or_default());
+                                    warn!(reason = %error.reason, details = %error.details.clone().unwrap_or_default(), "Server error");
                                     if let Some(ref handler) = self.message_event_handler {
                                         let details = error.details.unwrap_or_default();
                                         handler.error(&format!("{}: {}", error.reason, details));
                                     }
                                 }
                                 ServerMessageResponse::Unknown => {
-                                    println!("Received unknown message type: {}", text);
+                                    debug!(message = %text, "Received unknown message type");
                                 }
                                 _ => {
                                     // Lobby and chat already handled above
@@ -895,7 +907,7 @@ impl WebSocketClient {
                             // Handle notification (Story 3.6)
                             match notification {
                                 NotificationResponse::RecipientOffline { recipient_key, message } => {
-                                    println!("Recipient {} is offline", recipient_key.chars().take(16).collect::<String>());
+                                    debug!(recipient = %recipient_key.chars().take(16).collect::<String>(), "Recipient is offline");
 
                                     // Format notification message (AC4 - User Notification)
                                     let notification_msg = format!(
@@ -907,7 +919,7 @@ impl WebSocketClient {
                                     if let Some(msg_content) = message {
                                         let mut pending = self.pending_messages.lock().await;
                                         pending.push(msg_content.clone());
-                                        println!("Message '{}' queued for delivery when {} comes online", msg_content, recipient_key);
+                                        debug!(recipient = %recipient_key, message = %msg_content, "Message queued for delivery when recipient comes online");
                                     }
 
                                     // Notify recipient_offline_handler (AC4)
@@ -915,13 +927,13 @@ impl WebSocketClient {
                                         handler.borrow()(recipient_key.clone());
                                     }
 
-                                    // Notify message event handler if available
+                                    // Notify message event handler of notification (not invalid signature!)
                                     if let Some(ref handler) = self.message_event_handler {
-                                        handler.invalid_signature(&notification_msg);
+                                        handler.notification(&notification_msg);
                                     }
                                 }
                                 NotificationResponse::UserBackOnline { public_key } => {
-                                    println!("User {} is back online", public_key.chars().take(16).collect::<String>());
+                                    info!(user = %public_key.chars().take(16).collect::<String>(), "User is back online");
 
                                     // Send pending messages for this user (AC4 - Deliver queued messages)
                                     let user_messages: Vec<String> = {
@@ -936,7 +948,7 @@ impl WebSocketClient {
                                     // Send messages after releasing lock
                                     for msg in &user_messages {
                                         if let Err(e) = self.send_message_internal(msg).await {
-                                            println!("Failed to send queued message to {}: {}", public_key, e);
+                                            warn!(user = %public_key, error = %e, "Failed to send queued message");
                                         }
                                     }
 
@@ -945,14 +957,14 @@ impl WebSocketClient {
                                         let mut pending = self.pending_messages.lock().await;
                                         pending.retain(|msg| !msg.contains(&public_key));
                                     }
-                                    println!("Delivered {} queued messages to {}", user_messages.len(), public_key);
+                                    info!(user = %public_key, count = user_messages.len(), "Delivered queued messages");
                                 }
                                 NotificationResponse::Unknown => {
-                                    println!("Received unknown notification: {}", text);
+                                    debug!(message = %text, "Received unknown notification");
                                 }
                             }
                         } else {
-                            println!("Received unparseable message: {}", text);
+                            debug!(message = %text, "Received unparseable message");
                         }
                     }
                 }
@@ -973,7 +985,7 @@ impl WebSocketClient {
                     let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe" | "timeout");
 
                     if is_temporary {
-                        println!("Connection closed (temporary): {}. Attempting reconnection...", reason);
+                        warn!(reason = %reason, "Connection closed (temporary) - attempting reconnection");
                         return self.attempt_reconnect().await;
                     }
 
@@ -997,7 +1009,7 @@ impl WebSocketClient {
                 }
                 Some(Ok(_)) => {
                     // Other message types (binary, etc.)
-                    println!("Received unexpected message type");
+                    debug!("Received unexpected message type");
                 }
                 Some(Err(e)) => {
                     // Connection error (network issue, stream closed)

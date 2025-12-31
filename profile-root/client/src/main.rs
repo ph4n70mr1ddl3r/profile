@@ -306,6 +306,9 @@ fn main() -> Result<(), slint::PlatformError> {
         |_error: String| {
             // Handle error (can be logged or shown to user)
         },
+        |_notification: String| {
+            // Handle general notification (e.g., offline status)
+        },
     );
 
     // Initial lobby UI update (empty state)

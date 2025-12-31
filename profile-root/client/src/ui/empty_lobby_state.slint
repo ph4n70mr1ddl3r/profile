@@ -1,0 +1,125 @@
+// EmptyLobbyState Component (Phase 2 UX Redesign)
+// Displays when no users are in the lobby
+//
+// Slint 1.14 Features Used:
+// - Smooth fade-in animations
+// - Responsive layout with stretch
+//
+// Properties:
+//   - public_key: Current user's public key for sharing
+
+export component EmptyLobbyState {
+    in property <string> public_key: "";
+    
+    // Fade-in animation
+    property <float> opacity: 0;
+    
+    animate opacity {
+        duration: 300ms;
+        easing: ease-out;
+    }
+    
+    // Show with animation
+    if (true) {
+        opacity: 1;
+    }
+    
+    Rectangle {
+        opacity: root.opacity;
+        width: 100%;
+        height: 100%;
+        background: #111827;
+        border-radius: 8px;
+        
+        VerticalLayout {
+            padding: 32px;
+            spacing: 16px;
+            alignment: center;
+            
+            // Animated icon
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 32px;
+                background: #1e293b;
+                
+                // Pulse animation
+                property <float> pulse-scale: 1.0;
+                
+                animate pulse-scale {
+                    duration: 2s;
+                    easing: ease-in-out;
+                    iteration-count: infinite;
+                }
+                
+                Text {
+                    text: "👋";
+                    font-size: 32px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: parent.width;
+                    height: parent.height;
+                    transform-scale-x: root.pulse-scale;
+                    transform-scale-y: root.pulse-scale;
+                }
+            }
+            
+            // Main message
+            Text {
+                text: "No users online";
+                font-size: 16px;
+                color: #ffffff;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+            
+            // Subtitle
+            Text {
+                text: "Share your public key to start chatting";
+                font-size: 13px;
+                color: #888888;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            
+            // Public key display for sharing
+            if (root.public_key != "") {
+                Rectangle {
+                    background: #1e293b;
+                    border-radius: 8px;
+                    padding: 12px;
+                    height: 60px;
+                    
+                    VerticalLayout {
+                        spacing: 4px;
+                        
+                        Text {
+                            text: "Your public key:";
+                            font-size: 10px;
+                            color: #888888;
+                            horizontal-alignment: left;
+                        }
+                        
+                        Text {
+                            text: root.public_key;
+                            font-family: "Consolas, Monaco, monospace";
+                            font-size: 11px;
+                            color: #0066CC;
+                            horizontal-alignment: left;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+            
+            // Help text
+            Text {
+                text: "Tip: Ask others to share their public keys to connect";
+                font-size: 11px;
+                color: #666666;
+                horizontal-alignment: center;
+                font-style: italic;
+            }
+        }
+    }
+}

@@ -146,7 +146,7 @@ mod tests {
         use zeroize::Zeroizing;
 
         let private_key = generate_private_key().unwrap();
-        let public_key = derive_public_key(&private_key).unwrap();
+        let _public_key = derive_public_key(&private_key).unwrap();
 
         // Test determinism at the signing level (same input = same signature)
         let canonical_message_1 = "Same message:2025-12-27T10:30:00.123456789Z";

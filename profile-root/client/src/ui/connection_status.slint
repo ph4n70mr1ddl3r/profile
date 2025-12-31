@@ -1,0 +1,133 @@
+// ConnectionStatus Component (Phase 2 UX Redesign)
+// Displays connection state and provides user menu options
+//
+// Slint 1.14 Features Used:
+// - @dynamic-property for reactive state
+// - Improved FocusScope with better keyboard handling
+//
+// Properties:
+//   - connected: Whether currently connected
+//   - status_text: Connection status message
+//   - public_key_short: Abbreviated public key for display
+//
+// Callbacks:
+//   - disconnect_pressed: User clicks disconnect
+//   - change_key_pressed: User clicks change key
+//   - clicked: Status bar clicked (show details)
+
+export component ConnectionStatus {
+    in property <bool> connected: false;
+    in property <string> status_text: "Offline";
+    in property <string> public_key_short: "";
+    
+    callback disconnect_pressed;
+    callback change_key_pressed;
+    callback clicked;
+    
+    // Forward focus for keyboard navigation
+    forward-focus: touch_scope;
+    
+    // Status bar container
+    Rectangle {
+        background: root.connected ? #22c55e : #6b7280;
+        height: 32px;
+        
+        HorizontalLayout {
+            padding: 8px;
+            spacing: 12px;
+            
+            // Status indicator (pulsing dot when connected)
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: root.connected ? #ffffff : #cccccc;
+                
+                // Subtle pulse animation when connected (Slint 1.14 animation)
+                if (root.connected) {
+                    animate background, opacity {
+                        duration: 2s;
+                        easing: ease-in-out;
+                    }
+                }
+            }
+            
+            // Status text
+            Text {
+                text: root.connected ? "Connected" : "Offline";
+                color: #ffffff;
+                font-size: 12px;
+                vertical-alignment: center;
+                font-weight: 500;
+            }
+            
+            // Public key (abbreviated)
+            if (root.connected && root.public_key_short != "") {
+                Text {
+                    text: "• " + root.public_key_short;
+                    color: rgba(255,255,255,0.7);
+                    font-size: 11px;
+                    font-family: "Consolas, Monaco, monospace";
+                    vertical-alignment: center;
+                }
+            }
+            
+            Rectangle { horizontal-stretch: 1; }
+            
+            // User menu button (three dots) - only visible when connected
+            if (root.connected) {
+                menu_button := FocusScope {
+                    width: 24px;
+                    height: 24px;
+                    accessible-role: button;
+                    accessible-label: "User menu";
+                    accessible-description: "Options to disconnect or change key";
+                    
+                    // Keyboard support
+                    key-pressed(event) => {
+                        if (event.text == "\n" || event.text == " ") {
+                            // Toggle menu (handled by parent)
+                            root.clicked();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                    
+                    Rectangle {
+                        width: parent.width;
+                        height: parent.height;
+                        
+                        // Three dots icon
+                        for i in 3: Rectangle {
+                            width: 4px;
+                            height: 4px;
+                            border-radius: 2px;
+                            background: #ffffff;
+                            x: 6px + (i * 8px);
+                            y: 10px;
+                        }
+                    }
+                    
+                    TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        clicked => {
+                            root.clicked();
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Click handler for status bar
+        touch_scope := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+            
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+}

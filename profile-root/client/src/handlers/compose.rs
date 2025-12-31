@@ -11,7 +11,6 @@ use serde_json;
 use crate::state::messages::{ChatMessage, SharedMessageHistory};
 use crate::state::session::SharedKeyState;
 use profile_shared::crypto::sign_message;
-use profile_shared::crypto::PrivateKey;
 
 /// Error types for message composition operations
 #[derive(Debug, Clone)]
