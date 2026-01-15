@@ -2,10 +2,10 @@
 //!
 //! CRITICAL: Uses tokio::sync::Mutex (NOT std::sync::Mutex) for async-safe, non-blocking access
 
+use crate::state::KeyState;
+use profile_shared::{derive_public_key, generate_private_key};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::state::KeyState;
-use profile_shared::{generate_private_key, derive_public_key};
 
 /// Type alias for thread-safe, async-safe shared key state
 /// Uses tokio::sync::Mutex to avoid blocking the Tokio runtime
@@ -17,11 +17,9 @@ pub fn create_shared_key_state() -> SharedKeyState {
 }
 
 /// Generate a new key and store it in the shared state
-/// 
+///
 /// Returns the public key as hex string for display
-pub async fn handle_generate_key_async(
-    key_state: &SharedKeyState,
-) -> Result<String, String> {
+pub async fn handle_generate_key_async(key_state: &SharedKeyState) -> Result<String, String> {
     // Lock the state using async-safe pattern (tokio::sync::Mutex)
     let mut state = key_state.lock().await;
 
@@ -41,7 +39,7 @@ pub async fn handle_generate_key_async(
 
     // Convert to hex for display
     let public_key_hex = hex::encode(&public_key);
-    
+
     // Validate hex encoding (32 bytes = 64 hex chars)
     if public_key_hex.len() != 64 {
         return Err(format!(
@@ -49,12 +47,12 @@ pub async fn handle_generate_key_async(
             public_key_hex.len()
         ));
     }
-    
+
     // Validate hex content (defense in depth - hex::encode should always produce valid hex)
     if !public_key_hex.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err("Invalid public key encoding: contains non-hex characters".into());
     }
-    
+
     // Validate not all zeros (additional safety check - already caught in keygen, but verify here too)
     if public_key_hex.chars().all(|c| c == '0') {
         return Err("Invalid public key: all-zero key detected".into());
@@ -144,13 +142,16 @@ mod tests {
         // (Although hex::encode always produces valid hex, we test the validation logic)
         let key_state = create_shared_key_state();
         let result = handle_generate_key_async(&key_state).await;
-        
+
         assert!(result.is_ok());
         let hex = result.unwrap();
-        
+
         // Verify hex validation logic
         assert_eq!(hex.len(), 64, "Should be 64 hex chars");
-        assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "All chars should be hex");
+        assert!(
+            hex.chars().all(|c| c.is_ascii_hexdigit()),
+            "All chars should be hex"
+        );
         assert!(!hex.chars().all(|c| c == '0'), "Should not be all zeros");
     }
 
@@ -158,15 +159,19 @@ mod tests {
     async fn test_key_generation_completes_quickly() {
         // Verify key generation completes well under the 5-second timeout
         use std::time::Instant;
-        
+
         let key_state = create_shared_key_state();
         let start = Instant::now();
-        
+
         let result = handle_generate_key_async(&key_state).await;
         let elapsed = start.elapsed();
-        
+
         assert!(result.is_ok(), "Key generation should succeed");
-        assert!(elapsed.as_secs() < 1, "Key generation should complete in <1 second (was {:?})", elapsed);
+        assert!(
+            elapsed.as_secs() < 1,
+            "Key generation should complete in <1 second (was {:?})",
+            elapsed
+        );
     }
 
     #[tokio::test]
@@ -174,16 +179,16 @@ mod tests {
         // This test verifies that if key generation fails, state remains unchanged
         // (We can't easily mock a failure, but we verify the pattern)
         let key_state = create_shared_key_state();
-        
+
         // Verify initial state
         {
             let state = key_state.lock().await;
             assert!(!state.is_key_set(), "State should start empty");
         }
-        
+
         // Generate key (should succeed in normal operation)
         let result = handle_generate_key_async(&key_state).await;
-        
+
         if result.is_err() {
             // If generation failed, state should still be empty
             let state = key_state.lock().await;

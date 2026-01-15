@@ -3,9 +3,9 @@
 //! This module consolidates common test helper functions used across
 //! lobby tests to avoid code duplication.
 //!
-use tokio::sync::mpsc;
-use profile_shared::Message;
 use profile_server::lobby::ActiveConnection;
+use profile_shared::Message;
+use tokio::sync::mpsc;
 
 /// Create a test ActiveConnection with a given public key and connection ID
 ///

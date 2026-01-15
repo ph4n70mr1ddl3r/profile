@@ -224,7 +224,11 @@ async fn test_multiple_leaves_consistency() {
 
     match &msg1b {
         SharedMessage::LobbyUpdate { left, .. } => {
-            assert_eq!(left.len(), 1, "Expected 1 user in second leave notification");
+            assert_eq!(
+                left.len(),
+                1,
+                "Expected 1 user in second leave notification"
+            );
         }
         _ => panic!("Expected LobbyUpdate"),
     }
@@ -254,13 +258,10 @@ async fn test_multiple_leaves_consistency() {
         .expect("Timeout - User4 should have received notification")
         .expect("User4 should have received notification");
 
-        match msg4a {
-            SharedMessage::LobbyUpdate { left, .. } => {
-                assert!(
-                    left.iter().any(|u| u == &key2)
-                        || left.iter().any(|u| u == &key3)
-                );
-            }
+    match msg4a {
+        SharedMessage::LobbyUpdate { left, .. } => {
+            assert!(left.iter().any(|u| u == &key2) || left.iter().any(|u| u == &key3));
+        }
         _ => panic!("Expected LobbyUpdate"),
     }
 
@@ -297,12 +298,12 @@ async fn test_connection_drop_cleanup() {
         .expect("Timeout - notification should have been sent")
         .expect("Notification should have been received");
 
-        match msg {
-            SharedMessage::LobbyUpdate { left, .. } => {
-                assert!(!left.is_empty());
-                assert_eq!(left.len(), 1);
-                assert_eq!(left[0], key1);
-            }
+    match msg {
+        SharedMessage::LobbyUpdate { left, .. } => {
+            assert!(!left.is_empty());
+            assert_eq!(left.len(), 1);
+            assert_eq!(left[0], key1);
+        }
         _ => panic!("Expected LobbyUpdate"),
     }
 
@@ -344,16 +345,27 @@ async fn test_last_user_leave_empty_lobby() {
     let current_users = profile_server::lobby::get_current_users(&lobby)
         .await
         .unwrap();
-    assert!(current_users.is_empty(), "Lobby should be empty after last user leaves");
+    assert!(
+        current_users.is_empty(),
+        "Lobby should be empty after last user leaves"
+    );
 
     // Verify: get_user returns None
-    let lookup = profile_server::lobby::get_user(&lobby, &key1).await.unwrap();
-    assert!(lookup.is_none(), "get_user should return None for departed user");
+    let lookup = profile_server::lobby::get_user(&lobby, &key1)
+        .await
+        .unwrap();
+    assert!(
+        lookup.is_none(),
+        "get_user should return None for departed user"
+    );
 
     // No broadcast should be sent (no remaining users to notify)
     // The receiver should NOT receive any message since there are no recipients
     let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv()).await;
-    assert!(result.is_err() || result.unwrap().is_none(), "No broadcast should be sent when no users remain");
+    assert!(
+        result.is_err() || result.unwrap().is_none(),
+        "No broadcast should be sent when no users remain"
+    );
 
     println!("✅ Last user leave handled correctly - empty lobby, no spurious broadcasts");
 }
@@ -375,9 +387,15 @@ async fn test_broadcast_user_left_unit_behavior() {
     let key3 = conn3.public_key.clone();
 
     // Add all to lobby
-    profile_server::lobby::add_user(&lobby, key1.clone(), conn1).await.unwrap();
-    profile_server::lobby::add_user(&lobby, key2.clone(), conn2).await.unwrap();
-    profile_server::lobby::add_user(&lobby, key3.clone(), conn3).await.unwrap();
+    profile_server::lobby::add_user(&lobby, key1.clone(), conn1)
+        .await
+        .unwrap();
+    profile_server::lobby::add_user(&lobby, key2.clone(), conn2)
+        .await
+        .unwrap();
+    profile_server::lobby::add_user(&lobby, key3.clone(), conn3)
+        .await
+        .unwrap();
 
     // Drain all join broadcasts
     for _ in 0..6 {
@@ -388,7 +406,9 @@ async fn test_broadcast_user_left_unit_behavior() {
 
     // Test 1: Direct call to broadcast_user_left with single user
     // We need to test this by removing user2
-    profile_server::lobby::remove_user(&lobby, &key2).await.unwrap();
+    profile_server::lobby::remove_user(&lobby, &key2)
+        .await
+        .unwrap();
 
     // Verify: User1 and User3 received leave notification
     let msg1 = tokio::time::timeout(std::time::Duration::from_millis(100), rx1.recv())
@@ -404,7 +424,10 @@ async fn test_broadcast_user_left_unit_behavior() {
     // Verify message format: left should contain Vec<String>, not Vec<LobbyUser>
     match msg1 {
         SharedMessage::LobbyUpdate { joined, left } => {
-            assert!(joined.is_empty(), "Joined should be empty for leave notification");
+            assert!(
+                joined.is_empty(),
+                "Joined should be empty for leave notification"
+            );
             assert!(!left.is_empty(), "Left should not be empty");
             assert_eq!(left.len(), 1, "Should have exactly 1 user leaving");
             assert_eq!(left[0], key2, "Leaving user should be key2");
@@ -425,7 +448,10 @@ async fn test_broadcast_user_left_unit_behavior() {
 
     // Verify: User2 did NOT receive their own notification (excluded from broadcast)
     let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx2.recv()).await;
-    assert!(result.is_err() || result.unwrap().is_none(), "Leaving user should NOT receive own notification");
+    assert!(
+        result.is_err() || result.unwrap().is_none(),
+        "Leaving user should NOT receive own notification"
+    );
 
     println!("✅ broadcast_user_left unit behavior verified: correct format, recipients excluded");
 }

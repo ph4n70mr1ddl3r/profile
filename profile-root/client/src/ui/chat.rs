@@ -9,9 +9,9 @@
 //! to the Slint UI components defined in `main.slint`.
 
 use crate::state::messages::{ChatMessage, SharedMessageHistory};
+use chrono::{DateTime, Timelike};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use chrono::{DateTime, Timelike};
 
 /// Trait for bridging ChatView data to the UI.
 ///
@@ -130,9 +130,14 @@ pub fn format_timestamp(iso_timestamp: &str) -> String {
                 if time_chars.len() >= 8 {
                     return format!(
                         "{}{}{}{}{}{}{}{}",
-                        time_chars[0], time_chars[1], ':',
-                        time_chars[2], time_chars[3], ':',
-                        time_chars[4], time_chars[5]
+                        time_chars[0],
+                        time_chars[1],
+                        ':',
+                        time_chars[2],
+                        time_chars[3],
+                        ':',
+                        time_chars[4],
+                        time_chars[5]
                     );
                 }
             }
@@ -517,7 +522,12 @@ mod tests {
     fn test_clear_chat() {
         let mut view = ChatView::new();
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "m".to_string(), "s".to_string(), "t".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "m".to_string(),
+                "s".to_string(),
+                "t".to_string(),
+            ),
             false,
         ));
 
@@ -534,13 +544,23 @@ mod tests {
         assert!(view.newest_message_id().is_none());
 
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "m1".to_string(), "s".to_string(), "2025-12-27T10:00:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "m1".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:00:00Z".to_string(),
+            ),
             false,
         ));
         assert_eq!(view.newest_message_id(), Some("msg-2025-12-27T10:00:00Z"));
 
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "m2".to_string(), "s".to_string(), "2025-12-27T10:01:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "m2".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:01:00Z".to_string(),
+            ),
             false,
         ));
         assert_eq!(view.newest_message_id(), Some("msg-2025-12-27T10:01:00Z"));
@@ -551,7 +571,12 @@ mod tests {
         let mut view = ChatView::new();
 
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "m1".to_string(), "s".to_string(), "2025-12-27T10:00:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "m1".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:00:00Z".to_string(),
+            ),
             false,
         ));
 
@@ -621,15 +646,30 @@ mod tests {
 
         // Add messages with different timestamps
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "msg1".to_string(), "s".to_string(), "2025-12-27T10:00:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "msg1".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:00:00Z".to_string(),
+            ),
             false,
         ));
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "msg2".to_string(), "s".to_string(), "2025-12-27T10:01:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "msg2".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:01:00Z".to_string(),
+            ),
             false,
         ));
         view.messages.push(DisplayMessage::from_chat_message(
-            &ChatMessage::new("k".to_string(), "msg3".to_string(), "s".to_string(), "2025-12-27T10:02:00Z".to_string()),
+            &ChatMessage::new(
+                "k".to_string(),
+                "msg3".to_string(),
+                "s".to_string(),
+                "2025-12-27T10:02:00Z".to_string(),
+            ),
             false,
         ));
 

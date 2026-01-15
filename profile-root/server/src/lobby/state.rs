@@ -1,7 +1,7 @@
+use profile_shared::{LobbyError, Message};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
-use profile_shared::{Message, LobbyError};
+use tokio::sync::{mpsc, RwLock};
 
 /// Maximum number of users allowed in the lobby at once.
 ///
@@ -105,16 +105,16 @@ mod tests {
     #[tokio::test]
     async fn test_active_connection_struct_construction() {
         let public_key = "test_key_123".to_string();
-        
+
         // Create mpsc channel for sender
         let (sender, _) = mpsc::unbounded_channel::<Message>();
-        
+
         let connection = ActiveConnection {
             public_key: public_key.clone(),
             sender,
             connection_id: 42,
         };
-        
+
         assert_eq!(connection.public_key, public_key);
         assert_eq!(connection.connection_id, 42);
         // Note: sender field tested in integration tests with actual message sending
@@ -157,13 +157,11 @@ mod tests {
     #[tokio::test]
     async fn test_arc_rwlock_thread_safety_pattern() {
         let lobby = Lobby::new();
-        
+
         // Test that we can clone Arc and access from multiple threads
         let lobby_clone = lobby.clone();
-        let handle = tokio::spawn(async move {
-            lobby_clone.user_count().await.unwrap()
-        });
-        
+        let handle = tokio::spawn(async move { lobby_clone.user_count().await.unwrap() });
+
         let result = handle.await.unwrap();
         assert_eq!(result, 0); // Empty lobby has 0 users
     }

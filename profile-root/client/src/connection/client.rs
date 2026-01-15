@@ -1,12 +1,15 @@
-use serde::Deserialize;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use futures_util::{SinkExt, StreamExt};
-use tracing::{warn, debug, info};
+use crate::state::messages::{
+    create_shared_message_history, create_shared_message_history_with_capacity, ChatMessage,
+    SharedMessageHistory,
+};
 use crate::state::session::SharedKeyState;
-use crate::state::messages::{ChatMessage, SharedMessageHistory, create_shared_message_history, create_shared_message_history_with_capacity};
 use crate::ui::lobby_state::{LobbyState, LobbyUser};
-use std::rc::Rc;
+use futures_util::{SinkExt, StreamExt};
+use serde::Deserialize;
 use std::cell::RefCell;
+use std::rc::Rc;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tracing::{debug, info, warn};
 
 /// Authentication response from server
 #[derive(Debug, Clone, PartialEq)]
@@ -186,7 +189,9 @@ pub enum ChatResponse {
 }
 
 /// Parse a lobby message from the server
-pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::error::Error + Send + Sync>> {
+pub fn parse_lobby_message(
+    text: &str,
+) -> Result<LobbyResponse, Box<dyn std::error::Error + Send + Sync>> {
     // First, determine message type
     let msg: ServerMessage = serde_json::from_str(text)?;
 
@@ -201,7 +206,7 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
                 .into_iter()
                 .map(|u| LobbyUser {
                     public_key: u.public_key,
-                    is_online: u.status == "online",
+                    is_online: u.status.as_deref() == Some("online"),
                 })
                 .collect();
 
@@ -213,10 +218,8 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
 
             // Handle joined users (all users in delta)
             if !update.joined.is_empty() {
-                let joined_keys: Vec<String> = update.joined
-                    .into_iter()
-                    .map(|u| u.public_key)
-                    .collect();
+                let joined_keys: Vec<String> =
+                    update.joined.into_iter().map(|u| u.public_key).collect();
                 return Ok(LobbyResponse::UsersJoined {
                     public_keys: joined_keys,
                 });
@@ -242,7 +245,9 @@ pub fn parse_lobby_message(text: &str) -> Result<LobbyResponse, Box<dyn std::err
 /// This handles the "message" type sent when another user sends a message.
 /// The message has already been validated by the server, so we trust it.
 /// The client will do its own verification for defense in depth.
-pub fn parse_chat_message(text: &str) -> Result<ChatResponse, Box<dyn std::error::Error + Send + Sync>> {
+pub fn parse_chat_message(
+    text: &str,
+) -> Result<ChatResponse, Box<dyn std::error::Error + Send + Sync>> {
     // First, determine message type
     let msg: ServerMessage = serde_json::from_str(text)?;
 
@@ -263,12 +268,7 @@ pub fn parse_chat_message(text: &str) -> Result<ChatResponse, Box<dyn std::error
             };
 
             // Create a ChatMessage (initially unverified, client will verify)
-            let chat_msg = ChatMessage::new(
-                sender_public_key,
-                message,
-                signature,
-                timestamp,
-            );
+            let chat_msg = ChatMessage::new(sender_public_key, message, signature, timestamp);
             Ok(ChatResponse::Message(chat_msg))
         }
         // Other message types are not chat messages
@@ -285,15 +285,15 @@ pub enum NotificationResponse {
         message: Option<String>,
     },
     /// User came back online
-    UserBackOnline {
-        public_key: String,
-    },
+    UserBackOnline { public_key: String },
     /// Unknown notification type
     Unknown,
 }
 
 /// Parse a notification from the server
-pub fn parse_notification(text: &str) -> Result<NotificationResponse, Box<dyn std::error::Error + Send + Sync>> {
+pub fn parse_notification(
+    text: &str,
+) -> Result<NotificationResponse, Box<dyn std::error::Error + Send + Sync>> {
     use crate::handlers::offline::OfflineNotification;
 
     // First, determine message type
@@ -334,7 +334,9 @@ pub async fn verify_and_store_message(
     message_history: &SharedMessageHistory,
     handler: &Option<MessageEventHandler>,
 ) {
-    use crate::handlers::verify::{verify_chat_message, create_invalid_signature_notification, format_public_key};
+    use crate::handlers::verify::{
+        create_invalid_signature_notification, format_public_key, verify_chat_message,
+    };
 
     // Verify the signature
     match verify_chat_message(chat_msg) {
@@ -348,7 +350,10 @@ pub async fn verify_and_store_message(
                 h.message_received(&verified_msg);
             }
         }
-        crate::handlers::verify::VerificationResult::Invalid { sender_public_key, reason } => {
+        crate::handlers::verify::VerificationResult::Invalid {
+            sender_public_key,
+            reason,
+        } => {
             // Log warning and notify user
             warn!(
                 key = %format_public_key(&sender_public_key),
@@ -371,7 +376,9 @@ pub async fn verify_and_store_message(
 ///
 /// Returns the appropriate response type based on message content.
 /// Useful for handling messages in the WebSocket loop.
-pub fn parse_server_message(text: &str) -> Result<ServerMessageResponse, Box<dyn std::error::Error + Send + Sync>> {
+pub fn parse_server_message(
+    text: &str,
+) -> Result<ServerMessageResponse, Box<dyn std::error::Error + Send + Sync>> {
     // First, determine message type
     let msg: ServerMessage = serde_json::from_str(text)?;
 
@@ -442,25 +449,27 @@ struct AuthErrorMessage {
 }
 
 /// Parse authentication response from server
-fn parse_auth_response(text: &str) -> Result<AuthResponse, Box<dyn std::error::Error + Send + Sync>> {
+fn parse_auth_response(
+    text: &str,
+) -> Result<AuthResponse, Box<dyn std::error::Error + Send + Sync>> {
     // First, determine message type
     let msg: ServerMessage = serde_json::from_str(text)?;
-    
+
     match msg.r#type.as_str() {
         "auth_success" => {
             let success: AuthSuccessMessage = serde_json::from_str(text)?;
-            Ok(AuthResponse::Success { 
-                users: success.users 
+            Ok(AuthResponse::Success {
+                users: success.users,
             })
         }
         "error" => {
             let error: AuthErrorMessage = serde_json::from_str(text)?;
-            Ok(AuthResponse::Failed { 
-                reason: error.reason, 
-                details: error.details 
+            Ok(AuthResponse::Failed {
+                reason: error.reason,
+                details: error.details,
             })
         }
-        other => Err(format!("Unknown message type: {}", other).into())
+        other => Err(format!("Unknown message type: {}", other).into()),
     }
 }
 
@@ -479,7 +488,11 @@ pub enum ConnectionState {
 
 /// WebSocket client for connecting to the profile server
 pub struct WebSocketClient {
-    connection: Option<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
+    connection: Option<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+    >,
     key_state: SharedKeyState,
     message_history: SharedMessageHistory,
     lobby_event_handler: Option<LobbyEventHandler>,
@@ -569,7 +582,12 @@ impl WebSocketClient {
 
             // Exponential backoff: 1s, 2s, 4s, 8s, 16s
             let backoff = self.reconnect_backoff_ms * 2u64.pow(attempts);
-            debug!(backoff_ms = backoff, attempt = attempts + 1, max_attempts = self.max_reconnect_attempts, "Reconnecting");
+            debug!(
+                backoff_ms = backoff,
+                attempt = attempts + 1,
+                max_attempts = self.max_reconnect_attempts,
+                "Reconnecting"
+            );
             tokio::time::sleep(tokio::time::Duration::from_millis(backoff)).await;
 
             // Try to reconnect
@@ -613,7 +631,10 @@ impl WebSocketClient {
                 let messages_to_send: Vec<String> = {
                     let mut pending = self.pending_messages.lock().await;
                     if !pending.is_empty() {
-                        info!(count = pending.len(), "Sending pending messages from reconnection");
+                        info!(
+                            count = pending.len(),
+                            "Sending pending messages from reconnection"
+                        );
                         pending.drain(..).collect()
                     } else {
                         vec![]
@@ -636,7 +657,10 @@ impl WebSocketClient {
     }
 
     /// Send a message to the server (internal helper)
-    async fn send_message_internal(&mut self, message: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn send_message_internal(
+        &mut self,
+        message: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(connection) = &mut self.connection {
             connection.send(Message::Text(message.to_string())).await?;
             Ok(())
@@ -655,7 +679,10 @@ impl WebSocketClient {
     ///
     /// # Errors
     /// Returns error if connection is not available or send fails
-    pub async fn send_message(&mut self, message: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn send_message(
+        &mut self,
+        message: String,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.send_message_internal(&message).await
     }
 
@@ -672,80 +699,89 @@ impl WebSocketClient {
     pub fn set_message_event_handler(&mut self, handler: MessageEventHandler) {
         self.message_event_handler = Some(handler);
     }
-    
+
     /// Connect to the profile server
     pub async fn connect(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = "ws://127.0.0.1:8080";
-        
+
         let (ws_stream, _) = connect_async(url).await?;
         self.connection = Some(ws_stream);
-        
+
         Ok(())
     }
-    
+
     /// Perform authentication handshake
-    pub async fn authenticate(&mut self) -> Result<AuthResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn authenticate(
+        &mut self,
+    ) -> Result<AuthResponse, Box<dyn std::error::Error + Send + Sync>> {
         // Get keys from shared state
         let (public_key, private_key) = {
             let key_state = self.key_state.lock().await;
-            let public_key = key_state.public_key()
+            let public_key = key_state
+                .public_key()
                 .ok_or("No public key available. Generate or import a key first.")?
                 .clone();
-            let private_key = key_state.private_key()
+            let private_key = key_state
+                .private_key()
                 .ok_or("No private key available. Generate or import a key first.")?
                 .clone();
             (public_key, private_key)
         };
-        
+
         // Create authentication message using auth.rs module
         let auth_msg = super::auth::ClientAuthMessage::new(public_key, private_key)?;
         let auth_json = auth_msg.to_json()?;
-        
+
         // Send auth message and wait for response
         if let Some(connection) = &mut self.connection {
             // Send auth message
             connection.send(Message::Text(auth_json)).await?;
-            
+
             // Wait for server response
             if let Some(msg) = connection.next().await {
                 match msg? {
                     Message::Text(text) => {
                         let response = parse_auth_response(&text)?;
-                        
+
                         // Check if authentication failed
                         if let AuthResponse::Failed { reason, details: _ } = &response {
                             // Use error_display to map to user-friendly message
                             use crate::ui::error_display::display_connection_error;
                             let user_message = display_connection_error(reason);
-                            
+
                             // If no specific user message, provide generic auth failure
-                            let final_message = if user_message.is_empty() || user_message.contains("Connection lost") {
+                            let final_message = if user_message.is_empty()
+                                || user_message.contains("Connection lost")
+                            {
                                 "Authentication failed. Your signature could not be verified. Try again or check your key.".to_string()
                             } else {
                                 user_message
                             };
-                            
+
                             return Err(final_message.into());
                         }
-                        
+
                         return Ok(response);
                     }
                     Message::Close(frame) => {
-                        let reason = frame.as_ref()
+                        let reason = frame
+                            .as_ref()
                             .map(|f| f.reason.to_string())
                             .unwrap_or_else(|| "Unknown".to_string());
-                        
+
                         // Use error_display to map to user-friendly message
                         use crate::ui::error_display::display_connection_error;
                         let user_message = display_connection_error(&reason);
-                        
+
                         // If we have a specific message, use it; otherwise use generic
-                        let final_message = if !user_message.is_empty() && !user_message.contains("Connection lost") {
+                        let final_message = if !user_message.is_empty()
+                            && !user_message.contains("Connection lost")
+                        {
                             user_message
                         } else {
                             format!("Connection closed: {}", reason)
                         };
-                        
+
                         return Err(final_message.into());
                     }
                     _ => {
@@ -756,16 +792,16 @@ impl WebSocketClient {
                 return Err("No response from server".into());
             }
         }
-        
+
         Err("No connection available".into())
     }
-    
+
     /// Handle disconnection with reason (AC4 - Network Resilience)
     ///
     /// If this is a temporary disconnect, attempt automatic reconnection.
     pub async fn handle_disconnection(
         &mut self,
-        reason: String
+        reason: String,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Remove connection
         self.connection = None;
@@ -773,7 +809,10 @@ impl WebSocketClient {
 
         // Check if this is a recoverable disconnection (network-level, not application-level)
         // Application-level reasons like "server_shutdown", "timeout", "auth_failed" are permanent
-        let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe");
+        let is_temporary = matches!(
+            reason.as_str(),
+            "connection closed" | "Connection reset by peer" | "Broken pipe"
+        );
 
         if is_temporary {
             warn!(reason = %reason, "Temporary disconnect - attempting reconnection");
@@ -783,13 +822,13 @@ impl WebSocketClient {
         // Permanent disconnect - return error that triggers UI display
         Err(format!("Connection closed: {}", reason).into())
     }
-    
+
     /// Close connection gracefully
     pub async fn close_gracefully(
-        &mut self
+        &mut self,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(connection) = &mut self.connection {
-            use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
+            use tokio_tungstenite::tungstenite::protocol::{frame::coding::CloseCode, CloseFrame};
             let close_frame = CloseFrame {
                 code: CloseCode::Normal,
                 reason: "client_disconnect".into(),
@@ -799,28 +838,30 @@ impl WebSocketClient {
         self.connection = None;
         Ok(())
     }
-    
+
     /// Check if client has an active connection
     pub fn is_connected(&self) -> bool {
         self.connection.is_some()
     }
-    
+
     /// Run persistent message loop to handle incoming messages and close frames
     /// This should be called after successful authentication to detect disconnections during normal operation
-    pub async fn run_message_loop(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn run_message_loop(
+        &mut self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         loop {
             // Check if we have a connection
             if self.connection.is_none() {
                 return Err("No connection available".into());
             }
-            
+
             // Get next message
             let msg_result = if let Some(connection) = &mut self.connection {
                 connection.next().await
             } else {
                 return Err("Connection lost unexpectedly".into());
             };
-            
+
             // Process message
             match msg_result {
                 Some(Ok(Message::Text(text))) => {
@@ -845,7 +886,8 @@ impl WebSocketClient {
                                 }
                                 LobbyResponse::UsersLeft { public_keys } => {
                                     // Check if selected user left (AC5)
-                                    let selected_left = self.selected_recipient
+                                    let selected_left = self
+                                        .selected_recipient
                                         .as_ref()
                                         .map(|sel_key| public_keys.contains(sel_key))
                                         .unwrap_or(false);
@@ -879,7 +921,8 @@ impl WebSocketClient {
                                     &message,
                                     &self.message_history,
                                     &self.message_event_handler,
-                                ).await;
+                                )
+                                .await;
                             }
                             ChatResponse::Ignored => {
                                 // Message was ignored
@@ -906,7 +949,10 @@ impl WebSocketClient {
                         } else if let Ok(notification) = parse_notification(&text) {
                             // Handle notification (Story 3.6)
                             match notification {
-                                NotificationResponse::RecipientOffline { recipient_key, message } => {
+                                NotificationResponse::RecipientOffline {
+                                    recipient_key,
+                                    message,
+                                } => {
                                     debug!(recipient = %recipient_key.chars().take(16).collect::<String>(), "Recipient is offline");
 
                                     // Format notification message (AC4 - User Notification)
@@ -970,7 +1016,8 @@ impl WebSocketClient {
                 }
                 Some(Ok(Message::Close(frame))) => {
                     // Server closed the connection
-                    let reason = frame.as_ref()
+                    let reason = frame
+                        .as_ref()
                         .map(|f| f.reason.to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
 
@@ -982,7 +1029,13 @@ impl WebSocketClient {
                     self.connection = None;
 
                     // Check if we should attempt reconnection (AC4)
-                    let is_temporary = matches!(reason.as_str(), "connection closed" | "Connection reset by peer" | "Broken pipe" | "timeout");
+                    let is_temporary = matches!(
+                        reason.as_str(),
+                        "connection closed"
+                            | "Connection reset by peer"
+                            | "Broken pipe"
+                            | "timeout"
+                    );
 
                     if is_temporary {
                         warn!(reason = %reason, "Connection closed (temporary) - attempting reconnection");
@@ -990,11 +1043,12 @@ impl WebSocketClient {
                     }
 
                     // Permanent disconnect - return error with user-friendly message
-                    let final_message = if !user_message.is_empty() && !user_message.contains("Connection lost") {
-                        user_message
-                    } else {
-                        format!("Connection closed: {}", reason)
-                    };
+                    let final_message =
+                        if !user_message.is_empty() && !user_message.contains("Connection lost") {
+                            user_message
+                        } else {
+                            format!("Connection closed: {}", reason)
+                        };
 
                     return Err(final_message.into());
                 }
@@ -1039,7 +1093,7 @@ mod tests {
     fn test_parse_auth_success_response() {
         let json = r#"{"type":"auth_success","users":["abc123","def456"]}"#;
         let result = parse_auth_response(json).unwrap();
-        
+
         match result {
             AuthResponse::Success { users } => {
                 assert_eq!(users.len(), 2);
@@ -1052,9 +1106,10 @@ mod tests {
 
     #[test]
     fn test_parse_auth_error_response() {
-        let json = r#"{"type":"error","reason":"auth_failed","details":"Signature did not verify"}"#;
+        let json =
+            r#"{"type":"error","reason":"auth_failed","details":"Signature did not verify"}"#;
         let result = parse_auth_response(json).unwrap();
-        
+
         match result {
             AuthResponse::Failed { reason, details } => {
                 assert_eq!(reason, "auth_failed");
@@ -1068,7 +1123,7 @@ mod tests {
     fn test_parse_unknown_message_type() {
         let json = r#"{"type":"unknown_type"}"#;
         let result = parse_auth_response(json);
-        
+
         assert!(result.is_err(), "Should fail for unknown message type");
     }
 
@@ -1076,7 +1131,7 @@ mod tests {
     fn test_parse_invalid_json() {
         let json = "not valid json";
         let result = parse_auth_response(json);
-        
+
         assert!(result.is_err(), "Should fail for invalid JSON");
     }
 
@@ -1084,15 +1139,15 @@ mod tests {
     async fn test_handle_close_frame_with_reason() {
         let key_state = create_shared_key_state();
         let mut client = WebSocketClient::new(key_state);
-        
+
         // Simulate disconnection with reason
         let result = client.handle_disconnection("auth_failed".to_string()).await;
-        
+
         // Should return error with reason
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("Connection closed: auth_failed"));
-        
+
         // Connection should be None
         assert!(client.connection.is_none());
     }
@@ -1101,10 +1156,10 @@ mod tests {
     async fn test_handle_close_frame_without_reason() {
         let key_state = create_shared_key_state();
         let mut client = WebSocketClient::new(key_state);
-        
+
         // Simulate disconnection without specific reason
         let result = client.handle_disconnection("Unknown".to_string()).await;
-        
+
         // Should return error with "Unknown"
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
@@ -1115,13 +1170,13 @@ mod tests {
     async fn test_connection_state_after_disconnect() {
         let key_state = create_shared_key_state();
         let mut client = WebSocketClient::new(key_state);
-        
+
         // Initially no connection
         assert!(client.connection.is_none());
-        
+
         // Simulate disconnect
         let _ = client.handle_disconnection("test reason".to_string()).await;
-        
+
         // Connection should still be None (cleanup successful)
         assert!(client.connection.is_none());
     }

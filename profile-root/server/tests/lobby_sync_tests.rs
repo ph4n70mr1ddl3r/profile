@@ -6,13 +6,13 @@
 //! - Network resilience (AC4)
 //! - Selection-aware broadcasts (AC5)
 
+use profile_shared::Message as SharedMessage;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{timeout, Duration};
-use profile_shared::Message as SharedMessage;
 
-use profile_server::lobby::state::{Lobby, ActiveConnection};
-use profile_server::lobby::manager::{add_user, remove_user, get_user, get_current_users};
+use profile_server::lobby::manager::{add_user, get_current_users, get_user, remove_user};
+use profile_server::lobby::state::{ActiveConnection, Lobby};
 
 /// Create a test lobby with default configuration
 fn create_test_lobby() -> Lobby {
@@ -45,7 +45,13 @@ fn generate_valid_key(input: &str) -> String {
     let mut hasher = DefaultHasher::new();
     input.hash(&mut hasher);
     let hash = hasher.finish();
-    format!("{:016x}{:016x}{:016x}{:016x}", hash, hash >> 16, hash >> 32, hash >> 48)
+    format!(
+        "{:016x}{:016x}{:016x}{:016x}",
+        hash,
+        hash >> 16,
+        hash >> 32,
+        hash >> 48
+    )
 }
 
 /// Test AC1: Broadcast delivery within 100ms
@@ -67,7 +73,9 @@ async fn test_broadcast_delivery_within_100ms() {
     };
 
     // Add existing user to lobby
-    add_user(&lobby, mock_connection.public_key.clone(), mock_connection).await.unwrap();
+    add_user(&lobby, mock_connection.public_key.clone(), mock_connection)
+        .await
+        .unwrap();
 
     // Drain any broadcast messages
     let _ = timeout(Duration::from_millis(10), test_receiver.recv()).await;
@@ -182,9 +190,18 @@ async fn test_multi_client_lobby_consistency() {
     // All messages should be lobby updates with one joined user
     let joined_key = match (msg1, msg2, msg3) {
         (
-            SharedMessage::LobbyUpdate { joined: joined1, left: _ },
-            SharedMessage::LobbyUpdate { joined: joined2, left: _ },
-            SharedMessage::LobbyUpdate { joined: joined3, left: _ },
+            SharedMessage::LobbyUpdate {
+                joined: joined1,
+                left: _,
+            },
+            SharedMessage::LobbyUpdate {
+                joined: joined2,
+                left: _,
+            },
+            SharedMessage::LobbyUpdate {
+                joined: joined3,
+                left: _,
+            },
         ) => {
             // Verify all have one joined user
             assert_eq!(joined1.len(), 1, "Client 1 should have 1 joined user");
@@ -197,11 +214,17 @@ async fn test_multi_client_lobby_consistency() {
 
     // Verify the joined key is present in the lobby
     let users = get_current_users(&lobby).await.unwrap();
-    assert!(users.contains(&joined_key), "Joined user should be in lobby");
+    assert!(
+        users.contains(&joined_key),
+        "Joined user should be in lobby"
+    );
 
     // Client 4 should NOT receive the broadcast (they're the one joining)
     let unexpected = timeout(Duration::from_millis(50), receiver4.recv()).await;
-    assert!(unexpected.is_err(), "Client 4 should not receive their own join broadcast");
+    assert!(
+        unexpected.is_err(),
+        "Client 4 should not receive their own join broadcast"
+    );
 
     // Verify final lobby state
     assert_eq!(users.len(), 4);
@@ -226,7 +249,9 @@ async fn test_reconnection_preserves_lobby_consistency() {
         sender: observer_sender,
         connection_id: 99,
     };
-    add_user(&lobby, observer.public_key.clone(), observer).await.unwrap();
+    add_user(&lobby, observer.public_key.clone(), observer)
+        .await
+        .unwrap();
 
     // Drain initial broadcast
     let _ = timeout(Duration::from_millis(10), observer_receiver.recv()).await;
@@ -272,7 +297,9 @@ async fn test_reconnection_preserves_lobby_consistency() {
     let user_key2 = user_conn2.public_key.clone();
     assert_eq!(user_key, user_key2); // Same public key
 
-    add_user(&lobby, user_key2.clone(), user_conn2).await.unwrap();
+    add_user(&lobby, user_key2.clone(), user_conn2)
+        .await
+        .unwrap();
 
     // Should receive join broadcast (user re-joined)
     let join_msg = timeout(Duration::from_millis(100), observer_receiver.recv())
@@ -309,7 +336,9 @@ async fn test_network_resilience_rapid_changes() {
         sender: observer_sender,
         connection_id: 99,
     };
-    add_user(&lobby, observer.public_key.clone(), observer).await.unwrap();
+    add_user(&lobby, observer.public_key.clone(), observer)
+        .await
+        .unwrap();
     let _ = timeout(Duration::from_millis(10), observer_receiver.recv()).await;
 
     // Rapid connect/disconnect cycles
@@ -345,7 +374,10 @@ async fn test_network_resilience_rapid_changes() {
     }
 
     assert_eq!(join_count, 10, "Observer should receive 10 join broadcasts");
-    assert_eq!(leave_count, 10, "Observer should receive 10 leave broadcasts");
+    assert_eq!(
+        leave_count, 10,
+        "Observer should receive 10 leave broadcasts"
+    );
 }
 
 /// Test AC4: Lobby state query after network issues
@@ -366,8 +398,12 @@ async fn test_lobby_state_accuracy_after_network_issues() {
     assert_eq!(get_current_users(&lobby).await.unwrap().len(), 5);
 
     // Simulate network partition - remove users 1 and 3
-    remove_user(&lobby, &generate_valid_key("user_1")).await.unwrap();
-    remove_user(&lobby, &generate_valid_key("user_3")).await.unwrap();
+    remove_user(&lobby, &generate_valid_key("user_1"))
+        .await
+        .unwrap();
+    remove_user(&lobby, &generate_valid_key("user_3"))
+        .await
+        .unwrap();
 
     assert_eq!(get_current_users(&lobby).await.unwrap().len(), 3);
 
@@ -382,7 +418,9 @@ async fn test_lobby_state_accuracy_after_network_issues() {
     let user = get_user(&lobby, &key).await.unwrap();
     assert!(user.is_some());
 
-    let nonexistent_key = "nonexistent_key_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd".to_string();
+    let nonexistent_key =
+        "nonexistent_key_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+            .to_string();
     let nonexistent = get_user(&lobby, &nonexistent_key).await.unwrap();
     assert!(nonexistent.is_none());
 }
@@ -404,7 +442,10 @@ async fn test_broadcast_excludes_sender() {
 
     // User should NOT receive their own join broadcast
     let unexpected = timeout(Duration::from_millis(50), receiver.recv()).await;
-    assert!(unexpected.is_err(), "User should not receive their own join broadcast");
+    assert!(
+        unexpected.is_err(),
+        "User should not receive their own join broadcast"
+    );
 
     // Lobby should have the user
     let users = get_current_users(&lobby).await.unwrap();
@@ -437,7 +478,9 @@ async fn test_leave_broadcast_excludes_leaving_user() {
         sender: observer_sender,
         connection_id: 2,
     };
-    add_user(&lobby, observer_key.clone(), observer).await.unwrap();
+    add_user(&lobby, observer_key.clone(), observer)
+        .await
+        .unwrap();
 
     // Drain any broadcasts
     let _ = timeout(Duration::from_millis(10), observer_receiver.recv()).await;

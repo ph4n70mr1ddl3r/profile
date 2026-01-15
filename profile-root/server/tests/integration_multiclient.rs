@@ -11,11 +11,11 @@
 //!
 //! This file satisfies Story 2.1 requirement for E2E multi-client testing.
 
+use profile_server::lobby::{add_user, get_current_users, remove_user, ActiveConnection, Lobby};
+use profile_shared::{LobbyError, Message as SharedMessage};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use profile_server::lobby::{Lobby, ActiveConnection, add_user, remove_user, get_current_users};
-use profile_shared::{Message as SharedMessage, LobbyError};
 
 mod test_utils;
 use test_utils::create_test_connection;
@@ -88,7 +88,9 @@ async fn test_e2e_multiple_clients_lobby_consistency() {
     assert!(lobby_users.contains(&key2), "Client 2 should be in lobby");
     assert!(lobby_users.contains(&key3), "Client 3 should be in lobby");
 
-    println!("✅ E2E test_e2e_multiple_clients_lobby_consistency passed - 3 clients see each other");
+    println!(
+        "✅ E2E test_e2e_multiple_clients_lobby_consistency passed - 3 clients see each other"
+    );
 }
 
 /// Test: One client disconnects and is removed from all other lobbies
@@ -125,11 +127,22 @@ async fn test_e2e_client_disconnect_removes_from_lobby() {
     assert_eq!(users_after.len(), 2, "Should have 2 users after disconnect");
 
     // Verify client 2 is gone
-    assert!(!users_after.contains(&key2), "Disconnected client should not be in lobby");
-    assert!(users_after.contains(&key1), "Client 1 should still be in lobby");
-    assert!(users_after.contains(&key3), "Client 3 should still be in lobby");
+    assert!(
+        !users_after.contains(&key2),
+        "Disconnected client should not be in lobby"
+    );
+    assert!(
+        users_after.contains(&key1),
+        "Client 1 should still be in lobby"
+    );
+    assert!(
+        users_after.contains(&key3),
+        "Client 3 should still be in lobby"
+    );
 
-    println!("✅ E2E test_e2e_client_disconnect_removes_from_lobby passed - disconnected client removed");
+    println!(
+        "✅ E2E test_e2e_client_disconnect_removes_from_lobby passed - disconnected client removed"
+    );
 }
 
 /// Test: Reconnection does not create duplicates
@@ -158,9 +171,15 @@ async fn test_e2e_reconnection_no_duplicates() {
 
     // Should still be only 1 user (no duplicate)
     let users = get_current_users(&lobby).await.unwrap();
-    assert_eq!(users.len(), 1, "Should have exactly 1 user after reconnection");
+    assert_eq!(
+        users.len(),
+        1,
+        "Should have exactly 1 user after reconnection"
+    );
 
-    println!("✅ E2E test_e2e_reconnection_no_duplicates passed - no duplicates after reconnection");
+    println!(
+        "✅ E2E test_e2e_reconnection_no_duplicates passed - no duplicates after reconnection"
+    );
 }
 
 /// Test: Rapid joins and leaves don't cause ghost users
@@ -186,7 +205,11 @@ async fn test_e2e_rapid_joins_leaves_no_ghosts() {
 
     // Verify no ghost users remain
     let users = get_current_users(&lobby).await.unwrap();
-    assert_eq!(users.len(), 0, "Should have 0 ghost users after rapid operations");
+    assert_eq!(
+        users.len(),
+        0,
+        "Should have 0 ghost users after rapid operations"
+    );
 
     // Now add some users and remove half
     for i in 0..10 {
@@ -209,9 +232,16 @@ async fn test_e2e_rapid_joins_leaves_no_ghosts() {
     let mut unique_users = users.clone();
     unique_users.sort();
     unique_users.dedup();
-    assert_eq!(users.len(), unique_users.len(), "No duplicate keys should exist");
+    assert_eq!(
+        users.len(),
+        unique_users.len(),
+        "No duplicate keys should exist"
+    );
 
-    println!("✅ E2E test_e2e_rapid_joins_leaves_no_ghosts passed - {} rapid operations clean", num_operations);
+    println!(
+        "✅ E2E test_e2e_rapid_joins_leaves_no_ghosts passed - {} rapid operations clean",
+        num_operations
+    );
 }
 
 /// Test: Lobby state is consistent during concurrent operations
@@ -238,13 +268,17 @@ async fn test_e2e_concurrent_lobby_consistency() {
             // Some clients will add, some will add then remove
             if i % 3 == 0 {
                 // Add then remove (clients 0, 3, 6, 9)
-                add_user(&lobby_clone, key.clone(), connection).await.unwrap();
+                add_user(&lobby_clone, key.clone(), connection)
+                    .await
+                    .unwrap();
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 remove_user(&lobby_clone, &key).await.unwrap();
                 0 // Removed
             } else {
                 // Just add and stay (clients 1, 2, 4, 5, 7, 8)
-                add_user(&lobby_clone, key.clone(), connection).await.unwrap();
+                add_user(&lobby_clone, key.clone(), connection)
+                    .await
+                    .unwrap();
                 1 // Stayed
             }
         });
@@ -286,8 +320,11 @@ async fn test_e2e_concurrent_lobby_consistency() {
         "No duplicate users should exist in lobby"
     );
 
-    println!("✅ E2E test_e2e_concurrent_lobby_consistency passed - {} clients, {} final users",
-             num_clients, users.len());
+    println!(
+        "✅ E2E test_e2e_concurrent_lobby_consistency passed - {} clients, {} final users",
+        num_clients,
+        users.len()
+    );
 }
 
 /// Test: Message routing uses correct connection sender
@@ -323,8 +360,12 @@ async fn test_e2e_message_routing_sender_correct() {
     add_user(&lobby, key2.clone(), conn2).await.unwrap();
 
     // Get user connections for routing
-    let user1_conn = profile_server::lobby::get_user(&lobby, &key1).await.unwrap();
-    let user2_conn = profile_server::lobby::get_user(&lobby, &key2).await.unwrap();
+    let user1_conn = profile_server::lobby::get_user(&lobby, &key1)
+        .await
+        .unwrap();
+    let user2_conn = profile_server::lobby::get_user(&lobby, &key2)
+        .await
+        .unwrap();
 
     // Both should exist
     assert!(user1_conn.is_some());
@@ -358,7 +399,9 @@ async fn test_e2e_message_routing_sender_correct() {
         _ => panic!("Expected Text message"),
     }
 
-    println!("✅ E2E test_e2e_message_routing_sender_correct passed - messages routed to correct users");
+    println!(
+        "✅ E2E test_e2e_message_routing_sender_correct passed - messages routed to correct users"
+    );
 }
 
 /// Test: Complete message routing path (Story 3.2 integration)
@@ -436,7 +479,11 @@ async fn test_e2e_complete_message_routing_path() {
         .expect("Message should not be None");
 
     match received {
-        SharedMessage::Text { message, sender_public_key, .. } => {
+        SharedMessage::Text {
+            message,
+            sender_public_key,
+            ..
+        } => {
             assert_eq!(message, "Hello from A!");
             assert_eq!(sender_public_key, key_a);
         }
@@ -449,7 +496,10 @@ async fn test_e2e_complete_message_routing_path() {
 
     // Verify A did NOT receive the message (it was routed specifically to B)
     let not_received = tokio::time::timeout(Duration::from_millis(50), receiver_a.recv()).await;
-    assert!(not_received.is_err(), "Client A should NOT receive message routed to B");
+    assert!(
+        not_received.is_err(),
+        "Client A should NOT receive message routed to B"
+    );
 
     println!("✅ E2E test_e2e_complete_message_routing_path passed - Story 3.2 routing verified");
 }

@@ -3,10 +3,10 @@
 //! This module provides message composition functionality for creating
 //! and sending cryptographically signed messages. Required by Story 3.1.
 
-use std::fmt::{self, Display, Formatter};
-use std::error::Error;
-use chrono::{Utc, SecondsFormat};
+use chrono::{SecondsFormat, Utc};
 use serde_json;
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
 
 use crate::state::messages::{ChatMessage, SharedMessageHistory};
 use crate::state::session::SharedKeyState;
@@ -32,10 +32,14 @@ impl Display for ComposeError {
             ComposeError::NoPublicKey => write!(f, "No public key available"),
             ComposeError::EmptyMessage => write!(f, "Message cannot be empty"),
             ComposeError::TimestampError(msg) => write!(f, "Failed to generate timestamp: {}", msg),
-            ComposeError::SerializationError(msg) => write!(f, "Failed to serialize message: {}", msg),
+            ComposeError::SerializationError(msg) => {
+                write!(f, "Failed to serialize message: {}", msg)
+            }
             ComposeError::SigningError(msg) => write!(f, "Failed to sign message: {}", msg),
             ComposeError::LockError => write!(f, "Failed to acquire lock on key state"),
-            ComposeError::HistoryLockError => write!(f, "Failed to acquire lock on message history"),
+            ComposeError::HistoryLockError => {
+                write!(f, "Failed to acquire lock on message history")
+            }
         }
     }
 }
@@ -89,10 +93,12 @@ pub async fn compose_and_send_message(
     // 1. Get keys from shared state
     let (public_key, private_key) = {
         let key_guard = key_state.lock().await;
-        let public_key = key_guard.public_key()
+        let public_key = key_guard
+            .public_key()
             .ok_or(ComposeError::NoPublicKey)?
             .clone();
-        let private_key = key_guard.private_key()
+        let private_key = key_guard
+            .private_key()
             .ok_or(ComposeError::NoPrivateKey)?
             .clone();
         (public_key, private_key)
@@ -102,8 +108,7 @@ pub async fn compose_and_send_message(
     let public_key_hex = hex::encode(&public_key);
 
     // 2. Generate timestamp (ISO8601 format - RFC3339 with seconds precision)
-    let timestamp = Utc::now()
-        .to_rfc3339_opts(SecondsFormat::Secs, false);
+    let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
 
     // 3. Create canonical JSON for deterministic signing
     // We serialize only the essential fields that need to be signed
@@ -116,10 +121,8 @@ pub async fn compose_and_send_message(
 
     // 4. Sign the canonical JSON
     // The signature covers: type + message + senderPublicKey + timestamp
-    let signature = sign_message(
-        &private_key,
-        canonical_json.to_string().as_bytes(),
-    ).map_err(|e| ComposeError::SigningError(e.to_string()))?;
+    let signature = sign_message(&private_key, canonical_json.to_string().as_bytes())
+        .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
     // 5. Create ChatMessage object with all fields
     // This message is marked as "verified" since we just signed it ourselves
@@ -171,10 +174,12 @@ pub async fn compose_message_draft(
     // Get keys from shared state
     let (public_key, private_key) = {
         let key_guard = key_state.lock().await;
-        let public_key = key_guard.public_key()
+        let public_key = key_guard
+            .public_key()
             .ok_or(ComposeError::NoPublicKey)?
             .clone();
-        let private_key = key_guard.private_key()
+        let private_key = key_guard
+            .private_key()
             .ok_or(ComposeError::NoPrivateKey)?
             .clone();
         (public_key, private_key)
@@ -184,8 +189,7 @@ pub async fn compose_message_draft(
     let public_key_hex = hex::encode(&public_key);
 
     // Generate timestamp
-    let timestamp = Utc::now()
-        .to_rfc3339_opts(SecondsFormat::Secs, false);
+    let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
 
     // Create canonical JSON
     let canonical_json = serde_json::json!({
@@ -196,10 +200,8 @@ pub async fn compose_message_draft(
     });
 
     // Sign the message
-    let signature = sign_message(
-        &private_key,
-        canonical_json.to_string().as_bytes(),
-    ).map_err(|e| ComposeError::SigningError(e.to_string()))?;
+    let signature = sign_message(&private_key, canonical_json.to_string().as_bytes())
+        .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
     // Create and return ChatMessage
     Ok(ChatMessage::verified(
@@ -213,9 +215,9 @@ pub async fn compose_message_draft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::session::create_shared_key_state;
     use crate::state::messages::create_shared_message_history;
-    use profile_shared::crypto::{generate_private_key, derive_public_key};
+    use crate::state::session::create_shared_key_state;
+    use profile_shared::crypto::{derive_public_key, generate_private_key};
 
     #[tokio::test]
     async fn test_compose_and_send_message_success() {
@@ -237,7 +239,8 @@ mod tests {
             "recipient_key".to_string(),
             &key_state,
             &message_history,
-        ).await;
+        )
+        .await;
 
         // Verify: Message was created successfully
         assert!(result.is_ok(), "Should compose message successfully");
@@ -265,13 +268,13 @@ mod tests {
         let public_key = derive_public_key(&private_key).unwrap();
 
         let key_state = create_shared_key_state();
-        key_state.lock().await.set_generated_key(private_key, public_key.clone());
+        key_state
+            .lock()
+            .await
+            .set_generated_key(private_key, public_key.clone());
 
         // Execute: Create a draft message
-        let result = compose_message_draft(
-            "Draft message".to_string(),
-            &key_state,
-        ).await;
+        let result = compose_message_draft("Draft message".to_string(), &key_state).await;
 
         // Verify
         assert!(result.is_ok(), "Should create draft successfully");
@@ -292,11 +295,16 @@ mod tests {
             "recipient_key".to_string(),
             &key_state,
             &message_history,
-        ).await;
+        )
+        .await;
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, ComposeError::EmptyMessage), "Expected EmptyMessage, got {:?}", err);
+        assert!(
+            matches!(err, ComposeError::EmptyMessage),
+            "Expected EmptyMessage, got {:?}",
+            err
+        );
     }
 
     #[tokio::test]
@@ -310,22 +318,32 @@ mod tests {
             "recipient".to_string(),
             &key_state,
             &message_history,
-        ).await;
+        )
+        .await;
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, ComposeError::NoPublicKey), "Expected NoPublicKey, got {:?}", err);
+        assert!(
+            matches!(err, ComposeError::NoPublicKey),
+            "Expected NoPublicKey, got {:?}",
+            err
+        );
     }
 
     #[test]
     fn test_timestamp_format() {
-        let timestamp = Utc::now()
-            .to_rfc3339_opts(SecondsFormat::Secs, false);
+        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
 
         // Verify format matches expected pattern (RFC3339 basic)
         // Should contain T and should NOT end with Z for basic format
-        assert!(timestamp.contains('T'), "Timestamp should contain T separator");
-        assert!(!timestamp.ends_with('Z'), "Basic RFC3339 should not end with Z");
+        assert!(
+            timestamp.contains('T'),
+            "Timestamp should contain T separator"
+        );
+        assert!(
+            !timestamp.ends_with('Z'),
+            "Basic RFC3339 should not end with Z"
+        );
     }
 
     #[test]

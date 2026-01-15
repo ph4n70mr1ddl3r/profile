@@ -39,16 +39,16 @@ mod tests {
         // Test server_shutdown
         let msg = display_connection_error("server_shutdown");
         assert!(msg.contains("Server maintenance"));
-        
+
         // Test timeout
         let msg = display_connection_error("timeout");
         assert!(msg.contains("timeout"));
         assert!(msg.contains("network"));
-        
+
         // Test client_disconnect (no message)
         let msg = display_connection_error("client_disconnect");
         assert!(msg.is_empty());
-        
+
         // Test unknown reason (default message)
         let msg = display_connection_error("unknown_error");
         assert!(msg.contains("Connection lost"));

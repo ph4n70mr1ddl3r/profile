@@ -3,14 +3,14 @@
 //! This module provides the message composer UI component that handles
 //! message input, signing, and sending.
 
-use crate::state::session::SharedKeyState;
 use crate::state::composer::SharedComposerState;
 use crate::state::lobby::SharedLobbyState;
-use crate::state::messages::{SharedMessageHistory, ChatMessage};
+use crate::state::messages::{ChatMessage, SharedMessageHistory};
+use crate::state::session::SharedKeyState;
 use crate::ui::lobby_state::LobbyUser;
+use hex;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use hex;
 
 /// Result of a send message operation
 #[derive(Debug, Clone)]
@@ -94,7 +94,9 @@ impl MessageComposer {
     /// Get the currently selected recipient from lobby
     pub async fn get_selected_recipient(&self) -> Option<LobbyUser> {
         let state = self.lobby_state.lock().await;
-        state.selected_user().and_then(|key| state.get_user(key).cloned())
+        state
+            .selected_user()
+            .and_then(|key| state.get_user(key).cloned())
     }
 
     /// Send a message
@@ -243,13 +245,13 @@ pub fn create_message_composer(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::session::create_shared_key_state;
     use crate::state::composer::create_shared_composer_state;
     use crate::state::lobby::create_shared_lobby_state;
     use crate::state::messages::create_shared_message_history;
+    use crate::state::session::create_shared_key_state;
     use crate::ui::lobby_state::LobbyUser;
-    use profile_shared::generate_private_key;
     use profile_shared::derive_public_key;
+    use profile_shared::generate_private_key;
 
     #[tokio::test]
     async fn test_composer_creation() {
@@ -258,12 +260,8 @@ mod tests {
         let lobby_state = create_shared_lobby_state();
         let message_history = create_shared_message_history();
 
-        let composer = MessageComposer::new(
-            key_state,
-            composer_state,
-            lobby_state,
-            message_history,
-        );
+        let composer =
+            MessageComposer::new(key_state, composer_state, lobby_state, message_history);
 
         assert!(composer.send_callback.is_none());
         assert!(composer.status_callback.is_none());
@@ -276,7 +274,12 @@ mod tests {
         let lobby_state = create_shared_lobby_state();
         let message_history = create_shared_message_history();
 
-        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history);
+        let composer = create_message_composer(
+            key_state,
+            composer_state.clone(),
+            lobby_state,
+            message_history,
+        );
 
         // Set draft
         {
@@ -305,7 +308,8 @@ mod tests {
         let lobby_state = create_shared_lobby_state();
         let message_history = create_shared_message_history();
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+        let composer =
+            create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         let result = composer.lock().await.send_message("").await;
         assert!(matches!(result, SendMessageResult::EmptyMessage));
@@ -319,7 +323,8 @@ mod tests {
         let message_history = create_shared_message_history();
 
         // Create composer - no recipient in lobby
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+        let composer =
+            create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // No recipient selected - should return NoRecipient
         let result = composer.lock().await.send_message("Hello").await;
@@ -345,12 +350,16 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
         // Create composer - no send callback set
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+        let composer =
+            create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // No send callback - should return Disconnected
         let result = composer.lock().await.send_message("Hello").await;
@@ -375,16 +384,22 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history.clone());
+        let composer = create_message_composer(
+            key_state,
+            composer_state,
+            lobby_state,
+            message_history.clone(),
+        );
 
         // Mock send callback that always succeeds
-        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
-            Ok(())
-        });
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> { Ok(()) });
         {
             let mut comp = composer.lock().await;
             comp.set_send_callback(move |msg| (send_callback)(msg));
@@ -423,16 +438,22 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history.clone());
+        let composer = create_message_composer(
+            key_state,
+            composer_state,
+            lobby_state,
+            message_history.clone(),
+        );
 
         // Mock send callback that always succeeds
-        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
-            Ok(())
-        });
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> { Ok(()) });
         {
             let mut comp = composer.lock().await;
             comp.set_send_callback(move |msg| (send_callback)(msg));
@@ -440,7 +461,10 @@ mod tests {
 
         // Simulate Enter key press by calling send_message with text
         let result = composer.lock().await.send_message("Enter key test").await;
-        assert!(matches!(result, SendMessageResult::Success), "Enter key should trigger successful send");
+        assert!(
+            matches!(result, SendMessageResult::Success),
+            "Enter key should trigger successful send"
+        );
 
         // Verify message was stored
         let history = message_history.lock().await;
@@ -458,11 +482,15 @@ mod tests {
         let lobby_state = create_shared_lobby_state();
         let message_history = create_shared_message_history();
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+        let composer =
+            create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // Simulate Enter key press with empty message
         let result = composer.lock().await.send_message("").await;
-        assert!(matches!(result, SendMessageResult::EmptyMessage), "Empty message should be rejected");
+        assert!(
+            matches!(result, SendMessageResult::EmptyMessage),
+            "Empty message should be rejected"
+        );
 
         println!("✅ Enter key with empty message rejected correctly");
     }
@@ -478,16 +506,23 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_message_composer(key_state, composer_state, lobby_state, message_history);
+        let composer =
+            create_message_composer(key_state, composer_state, lobby_state, message_history);
 
         // Without send callback, can_send should be false
         // (Send button would be disabled because no connection)
         let can_send = composer.lock().await.can_send().await;
-        assert!(!can_send, "Send button should be disabled without connection");
+        assert!(
+            !can_send,
+            "Send button should be disabled without connection"
+        );
 
         println!("✅ Send button correctly disabled without connection");
     }
@@ -503,16 +538,22 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history);
+        let composer = create_message_composer(
+            key_state,
+            composer_state.clone(),
+            lobby_state,
+            message_history,
+        );
 
         // Set send callback (simulating connection)
-        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
-            Ok(())
-        });
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> { Ok(()) });
         {
             let mut comp = composer.lock().await;
             comp.set_send_callback(move |msg| (send_callback)(msg));
@@ -523,7 +564,10 @@ mod tests {
         // The actual enable/disable of Send button would be handled by UI
         // based on text length (handled at UI layer, not composer)
         let can_send = composer.lock().await.can_send().await;
-        assert!(can_send, "Send button should be enabled with connection and recipient");
+        assert!(
+            can_send,
+            "Send button should be enabled with connection and recipient"
+        );
 
         // But sending empty message should fail
         let result = composer.lock().await.send_message("").await;
@@ -550,16 +594,22 @@ mod tests {
         // Add a recipient to lobby
         {
             let mut state = lobby_state.lock().await;
-            state.add_user(LobbyUser::new("test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(), true));
+            state.add_user(LobbyUser::new(
+                "test_recipient_1234567890abcdef1234567890abcdef12345678".to_string(),
+                true,
+            ));
             state.select("test_recipient_1234567890abcdef1234567890abcdef12345678");
         }
 
-        let composer = create_message_composer(key_state, composer_state.clone(), lobby_state, message_history.clone());
+        let composer = create_message_composer(
+            key_state,
+            composer_state.clone(),
+            lobby_state,
+            message_history.clone(),
+        );
 
         // Set send callback (simulating connection)
-        let send_callback = Arc::new(|_msg: String| -> Result<(), String> {
-            Ok(())
-        });
+        let send_callback = Arc::new(|_msg: String| -> Result<(), String> { Ok(()) });
         {
             let mut comp = composer.lock().await;
             comp.set_send_callback(move |msg| (send_callback)(msg));
@@ -567,10 +617,17 @@ mod tests {
 
         // With all requirements met, can_send should be true
         let can_send = composer.lock().await.can_send().await;
-        assert!(can_send, "Send button should be enabled with all requirements");
+        assert!(
+            can_send,
+            "Send button should be enabled with all requirements"
+        );
 
         // Sending should succeed
-        let result = composer.lock().await.send_message("Hello, Send button!").await;
+        let result = composer
+            .lock()
+            .await
+            .send_message("Hello, Send button!")
+            .await;
         assert!(matches!(result, SendMessageResult::Success));
 
         println!("✅ Send button correctly enabled with all requirements");

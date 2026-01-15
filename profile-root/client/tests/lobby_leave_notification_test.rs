@@ -9,8 +9,8 @@
 //! These tests complement the server-side tests in leave_notification_tests.rs
 //! by verifying the client-side handling of leave notifications.
 
-use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
 use profile_client::connection::client::{parse_lobby_message, LobbyResponse};
+use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
 
 /// Test: Client parses lobby_update with left users correctly
 #[tokio::test]
@@ -267,9 +267,7 @@ async fn test_removing_nonexistent_user_is_safe() {
     let mut state = LobbyState::new();
 
     // Initial state with 1 user
-    let initial_users = vec![
-        LobbyUser::new("existing_user_123456".to_string(), true),
-    ];
+    let initial_users = vec![LobbyUser::new("existing_user_123456".to_string(), true)];
     state.set_users(initial_users);
 
     // Try to remove a user that doesn't exist

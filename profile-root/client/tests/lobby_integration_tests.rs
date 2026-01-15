@@ -8,8 +8,8 @@
 //! - Keyboard navigation works across components
 //! - JSON parsing error handling
 
-use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
 use profile_client::connection::client::{parse_lobby_message, LobbyResponse};
+use profile_client::ui::lobby_state::{LobbyState, LobbyUser};
 
 /// Test: Lobby receives initial state with multiple users
 #[tokio::test]
@@ -36,14 +36,13 @@ async fn test_lobby_updates_on_join() {
     let mut state = LobbyState::new();
 
     // Initial state with one user
-    let initial_users = vec![
-        LobbyUser::new("existing_user_12345678".to_string(), true),
-    ];
+    let initial_users = vec![LobbyUser::new("existing_user_12345678".to_string(), true)];
     state.set_users(initial_users.clone());
     assert_eq!(state.len(), 1);
 
     // Simulate receiving lobby update for new user joining
-    let join_json = r#"{"type":"lobby_update","joined":[{"publicKey":"new_user_joining_now"}],"left":[]}"#;
+    let join_json =
+        r#"{"type":"lobby_update","joined":[{"publicKey":"new_user_joining_now"}],"left":[]}"#;
     let result = parse_lobby_message(join_json).unwrap();
 
     match result {
@@ -186,13 +185,19 @@ async fn test_lobby_handles_malformed_json() {
     let missing_field_json = r#"{"type":"lobby"}"#;
 
     let result2 = parse_lobby_message(missing_field_json);
-    assert!(result2.is_err() || matches!(result2, Ok(LobbyResponse::Ignored)), "Should handle missing 'users' field");
+    assert!(
+        result2.is_err() || matches!(result2, Ok(LobbyResponse::Ignored)),
+        "Should handle missing 'users' field"
+    );
 
     // Test 3: Invalid message type
     let unknown_type_json = r#"{"type":"unknown_type","users":[]}"#;
 
     let result3 = parse_lobby_message(unknown_type_json);
-    assert!(matches!(result3, Ok(LobbyResponse::Ignored)), "Unknown message types should be ignored");
+    assert!(
+        matches!(result3, Ok(LobbyResponse::Ignored)),
+        "Unknown message types should be ignored"
+    );
 }
 
 /// Test: Lobby state with mixed online/offline users
@@ -206,10 +211,16 @@ async fn test_lobby_mixed_online_status() {
         LobbyResponse::LobbyState { users } => {
             assert_eq!(users.len(), 2);
 
-            let online_user = users.iter().find(|u| u.public_key == "online_user_12345").unwrap();
+            let online_user = users
+                .iter()
+                .find(|u| u.public_key == "online_user_12345")
+                .unwrap();
             assert!(online_user.is_online);
 
-            let offline_user = users.iter().find(|u| u.public_key == "offline_user_67890").unwrap();
+            let offline_user = users
+                .iter()
+                .find(|u| u.public_key == "offline_user_67890")
+                .unwrap();
             assert!(!offline_user.is_online);
         }
         _ => panic!("Expected LobbyState response"),

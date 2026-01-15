@@ -19,7 +19,9 @@ impl fmt::Display for CryptoError {
             CryptoError::InvalidKeyFormat(msg) => write!(f, "Invalid key format: {}", msg),
             CryptoError::DerivationFailed(msg) => write!(f, "Key derivation failed: {}", msg),
             CryptoError::SigningFailed(msg) => write!(f, "Message signing failed: {}", msg),
-            CryptoError::VerificationFailed(msg) => write!(f, "Signature verification failed: {}", msg),
+            CryptoError::VerificationFailed(msg) => {
+                write!(f, "Signature verification failed: {}", msg)
+            }
             CryptoError::InvalidKey(msg) => write!(f, "Invalid key: {}", msg),
             CryptoError::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
             CryptoError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),

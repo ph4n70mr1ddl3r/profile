@@ -23,7 +23,10 @@ pub fn parse_offline_notification(json: &str) -> Result<OfflineNotification, Str
 }
 
 /// Create an offline notification for sending to user
-pub fn create_offline_notification(recipient_key: &str, failed_message: Option<&str>) -> OfflineNotification {
+pub fn create_offline_notification(
+    recipient_key: &str,
+    failed_message: Option<&str>,
+) -> OfflineNotification {
     OfflineNotification {
         r#type: "notification".to_string(),
         event: "recipient_offline".to_string(),
@@ -124,10 +127,7 @@ pub async fn clear_undelivered_for_recipient(
 }
 
 /// Dismiss notification for a specific message
-pub async fn dismiss_notification(
-    store: &SharedUndeliveredMessages,
-    recipient_key: &str,
-) {
+pub async fn dismiss_notification(store: &SharedUndeliveredMessages, recipient_key: &str) {
     let mut messages = store.lock().await;
     for msg in messages.iter_mut() {
         if msg.recipient_key == recipient_key {
@@ -139,10 +139,7 @@ pub async fn dismiss_notification(
 /// Format notification message for display
 pub fn format_notification_message(notification: &OfflineNotification) -> String {
     let key_short = format_public_key_short(&notification.recipient);
-    format!(
-        "User {} is offline. Message not delivered.",
-        key_short
-    )
+    format!("User {} is offline. Message not delivered.", key_short)
 }
 
 /// Format key for display (first 8 chars + "...")
@@ -166,7 +163,7 @@ pub fn create_undelivered_display_message(
         content: msg.content.clone(),
         timestamp: crate::ui::chat::format_timestamp(&msg.timestamp),
         signature: "".to_string(), // No signature for undelivered messages
-        is_verified: false, // Undelivered = not verified
+        is_verified: false,        // Undelivered = not verified
         is_self,
         original_timestamp: msg.timestamp.clone(),
     }
@@ -212,7 +209,11 @@ mod tests {
 
     #[test]
     fn test_undelivered_retry() {
-        let mut msg = UndeliveredMessage::new("Hello".to_string(), "recipient".to_string(), "t".to_string());
+        let mut msg = UndeliveredMessage::new(
+            "Hello".to_string(),
+            "recipient".to_string(),
+            "t".to_string(),
+        );
         assert_eq!(msg.retry_count, 0);
         msg.increment_retry();
         assert_eq!(msg.retry_count, 1);
@@ -222,7 +223,11 @@ mod tests {
 
     #[test]
     fn test_undelivered_dismiss() {
-        let mut msg = UndeliveredMessage::new("Hello".to_string(), "recipient".to_string(), "t".to_string());
+        let mut msg = UndeliveredMessage::new(
+            "Hello".to_string(),
+            "recipient".to_string(),
+            "t".to_string(),
+        );
         assert!(msg.should_show_notification());
         msg.dismiss_notification();
         assert!(!msg.should_show_notification());
@@ -230,7 +235,10 @@ mod tests {
 
     #[test]
     fn test_format_notification_message() {
-        let notification = create_offline_notification("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab", None);
+        let notification = create_offline_notification(
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+            None,
+        );
         let msg = format_notification_message(&notification);
         assert!(msg.contains("User"));
         assert!(msg.contains("is offline"));

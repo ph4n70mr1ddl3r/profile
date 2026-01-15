@@ -7,7 +7,7 @@
 
 mod test_utils;
 
-use profile_server::lobby::{Lobby, get_user, get_current_users};
+use profile_server::lobby::{get_current_users, get_user, Lobby};
 use test_utils::create_test_connection;
 
 #[tokio::test]

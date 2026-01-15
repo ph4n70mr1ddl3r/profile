@@ -192,7 +192,7 @@ mod tests {
         let original = AuthMessage::new("abc123".to_string(), "def456".to_string());
         let serialized = serde_json::to_string(&original).unwrap();
         let deserialized: AuthMessage = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(original.r#type, deserialized.r#type);
         assert_eq!(original.public_key, deserialized.public_key);
         assert_eq!(original.signature, deserialized.signature);
@@ -205,10 +205,22 @@ mod tests {
         assert_eq!(CloseReason::Timeout.as_str(), "timeout");
         assert_eq!(CloseReason::ClientDisconnect.as_str(), "client_disconnect");
 
-        assert_eq!(CloseReason::parse_close_reason("auth_failed"), Some(CloseReason::AuthFailed));
-        assert_eq!(CloseReason::parse_close_reason("server_shutdown"), Some(CloseReason::ServerShutdown));
-        assert_eq!(CloseReason::parse_close_reason("timeout"), Some(CloseReason::Timeout));
-        assert_eq!(CloseReason::parse_close_reason("client_disconnect"), Some(CloseReason::ClientDisconnect));
+        assert_eq!(
+            CloseReason::parse_close_reason("auth_failed"),
+            Some(CloseReason::AuthFailed)
+        );
+        assert_eq!(
+            CloseReason::parse_close_reason("server_shutdown"),
+            Some(CloseReason::ServerShutdown)
+        );
+        assert_eq!(
+            CloseReason::parse_close_reason("timeout"),
+            Some(CloseReason::Timeout)
+        );
+        assert_eq!(
+            CloseReason::parse_close_reason("client_disconnect"),
+            Some(CloseReason::ClientDisconnect)
+        );
         assert_eq!(CloseReason::parse_close_reason("unknown"), None);
     }
 }

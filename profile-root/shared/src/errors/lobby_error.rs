@@ -35,10 +35,22 @@ mod tests {
 
     #[test]
     fn test_lobby_error_display() {
-        assert_eq!(LobbyError::UserNotFound.to_string(), "User not found in lobby");
-        assert_eq!(LobbyError::InvalidPublicKey.to_string(), "Invalid public key format");
-        assert_eq!(LobbyError::LockFailed.to_string(), "Failed to acquire lobby lock");
-        assert_eq!(LobbyError::BroadcastFailed.to_string(), "Failed to broadcast to users");
+        assert_eq!(
+            LobbyError::UserNotFound.to_string(),
+            "User not found in lobby"
+        );
+        assert_eq!(
+            LobbyError::InvalidPublicKey.to_string(),
+            "Invalid public key format"
+        );
+        assert_eq!(
+            LobbyError::LockFailed.to_string(),
+            "Failed to acquire lobby lock"
+        );
+        assert_eq!(
+            LobbyError::BroadcastFailed.to_string(),
+            "Failed to broadcast to users"
+        );
     }
 
     #[test]

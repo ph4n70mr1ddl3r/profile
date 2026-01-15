@@ -19,7 +19,7 @@ pub enum Message {
     },
     /// Lobby update with user join/leave events
     LobbyUpdate {
-        joined: Vec<LobbyUserCompact>,
+        joined: Vec<LobbyUser>,
         left: Vec<String>,
     },
     /// Error message
@@ -37,21 +37,21 @@ pub enum Message {
     Close,
 }
 
-/// Represents a user in the lobby (full user with status)
+/// Represents a user in the lobby with optional online status.
+///
+/// This is the unified type for lobby users. The `status` field is optional:
+/// - `None` or `Some("online")` indicates the user is online
+/// - `Some("offline")` indicates the user is offline
+///
+/// This consolidation replaces the previous three types (`LobbyUser`,
+/// `LobbyUserCompact`, and `LobbyUserWithStatus`) into a single type
+/// to reduce bug risk and maintenance overhead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LobbyUser {
     #[serde(rename = "publicKey")]
     pub public_key: String,
-}
-
-/// Represents a compact user in lobby updates (no status field - always "online" when joining)
-///
-/// TODO: Consolidate LobbyUser, LobbyUserWithStatus, and LobbyUserCompact
-/// into a single type with optional status field to reduce bug risk.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LobbyUserCompact {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
 }
 
 /// Lobby message from server - sent on successful authentication
@@ -60,16 +60,7 @@ pub struct LobbyUserCompact {
 pub struct LobbyMessage {
     #[serde(default)]
     pub r#type: String,
-    pub users: Vec<LobbyUserWithStatus>,
-}
-
-/// Individual user in lobby message with online status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LobbyUserWithStatus {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
-    #[serde(default)]
-    pub status: String, // "online" or "offline"
+    pub users: Vec<LobbyUser>,
 }
 
 /// Lobby update message - delta updates for join/leave events
@@ -98,8 +89,8 @@ pub struct LobbyUserWithStatus {
 pub struct LobbyUpdateMessage {
     #[serde(default)]
     pub r#type: String,
-    pub joined: Vec<LobbyUserCompact>, // No status field - always "online"
-    pub left: Vec<String>,             // Public keys of departed users
+    pub joined: Vec<LobbyUser>,
+    pub left: Vec<String>,
 }
 
 impl Message {
@@ -119,7 +110,7 @@ impl Message {
     }
 
     /// Create a lobby update with joined users
-    pub fn new_lobby_joined(joined_users: Vec<LobbyUserCompact>) -> Self {
+    pub fn new_lobby_joined(joined_users: Vec<LobbyUser>) -> Self {
         Self::LobbyUpdate {
             joined: joined_users,
             left: vec![],
@@ -181,6 +172,7 @@ mod tests {
     fn test_lobby_user_creation() {
         let user = LobbyUser {
             public_key: "test_key".to_string(),
+            status: None,
         };
         assert_eq!(user.public_key, "test_key");
     }
@@ -220,9 +212,9 @@ mod tests {
 
         assert_eq!(msg.users.len(), 2);
         assert_eq!(msg.users[0].public_key, "key1");
-        assert_eq!(msg.users[0].status, "online");
+        assert_eq!(msg.users[0].status, Some("online".to_string()));
         assert_eq!(msg.users[1].public_key, "key2");
-        assert_eq!(msg.users[1].status, "online");
+        assert_eq!(msg.users[1].status, Some("online".to_string()));
     }
 
     #[test]
@@ -235,7 +227,8 @@ mod tests {
 
     #[test]
     fn test_lobby_update_message_deserialization() {
-        let json = r#"{"type":"lobby_update","joined":[{"publicKey":"new_user"}],"left":["old_user"]}"#;
+        let json =
+            r#"{"type":"lobby_update","joined":[{"publicKey":"new_user"}],"left":["old_user"]}"#;
         let msg: LobbyUpdateMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(msg.joined.len(), 1);
@@ -246,32 +239,33 @@ mod tests {
 
     #[test]
     fn test_lobby_user_compact() {
-        let user = LobbyUserCompact {
+        let user = LobbyUser {
             public_key: "compact_key".to_string(),
+            status: None,
         };
         assert_eq!(user.public_key, "compact_key");
 
         // Verify serialization roundtrip
         let json = serde_json::to_string(&user).unwrap();
-        let deserialized: LobbyUserCompact = serde_json::from_str(&json).unwrap();
+        let deserialized: LobbyUser = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.public_key, "compact_key");
     }
 
     #[test]
     fn test_lobby_user_with_status() {
-        let user = LobbyUserWithStatus {
+        let user = LobbyUser {
             public_key: "status_key".to_string(),
-            status: "online".to_string(),
+            status: Some("online".to_string()),
         };
         assert_eq!(user.public_key, "status_key");
-        assert_eq!(user.status, "online");
+        assert_eq!(user.status, Some("online".to_string()));
 
         // Test offline status
-        let offline_user = LobbyUserWithStatus {
+        let offline_user = LobbyUser {
             public_key: "offline_key".to_string(),
-            status: "offline".to_string(),
+            status: Some("offline".to_string()),
         };
-        assert_eq!(offline_user.status, "offline");
+        assert_eq!(offline_user.status, Some("offline".to_string()));
     }
 
     #[test]

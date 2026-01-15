@@ -31,7 +31,11 @@ fn main() {
 
     for (i, user) in users.iter().enumerate().take(5) {
         println!("Slot {}:", i + 1);
-        println!("  lobby_user_{}_public_key = \"{}\"", i + 1, user.public_key);
+        println!(
+            "  lobby_user_{}_public_key = \"{}\"",
+            i + 1,
+            user.public_key
+        );
         println!("  lobby_user_{}_online = {}", i + 1, user.is_online);
         println!("  lobby_user_{}_selected = false", i + 1);
     }
@@ -63,9 +67,18 @@ fn main() {
     println!("Verification:");
     println!("--------------------------------------");
     println!("✅ lobby.selected_user() = {:?}", lobby.selected_user());
-    println!("✅ lobby.is_selected(user1) = {}", lobby.is_selected(&user1.public_key));
-    println!("✅ lobby.is_selected(user2) = {}", lobby.is_selected(&user2.public_key));
-    println!("✅ lobby.is_selected(user3) = {}", lobby.is_selected(&user3.public_key));
+    println!(
+        "✅ lobby.is_selected(user1) = {}",
+        lobby.is_selected(&user1.public_key)
+    );
+    println!(
+        "✅ lobby.is_selected(user2) = {}",
+        lobby.is_selected(&user2.public_key)
+    );
+    println!(
+        "✅ lobby.is_selected(user3) = {}",
+        lobby.is_selected(&user3.public_key)
+    );
     println!();
 
     println!("======================================");

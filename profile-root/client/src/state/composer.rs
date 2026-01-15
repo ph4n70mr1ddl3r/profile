@@ -8,8 +8,8 @@
 //! - Draft is preserved during network disconnections
 //! - Draft is only cleared on successful send or app close
 
-use tokio::sync::Mutex;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Connection state for the composer
 #[derive(Debug, Clone, PartialEq)]

@@ -9,17 +9,15 @@
 //! These tests enable technical users (Sam) to validate the cryptographic
 //! foundation by comparing signatures and testing edge cases.
 
-use profile_shared::generate_private_key;
 use profile_shared::derive_public_key;
+use profile_shared::generate_private_key;
 use profile_shared::sign_message;
 use profile_shared::verify_signature;
 use zeroize::Zeroizing;
 
 /// Convert signature bytes to lowercase hex string
 fn signature_to_hex(signature: &[u8]) -> String {
-    signature.iter()
-        .map(|b| format!("{:02x}", b))
-        .collect()
+    signature.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Test Task 1.1: Deterministic Signing Verification
@@ -98,12 +96,7 @@ async fn test_signature_display_length_128_chars() {
 #[tokio::test]
 async fn test_signature_hex_format_consistency() {
     let private_key = Zeroizing::new(generate_private_key().unwrap());
-    let test_messages = [
-        "Hello",
-        "World",
-        "Test 123",
-        "MixedCASETest",
-    ];
+    let test_messages = ["Hello", "World", "Test 123", "MixedCASETest"];
     let timestamp = "2025-12-30T10:00:00Z";
 
     for message in test_messages.iter() {
@@ -140,10 +133,10 @@ async fn test_signature_display_unicode_content() {
 
     // Test messages with various Unicode content
     let unicode_messages = [
-        "你好世界",                    // Chinese
-        "Привет мир",                // Russian
-        "Hello 🌍 World",            // Emoji + text
-        "Mixed 中文 and English",     // Mixed script
+        "你好世界",               // Chinese
+        "Привет мир",             // Russian
+        "Hello 🌍 World",         // Emoji + text
+        "Mixed 中文 and English", // Mixed script
     ];
 
     let timestamp = "2025-12-30T10:00:00Z";
@@ -193,9 +186,7 @@ async fn test_signature_display_emoji_content() {
         // Signature should be valid
         assert_eq!(signature_hex.len(), 128);
         assert!(signature_hex.chars().all(|c| c.is_ascii_hexdigit()));
-        assert!(
-            verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok()
-        );
+        assert!(verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok());
     }
 }
 
@@ -225,9 +216,7 @@ async fn test_signature_display_special_chars() {
         // Signature should be valid
         assert_eq!(signature_hex.len(), 128);
         assert!(signature_hex.chars().all(|c| c.is_ascii_hexdigit()));
-        assert!(
-            verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok()
-        );
+        assert!(verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok());
 
         // Verify the message content is preserved exactly
         assert_eq!(canonical, format!("{}:{}", message, timestamp));
@@ -244,14 +233,14 @@ async fn test_signature_display_long_content() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     // Create a long message (1000+ chars)
-    let long_message: String = (0..1000).map(|i| {
-        match i % 4 {
+    let long_message: String = (0..1000)
+        .map(|i| match i % 4 {
             0 => 'A',
             1 => 'b',
             2 => 'C',
             _ => '3',
-        }
-    }).collect();
+        })
+        .collect();
 
     let timestamp = "2025-12-30T10:00:00Z";
     let canonical = format!("{}:{}", long_message, timestamp);
@@ -261,9 +250,7 @@ async fn test_signature_display_long_content() {
     // Signature should be valid
     assert_eq!(signature_hex.len(), 128);
     assert!(signature_hex.chars().all(|c| c.is_ascii_hexdigit()));
-    assert!(
-        verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok()
-    );
+    assert!(verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok());
 }
 
 /// Test Task 2.5: Signature Display with Whitespace Content
@@ -295,9 +282,7 @@ async fn test_signature_display_whitespace_content() {
         // Signature should be valid
         assert_eq!(signature_hex.len(), 128);
         assert!(signature_hex.chars().all(|c| c.is_ascii_hexdigit()));
-        assert!(
-            verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok()
-        );
+        assert!(verify_signature(&public_key, canonical.as_bytes(), &signature).is_ok());
 
         // Verify whitespace is preserved
         assert_eq!(canonical, format!("{}:{}", message, timestamp));
@@ -436,9 +421,19 @@ async fn test_signature_format_documentation() {
     let signature_hex = signature_to_hex(&signature);
 
     // Document the expected format
-    assert_eq!(signature_hex.len(), 128, "Signature length: 128 hex chars (64 bytes × 2)");
-    assert!(signature_hex.chars().all(|c| c.is_ascii_hexdigit()), "Encoding: hexadecimal");
-    assert!(!signature_hex.chars().any(|c| c.is_ascii_uppercase()), "Case: lowercase only");
+    assert_eq!(
+        signature_hex.len(),
+        128,
+        "Signature length: 128 hex chars (64 bytes × 2)"
+    );
+    assert!(
+        signature_hex.chars().all(|c| c.is_ascii_hexdigit()),
+        "Encoding: hexadecimal"
+    );
+    assert!(
+        !signature_hex.chars().any(|c| c.is_ascii_uppercase()),
+        "Case: lowercase only"
+    );
 
     // Verify it's a valid Ed25519 signature size (64 bytes = 512 bits)
     assert_eq!(
@@ -473,7 +468,8 @@ async fn test_deterministic_signing_1000_iterations() {
             // All signatures should be identical to the first one
             let first_sig = first_signature_bytes.as_ref().unwrap();
             assert_eq!(
-                signature.as_slice(), first_sig,
+                signature.as_slice(),
+                first_sig,
                 "Iteration {}: All signatures should be identical (deterministic)",
                 i
             );
@@ -493,8 +489,8 @@ async fn test_different_messages_different_signatures() {
     let messages = [
         "Message A",
         "Message B",
-        "Message A ",  // Different due to trailing space
-        "message a",   // Different due to case
+        "Message A ", // Different due to trailing space
+        "message a",  // Different due to case
     ];
 
     let mut signatures: Vec<String> = Vec::new();

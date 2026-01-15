@@ -12,10 +12,7 @@ use crate::ui::lobby_state::LobbyUser;
 /// 1. Updates the lobby state to reflect selection
 /// 2. Triggers chat composer activation
 /// 3. Notifies the UI of the selection change
-pub async fn handle_lobby_user_select(
-    lobby_state: &SharedLobbyState,
-    public_key: &str,
-) -> bool {
+pub async fn handle_lobby_user_select(lobby_state: &SharedLobbyState, public_key: &str) -> bool {
     let mut state = lobby_state.lock().await;
     state.select(public_key)
 }
@@ -34,9 +31,9 @@ pub async fn handle_lobby_navigate_up(lobby_state: &SharedLobbyState) -> Option<
 
     let current_index = state.selected_index().unwrap_or(user_count);
     let new_index = if current_index == 0 {
-        user_count - 1  // Wrap to last user
+        user_count - 1 // Wrap to last user
     } else {
-        current_index - 1  // Move up one
+        current_index - 1 // Move up one
     };
 
     if state.select_by_index(new_index) {
@@ -60,9 +57,9 @@ pub async fn handle_lobby_navigate_down(lobby_state: &SharedLobbyState) -> Optio
 
     let current_index = state.selected_index().unwrap_or(0usize.saturating_sub(1));
     let new_index = if current_index >= user_count - 1 {
-        0  // Wrap to first user
+        0 // Wrap to first user
     } else {
-        current_index + 1  // Move down one
+        current_index + 1 // Move down one
     };
 
     if state.select_by_index(new_index) {
@@ -73,28 +70,19 @@ pub async fn handle_lobby_navigate_down(lobby_state: &SharedLobbyState) -> Optio
 }
 
 /// Handle lobby user join event
-pub async fn handle_lobby_user_joined(
-    lobby_state: &SharedLobbyState,
-    public_key: &str,
-) {
+pub async fn handle_lobby_user_joined(lobby_state: &SharedLobbyState, public_key: &str) {
     let mut state = lobby_state.lock().await;
     state.add_user(LobbyUser::new(public_key.to_string(), true));
 }
 
 /// Handle lobby user leave event
-pub async fn handle_lobby_user_left(
-    lobby_state: &SharedLobbyState,
-    public_key: &str,
-) {
+pub async fn handle_lobby_user_left(lobby_state: &SharedLobbyState, public_key: &str) {
     let mut state = lobby_state.lock().await;
     state.remove_user(public_key);
 }
 
 /// Handle lobby state update (initial load)
-pub async fn handle_lobby_state_update(
-    lobby_state: &SharedLobbyState,
-    users: Vec<LobbyUser>,
-) {
+pub async fn handle_lobby_state_update(lobby_state: &SharedLobbyState, users: Vec<LobbyUser>) {
     let mut state = lobby_state.lock().await;
     state.set_users(users);
 }
@@ -278,8 +266,8 @@ mod tests {
         handle_lobby_user_select(&state, "alpha").await;
 
         // Navigate down twice - should be gamma (deterministic)
-        let _ = handle_lobby_navigate_down(&state).await;  // alpha -> beta
-        let result = handle_lobby_navigate_down(&state).await;  // beta -> gamma
+        let _ = handle_lobby_navigate_down(&state).await; // alpha -> beta
+        let result = handle_lobby_navigate_down(&state).await; // beta -> gamma
         assert_eq!(result, Some("gamma".to_string()));
     }
 

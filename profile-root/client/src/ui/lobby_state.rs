@@ -29,7 +29,10 @@ impl LobbyUser {
     /// Create a new lobby user
     #[inline]
     pub fn new(public_key: String, is_online: bool) -> Self {
-        Self { public_key, is_online }
+        Self {
+            public_key,
+            is_online,
+        }
     }
 }
 
@@ -45,7 +48,11 @@ impl From<LobbyUser> for LobbyUserSerializable {
     fn from(user: LobbyUser) -> Self {
         Self {
             public_key: user.public_key,
-            status: if user.is_online { "online".to_string() } else { "offline".to_string() },
+            status: if user.is_online {
+                "online".to_string()
+            } else {
+                "offline".to_string()
+            },
         }
     }
 }
@@ -80,7 +87,8 @@ pub struct LobbyStateSerializable {
 
 impl From<LobbyState> for LobbyStateSerializable {
     fn from(state: LobbyState) -> Self {
-        let users_serializable: Vec<LobbyUserSerializable> = state.users.into_iter().map(|u| u.into()).collect();
+        let users_serializable: Vec<LobbyUserSerializable> =
+            state.users.into_iter().map(|u| u.into()).collect();
         Self {
             users: users_serializable,
             selected_user: state.selected_user,
@@ -156,7 +164,9 @@ impl LobbyState {
     /// * `users` - Vector of users to set
     pub fn set_users(&mut self, users: Vec<LobbyUser>) {
         // Check if selected user still exists in new user list
-        let selected_user_exists = self.selected_user.as_ref()
+        let selected_user_exists = self
+            .selected_user
+            .as_ref()
             .map(|key| users.iter().any(|u| &u.public_key == key))
             .unwrap_or(false);
 
@@ -204,10 +214,11 @@ impl LobbyState {
         I: IntoIterator<Item = LobbyUser>,
     {
         use std::collections::HashSet;
-        
+
         // Collect existing public keys into HashSet for O(1) deduplication checks
-        let mut existing_keys: HashSet<String> = self.users.iter().map(|u| u.public_key.clone()).collect();
-        
+        let mut existing_keys: HashSet<String> =
+            self.users.iter().map(|u| u.public_key.clone()).collect();
+
         for user in users {
             // Clone key before push so it's available for HashSet insertion
             let public_key = user.public_key.clone();
@@ -233,7 +244,11 @@ impl LobbyState {
     /// `true` if user was present and removed, `false` otherwise
     #[inline]
     pub fn remove_user(&mut self, public_key: &str) -> bool {
-        let was_present = self.users.iter().position(|u| u.public_key == public_key).is_some();
+        let was_present = self
+            .users
+            .iter()
+            .position(|u| u.public_key == public_key)
+            .is_some();
         self.users.retain(|u| u.public_key != public_key);
 
         if self.selected_user.as_deref() == Some(public_key) {
@@ -446,7 +461,9 @@ impl LobbyState {
     /// `true` if user exists in lobby and is marked online
     #[inline]
     pub fn is_user_online(&self, public_key: &str) -> bool {
-        self.get_user(public_key).map(|u| u.is_online).unwrap_or(false)
+        self.get_user(public_key)
+            .map(|u| u.is_online)
+            .unwrap_or(false)
     }
 
     /// Validate that a selection is still valid (user is online)
@@ -638,9 +655,18 @@ mod tests {
         let deserialized: LobbyState = serializable.into();
 
         // Order should be preserved
-        assert_eq!(deserialized.get_user_at(0).map(|u| &u.public_key), Some(&"first".to_string()));
-        assert_eq!(deserialized.get_user_at(1).map(|u| &u.public_key), Some(&"second".to_string()));
-        assert_eq!(deserialized.get_user_at(2).map(|u| &u.public_key), Some(&"third".to_string()));
+        assert_eq!(
+            deserialized.get_user_at(0).map(|u| &u.public_key),
+            Some(&"first".to_string())
+        );
+        assert_eq!(
+            deserialized.get_user_at(1).map(|u| &u.public_key),
+            Some(&"second".to_string())
+        );
+        assert_eq!(
+            deserialized.get_user_at(2).map(|u| &u.public_key),
+            Some(&"third".to_string())
+        );
     }
 
     #[test]

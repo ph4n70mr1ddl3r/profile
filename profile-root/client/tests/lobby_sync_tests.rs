@@ -6,20 +6,13 @@
 //! - Pre-send availability checks (AC3)
 //! - Selection state management (AC5)
 
+use profile_client::handlers::lobby::{
+    clear_lobby_selection, get_lobby_selected_user, handle_lobby_delta, handle_lobby_state_update,
+    handle_lobby_user_joined, handle_lobby_user_left, handle_lobby_user_select, is_selection_valid,
+    is_user_available, select_available_user,
+};
 use profile_client::state::create_shared_lobby_state;
 use profile_client::ui::lobby_state::LobbyUser;
-use profile_client::handlers::lobby::{
-    handle_lobby_user_select,
-    handle_lobby_user_joined,
-    handle_lobby_user_left,
-    handle_lobby_state_update,
-    handle_lobby_delta,
-    is_user_available,
-    is_selection_valid,
-    select_available_user,
-    get_lobby_selected_user,
-    clear_lobby_selection,
-};
 
 /// Test AC1: Real-time updates with delta processing
 ///
@@ -80,7 +73,11 @@ async fn test_extended_session_consistency() {
     // - Users removed: 0-14 (15 users, starting at i=6 which removes session_user_0)
     // - Final count: 5 users (15, 16, 17, 18, 19)
     let count = get_lobby_user_count(&state).await;
-    assert!(count >= 3 && count <= 10, "Expected 3-10 users, got {}", count);
+    assert!(
+        count >= 3 && count <= 10,
+        "Expected 3-10 users, got {}",
+        count
+    );
 }
 
 /// Test AC2: Selection notification when selected user leaves
@@ -98,7 +95,10 @@ async fn test_selection_cleared_when_selected_user_leaves() {
 
     // Select user_b
     handle_lobby_user_select(&state, "user_b").await;
-    assert_eq!(get_lobby_selected_user(&state).await, Some("user_b".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("user_b".to_string())
+    );
 
     // user_b leaves via delta
     let joined = vec![];
@@ -168,12 +168,18 @@ async fn test_select_available_user_validates() {
     // Should be able to select
     let result = select_available_user(&state, "available_user").await;
     assert!(result);
-    assert_eq!(get_lobby_selected_user(&state).await, Some("available_user".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("available_user".to_string())
+    );
 
     // Try to select nonexistent user - should fail
     let result = select_available_user(&state, "nonexistent").await;
     assert!(!result);
-    assert_eq!(get_lobby_selected_user(&state).await, Some("available_user".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("available_user".to_string())
+    );
 }
 
 /// Test AC5: Selection state management on user leave
@@ -190,11 +196,17 @@ async fn test_selection_state_management() {
 
     // Select user_2
     handle_lobby_user_select(&state, "user_2").await;
-    assert_eq!(get_lobby_selected_user(&state).await, Some("user_2".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("user_2".to_string())
+    );
 
     // user_1 leaves (not selected) - selection should remain
     handle_lobby_user_left(&state, "user_1").await;
-    assert_eq!(get_lobby_selected_user(&state).await, Some("user_2".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("user_2".to_string())
+    );
 
     // user_2 leaves (selected) - selection should be cleared
     handle_lobby_user_left(&state, "user_2").await;
@@ -223,14 +235,20 @@ async fn test_selection_persists_through_other_users_leaving() {
     }
 
     // Selection should still be user_5
-    assert_eq!(get_lobby_selected_user(&state).await, Some("user_5".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("user_5".to_string())
+    );
 
     // Add new users
     handle_lobby_user_joined(&state, "new_user_1").await;
     handle_lobby_user_joined(&state, "new_user_2").await;
 
     // Selection should still be user_5
-    assert_eq!(get_lobby_selected_user(&state).await, Some("user_5".to_string()));
+    assert_eq!(
+        get_lobby_selected_user(&state).await,
+        Some("user_5".to_string())
+    );
 
     // Finally remove user_5 - selection should clear
     handle_lobby_user_left(&state, "user_5").await;

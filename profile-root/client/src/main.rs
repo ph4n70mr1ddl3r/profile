@@ -1,9 +1,9 @@
 //! Profile client application (Slint UI + core crypto functionality).
 
-use profile_client::{state, handlers};
+use profile_client::{handlers, state};
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 slint::include_modules!();
@@ -38,11 +38,12 @@ fn parse_clipboard_error(error: &str) -> String {
 fn copy_to_clipboard(text: &str) -> Result<(), String> {
     match arboard::Clipboard::new() {
         Ok(mut clipboard) => {
-            clipboard.set_text(text)
+            clipboard
+                .set_text(text)
                 .map_err(|e| parse_clipboard_error(&e.to_string()))?;
             Ok(())
         }
-        Err(e) => Err(parse_clipboard_error(&e.to_string()))
+        Err(e) => Err(parse_clipboard_error(&e.to_string())),
     }
 }
 
@@ -274,42 +275,43 @@ fn main() -> Result<(), slint::PlatformError> {
     // Message event handler for real-time message updates (Story 3.1)
     // NOTE: Handler is created but stored value is intentionally unused for now
     // The callbacks are defined but the handler pattern may be refactored in future stories
-    let _message_event_handler = profile_client::connection::client::MessageEventHandler::with_callbacks(
-        {
-            let message_history = message_history.clone();
-            let ui_weak = ui.as_weak();
-            let key_state = key_state.clone();
-
-            move |_message: profile_client::state::messages::ChatMessage| {
-                let ui_weak = ui_weak.clone();
+    let _message_event_handler =
+        profile_client::connection::client::MessageEventHandler::with_callbacks(
+            {
                 let message_history = message_history.clone();
+                let ui_weak = ui.as_weak();
                 let key_state = key_state.clone();
 
-                let _ = slint::spawn_local(async move {
-                    let Some(ui) = ui_weak.upgrade() else {
-                        return;
-                    };
+                move |_message: profile_client::state::messages::ChatMessage| {
+                    let ui_weak = ui_weak.clone();
+                    let message_history = message_history.clone();
+                    let key_state = key_state.clone();
 
-                    // Get user's public key for self-detection
-                    let my_key = {
-                        let state = key_state.lock().await;
-                        state.public_key().map(hex::encode).unwrap_or_default()
-                    };
+                    let _ = slint::spawn_local(async move {
+                        let Some(ui) = ui_weak.upgrade() else {
+                            return;
+                        };
 
-                    update_chat_messages_ui(&ui, &message_history, &my_key).await;
-                });
-            }
-        },
-        |_notification: String| {
-            // Handle invalid signature notification (can be logged or shown to user)
-        },
-        |_error: String| {
-            // Handle error (can be logged or shown to user)
-        },
-        |_notification: String| {
-            // Handle general notification (e.g., offline status)
-        },
-    );
+                        // Get user's public key for self-detection
+                        let my_key = {
+                            let state = key_state.lock().await;
+                            state.public_key().map(hex::encode).unwrap_or_default()
+                        };
+
+                        update_chat_messages_ui(&ui, &message_history, &my_key).await;
+                    });
+                }
+            },
+            |_notification: String| {
+                // Handle invalid signature notification (can be logged or shown to user)
+            },
+            |_error: String| {
+                // Handle error (can be logged or shown to user)
+            },
+            |_notification: String| {
+                // Handle general notification (e.g., offline status)
+            },
+        );
 
     // Initial lobby UI update (empty state)
     let ui_weak_lobby_update = ui.as_weak();
@@ -476,10 +478,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let Some(ui) = ui_weak_copy.upgrade() else {
             return;
         };
-        
+
         // Get the current public key from UI
         let public_key = ui.get_public_key_display().to_string();
-        
+
         // Copy to clipboard
         match arboard::Clipboard::new() {
             Ok(mut clipboard) => {
@@ -488,7 +490,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         ui.set_status_is_error(false);
                         ui.set_status_message("Public key copied to clipboard!".into());
                         ui.set_copy_feedback_visible(true);
-                        
+
                         // Reset feedback after 2 seconds
                         let ui_weak_feedback = ui.as_weak();
                         let _ = slint::spawn_local(async move {

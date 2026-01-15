@@ -12,7 +12,7 @@
 //! 4. Check recipient exists in lobby
 //! 5. Route accordingly (deliver if online, error if not)
 
-use crate::lobby::{Lobby, PublicKey, ActiveConnection};
+use crate::lobby::{ActiveConnection, Lobby, PublicKey};
 use crate::protocol::{ErrorMessage, SendMessageRequest};
 use profile_shared::verify_signature;
 use std::sync::Arc;
@@ -29,30 +29,20 @@ pub enum MessageValidationResult {
         timestamp: String,
     },
     /// Validation failed - message was rejected
-    Invalid {
-        reason: ValidationError,
-    },
+    Invalid { reason: ValidationError },
 }
 
 /// Validation error types for different failure modes
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValidationError {
     /// Sender is not authenticated or not in lobby
-    NotAuthenticated {
-        details: String,
-    },
+    NotAuthenticated { details: String },
     /// Message JSON is malformed or missing required fields
-    MalformedJson {
-        details: String,
-    },
+    MalformedJson { details: String },
     /// Signature verification failed
-    SignatureInvalid {
-        details: String,
-    },
+    SignatureInvalid { details: String },
     /// Recipient is not online
-    RecipientOffline {
-        recipient_key: String,
-    },
+    RecipientOffline { recipient_key: String },
     /// Cannot send message to self
     CannotMessageSelf,
 }
@@ -82,7 +72,10 @@ pub async fn handle_incoming_message(
     // AC1 Step 1: Check sender is authenticated (has active connection in lobby)
     // This is guaranteed by the handler - only authenticated users can send messages
     // But we double-check to be safe
-    if get_sender_connection(lobby, sender_public_key).await.is_none() {
+    if get_sender_connection(lobby, sender_public_key)
+        .await
+        .is_none()
+    {
         tracing::warn!(sender = %sender_public_key, "Sender not found in lobby - rejecting message");
         return MessageValidationResult::Invalid {
             reason: ValidationError::NotAuthenticated {
@@ -134,7 +127,11 @@ pub async fn handle_incoming_message(
         }
     };
 
-    match verify_signature(&sender_key_bytes, canonical_message.as_bytes(), &signature_bytes) {
+    match verify_signature(
+        &sender_key_bytes,
+        canonical_message.as_bytes(),
+        &signature_bytes,
+    ) {
         Ok(()) => {
             tracing::debug!(recipient = %message_request.recipient_public_key, "Signature verified");
         }
@@ -149,7 +146,8 @@ pub async fn handle_incoming_message(
     }
 
     // AC1 Step 4: Check recipient exists in lobby
-    let recipient_connection = get_recipient_connection(lobby, &message_request.recipient_public_key).await;
+    let recipient_connection =
+        get_recipient_connection(lobby, &message_request.recipient_public_key).await;
 
     // AC1 Step 5: Route accordingly
     match recipient_connection {
@@ -181,7 +179,10 @@ async fn get_sender_connection(lobby: &Lobby, public_key: &str) -> Option<Arc<Ac
 }
 
 /// Get the recipient's connection from the lobby
-async fn get_recipient_connection(lobby: &Lobby, public_key: &str) -> Option<Arc<ActiveConnection>> {
+async fn get_recipient_connection(
+    lobby: &Lobby,
+    public_key: &str,
+) -> Option<Arc<ActiveConnection>> {
     let pk: PublicKey = public_key.to_string();
     crate::lobby::get_user(lobby, &pk).await.ok().flatten()
 }
@@ -199,11 +200,14 @@ fn parse_message_json(json: &str) -> Result<SendMessageRequest, String> {
 ///
 /// # Returns
 /// Ok(()) if message was delivered, Err(reason) if delivery failed
-#[tracing::instrument(skip(lobby, validated), fields(
-    sender = "validated",
-    recipient = "validated"
-))]
-pub async fn route_message(lobby: &Lobby, validated: &MessageValidationResult) -> Result<(), String> {
+#[tracing::instrument(
+    skip(lobby, validated),
+    fields(sender = "validated", recipient = "validated")
+)]
+pub async fn route_message(
+    lobby: &Lobby,
+    validated: &MessageValidationResult,
+) -> Result<(), String> {
     match validated {
         MessageValidationResult::Valid {
             sender_public_key,
@@ -242,18 +246,22 @@ pub async fn route_message(lobby: &Lobby, validated: &MessageValidationResult) -
 
             Ok(())
         }
-        MessageValidationResult::Invalid { .. } => {
-            Err("Cannot route invalid message".to_string())
-        }
+        MessageValidationResult::Invalid { .. } => Err("Cannot route invalid message".to_string()),
     }
 }
 
 /// Create an error response for the client
 pub fn create_error_response(error: &ValidationError) -> String {
     let (reason, details) = match error {
-        ValidationError::NotAuthenticated { details } => ("auth_failed".to_string(), details.clone()),
-        ValidationError::MalformedJson { details } => ("malformed_json".to_string(), details.clone()),
-        ValidationError::SignatureInvalid { details } => ("signature_invalid".to_string(), details.clone()),
+        ValidationError::NotAuthenticated { details } => {
+            ("auth_failed".to_string(), details.clone())
+        }
+        ValidationError::MalformedJson { details } => {
+            ("malformed_json".to_string(), details.clone())
+        }
+        ValidationError::SignatureInvalid { details } => {
+            ("signature_invalid".to_string(), details.clone())
+        }
         ValidationError::RecipientOffline { recipient_key } => (
             "offline".to_string(),
             format!("User {} is not currently online", recipient_key),
@@ -266,15 +274,16 @@ pub fn create_error_response(error: &ValidationError) -> String {
 
     let error_msg = ErrorMessage::with_details(reason, details);
 
-    serde_json::to_string(&error_msg).unwrap_or_else(|_| r#"{"type":"error","reason":"unknown"}"#.to_string())
+    serde_json::to_string(&error_msg)
+        .unwrap_or_else(|_| r#"{"type":"error","reason":"unknown"}"#.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::lobby::Lobby;
-    use tokio::sync::mpsc;
     use profile_shared::Message as SharedMessage;
+    use tokio::sync::mpsc;
 
     fn create_test_connection(key: &str) -> ActiveConnection {
         let (sender, _) = mpsc::unbounded_channel::<SharedMessage>();
@@ -290,9 +299,12 @@ mod tests {
         let lobby = Lobby::new();
         let result = handle_incoming_message(&lobby, "unknown_user", r#"{"type":"message"}"#).await;
 
-        assert!(matches!(result, MessageValidationResult::Invalid {
-            reason: ValidationError::NotAuthenticated { .. }
-        }));
+        assert!(matches!(
+            result,
+            MessageValidationResult::Invalid {
+                reason: ValidationError::NotAuthenticated { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -302,13 +314,18 @@ mod tests {
         // Add sender to lobby
         let sender_key = "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
         let sender_conn = create_test_connection(sender_key);
-        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn).await.unwrap();
+        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn)
+            .await
+            .unwrap();
 
         let result = handle_incoming_message(&lobby, sender_key, "not valid json").await;
 
-        assert!(matches!(result, MessageValidationResult::Invalid {
-            reason: ValidationError::MalformedJson { .. }
-        }));
+        assert!(matches!(
+            result,
+            MessageValidationResult::Invalid {
+                reason: ValidationError::MalformedJson { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -318,7 +335,9 @@ mod tests {
         // Add sender to lobby
         let sender_key = "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
         let sender_conn = create_test_connection(sender_key);
-        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn).await.unwrap();
+        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn)
+            .await
+            .unwrap();
 
         // Create a valid message request but recipient is not in lobby
         // Note: This will fail signature validation first since we don't have real keys
@@ -335,9 +354,12 @@ mod tests {
         let result = handle_incoming_message(&lobby, sender_key, message_json).await;
 
         // Should fail signature validation (invalid signature)
-        assert!(matches!(result, MessageValidationResult::Invalid {
-            reason: ValidationError::SignatureInvalid { .. }
-        }));
+        assert!(matches!(
+            result,
+            MessageValidationResult::Invalid {
+                reason: ValidationError::SignatureInvalid { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -347,7 +369,9 @@ mod tests {
         // Add sender to lobby
         let sender_key = "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
         let sender_conn = create_test_connection(sender_key);
-        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn).await.unwrap();
+        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn)
+            .await
+            .unwrap();
 
         // Create message to self
         let message_json = r#"{
@@ -361,9 +385,12 @@ mod tests {
 
         let result = handle_incoming_message(&lobby, sender_key, message_json).await;
 
-        assert!(matches!(result, MessageValidationResult::Invalid {
-            reason: ValidationError::CannotMessageSelf
-        }));
+        assert!(matches!(
+            result,
+            MessageValidationResult::Invalid {
+                reason: ValidationError::CannotMessageSelf
+            }
+        ));
     }
 
     #[test]
@@ -405,13 +432,17 @@ mod tests {
     #[tokio::test]
     async fn test_valid_signature_passes_validation() {
         // Generate a proper key pair using shared library
-        let private_key = profile_shared::generate_private_key().expect("Key generation should succeed");
-        let public_key_bytes = profile_shared::derive_public_key(&private_key).expect("Key derivation should succeed");
+        let private_key =
+            profile_shared::generate_private_key().expect("Key generation should succeed");
+        let public_key_bytes =
+            profile_shared::derive_public_key(&private_key).expect("Key derivation should succeed");
         let public_key_hex = hex::encode(public_key_bytes);
 
         // Create a unique recipient key
-        let recipient_private_key = profile_shared::generate_private_key().expect("Key generation should succeed");
-        let recipient_key_bytes = profile_shared::derive_public_key(&recipient_private_key).expect("Key derivation should succeed");
+        let recipient_private_key =
+            profile_shared::generate_private_key().expect("Key generation should succeed");
+        let recipient_key_bytes = profile_shared::derive_public_key(&recipient_private_key)
+            .expect("Key derivation should succeed");
         let recipient_public_key_hex = hex::encode(recipient_key_bytes);
 
         // Create message and timestamp (canonical format: message:timestamp)
@@ -432,7 +463,9 @@ mod tests {
             sender: sender_tx,
             connection_id: 1,
         };
-        crate::lobby::add_user(&lobby, public_key_hex.clone(), sender_conn).await.unwrap();
+        crate::lobby::add_user(&lobby, public_key_hex.clone(), sender_conn)
+            .await
+            .unwrap();
 
         // Add recipient to lobby so message can be delivered
         let (recipient_tx, _) = tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
@@ -441,17 +474,22 @@ mod tests {
             sender: recipient_tx,
             connection_id: 2,
         };
-        crate::lobby::add_user(&lobby, recipient_public_key_hex.clone(), recipient_conn).await.unwrap();
+        crate::lobby::add_user(&lobby, recipient_public_key_hex.clone(), recipient_conn)
+            .await
+            .unwrap();
 
         // Create the message JSON that client would send
-        let message_json = format!(r#"{{
+        let message_json = format!(
+            r#"{{
             "type": "message",
             "recipientPublicKey": "{}",
             "message": "{}",
             "senderPublicKey": "{}",
             "signature": "{}",
             "timestamp": "{}"
-        }}"#, recipient_public_key_hex, message_text, public_key_hex, signature_hex, timestamp);
+        }}"#,
+            recipient_public_key_hex, message_text, public_key_hex, signature_hex, timestamp
+        );
 
         // Validate the message - should pass with Valid result
         let result = handle_incoming_message(&lobby, &public_key_hex, &message_json).await;

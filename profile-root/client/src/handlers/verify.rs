@@ -8,9 +8,9 @@
 //! AC2: Valid messages get green ✓ badge
 //! AC3: Invalid messages are rejected with notification
 
-use profile_shared::verify_signature;
 use crate::state::messages::ChatMessage;
 use hex;
+use profile_shared::verify_signature;
 
 /// Result of message verification
 #[derive(Debug, Clone, PartialEq)]
@@ -141,7 +141,11 @@ pub fn create_invalid_signature_notification(sender_public_key: &str, reason: &s
 /// Truncated public key for display
 pub fn format_public_key(public_key: &str) -> String {
     if public_key.len() > 16 {
-        format!("{}...{}", &public_key[..8], &public_key[public_key.len() - 8..])
+        format!(
+            "{}...{}",
+            &public_key[..8],
+            &public_key[public_key.len() - 8..]
+        )
     } else {
         public_key.to_string()
     }
@@ -150,7 +154,7 @@ pub fn format_public_key(public_key: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message};
     use zeroize::Zeroizing;
 
     #[test]
@@ -313,6 +317,10 @@ mod tests {
 
         // Average time should be well under 100ms
         let avg_ms = elapsed.as_secs_f64() * 1000.0 / iterations as f64;
-        assert!(avg_ms < 10.0, "Average verification time {}ms should be < 10ms", avg_ms);
+        assert!(
+            avg_ms < 10.0,
+            "Average verification time {}ms should be < 10ms",
+            avg_ms
+        );
     }
 }

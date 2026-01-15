@@ -8,8 +8,8 @@
 //! - RwLock: multiple readers can access simultaneously, exclusive writer for modifications
 //! - HashMap: O(1) lookup for message routing (critical for performance)
 
-pub mod state;
 pub mod manager;
+pub mod state;
 
-pub use state::{PublicKey, ActiveConnection, Lobby, MAX_LOBBY_SIZE};
-pub use manager::{add_user, remove_user, get_user, get_current_users};
+pub use manager::{add_user, get_current_users, get_user, remove_user};
+pub use state::{ActiveConnection, Lobby, PublicKey, MAX_LOBBY_SIZE};

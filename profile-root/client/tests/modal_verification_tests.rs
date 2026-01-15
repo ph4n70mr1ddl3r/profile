@@ -20,13 +20,16 @@ fn test_modal_verification_badge_displays_verified() {
     // Verified by checking is_verified property triggers green badge in drill_down_modal.slint
     let is_verified = true;
     let expected_symbol = "✓";
-    let expected_color = "#dcfce7";  // Light green background per AC
+    let expected_color = "#dcfce7"; // Light green background per AC
 
     // The modal displays verified badge when is_verified is true
     assert!(is_verified, "Verified message should have is_verified=true");
     assert_eq!(expected_symbol, "✓", "Verified badge should show ✓ symbol");
     // Badge background color is set in slint: background: root.is_verified ? #dcfce7 : #fef2f2
-    assert_eq!(expected_color, "#dcfce7", "Verified badge should be light green #dcfce7");
+    assert_eq!(
+        expected_color, "#dcfce7",
+        "Verified badge should be light green #dcfce7"
+    );
 }
 
 #[test]
@@ -35,20 +38,30 @@ fn test_modal_verification_badge_displays_not_verified() {
     // Verified by checking is_verified property triggers red badge in drill_down_modal.slint
     let is_verified = false;
     let expected_symbol = "⚠";
-    let expected_color = "#fef2f2";  // Light red background per AC
+    let expected_color = "#fef2f2"; // Light red background per AC
 
     // The modal displays warning badge when is_verified is false
-    assert!(!is_verified, "Not verified message should have is_verified=false");
-    assert_eq!(expected_symbol, "⚠", "Not verified badge should show ⚠ symbol");
+    assert!(
+        !is_verified,
+        "Not verified message should have is_verified=false"
+    );
+    assert_eq!(
+        expected_symbol, "⚠",
+        "Not verified badge should show ⚠ symbol"
+    );
     // Badge background color is set in slint: background: root.is_verified ? #dcfce7 : #fef2f2
-    assert_eq!(expected_color, "#fef2f2", "Not verified badge should be light red #fef2f2");
+    assert_eq!(
+        expected_color, "#fef2f2",
+        "Not verified badge should be light red #fef2f2"
+    );
 }
 
 #[test]
 fn test_verified_explanation_text_contains_cryptographically_verified() {
     // Test that verified messages include "cryptographically verified" phrase
     // This is verified in main.rs line 822 and 832
-    let explanation_text = "This message was cryptographically verified. It came from owner of abc123...xyz.";
+    let explanation_text =
+        "This message was cryptographically verified. It came from owner of abc123...xyz.";
 
     assert!(
         explanation_text.contains("cryptographically verified"),
@@ -60,7 +73,8 @@ fn test_verified_explanation_text_contains_cryptographically_verified() {
 fn test_self_message_explanation_includes_your_public_key() {
     // Test that self-messages say "your public key"
     // This is verified in main.rs line 821-823
-    let self_message_explanation = "This message was cryptographically verified. It came from your public key.";
+    let self_message_explanation =
+        "This message was cryptographically verified. It came from your public key.";
 
     assert!(
         self_message_explanation.contains("your public key"),
@@ -72,11 +86,11 @@ fn test_self_message_explanation_includes_your_public_key() {
 fn test_other_message_explanation_includes_fingerprint() {
     // Test that other-messages include abbreviated fingerprint
     // This is verified in main.rs line 826-833
-    let other_message_explanation = "This message was cryptographically verified. It came from owner of abc123...xyz.";
+    let other_message_explanation =
+        "This message was cryptographically verified. It came from owner of abc123...xyz.";
 
     assert!(
-        other_message_explanation.contains("owner of") &&
-        other_message_explanation.contains("..."),
+        other_message_explanation.contains("owner of") && other_message_explanation.contains("..."),
         "Other-message explanation should include abbreviated fingerprint"
     );
 }
@@ -85,11 +99,12 @@ fn test_other_message_explanation_includes_fingerprint() {
 fn test_not_verified_explanation_text() {
     // Test that not verified messages show failure explanation
     // This is verified in main.rs line 836-840
-    let not_verified_explanation = "This message failed signature verification. It may have been tampered with.";
+    let not_verified_explanation =
+        "This message failed signature verification. It may have been tampered with.";
 
     assert!(
-        not_verified_explanation.contains("failed signature verification") &&
-        not_verified_explanation.contains("tampered"),
+        not_verified_explanation.contains("failed signature verification")
+            && not_verified_explanation.contains("tampered"),
         "Not verified explanation should mention signature failure and tampering"
     );
 }
@@ -100,7 +115,10 @@ fn test_modal_badge_color_verified_is_green() {
     // This is verified in drill_down_modal.slint line 378
     let badge_color_verified = "#22c55e";
 
-    assert_eq!(badge_color_verified, "#22c55e", "Verified badge should be green #22c55e");
+    assert_eq!(
+        badge_color_verified, "#22c55e",
+        "Verified badge should be green #22c55e"
+    );
 }
 
 #[test]
@@ -109,7 +127,10 @@ fn test_modal_badge_color_not_verified_is_red() {
     // This is verified in drill_down_modal.slint line 378
     let badge_color_not_verified = "#ef4444";
 
-    assert_eq!(badge_color_not_verified, "#ef4444", "Not verified badge should be red #ef4444");
+    assert_eq!(
+        badge_color_not_verified, "#ef4444",
+        "Not verified badge should be red #ef4444"
+    );
 }
 
 #[test]
@@ -127,7 +148,10 @@ fn test_not_verified_badge_symbol_is_warning() {
     // This is verified in drill_down_modal.slint line 381
     let not_verified_symbol = "⚠";
 
-    assert_eq!(not_verified_symbol, "⚠", "Not verified badge should show ⚠ symbol");
+    assert_eq!(
+        not_verified_symbol, "⚠",
+        "Not verified badge should show ⚠ symbol"
+    );
 }
 
 #[test]
@@ -137,8 +161,8 @@ fn test_modal_chat_view_badge_consistency() {
     let is_verified = true;
 
     // Both modal and chat view should display green ✓ badge
-    let modal_should_show = is_verified;  // green ✓
-    let chat_view_should_show = is_verified;  // green ✓
+    let modal_should_show = is_verified; // green ✓
+    let chat_view_should_show = is_verified; // green ✓
 
     assert_eq!(
         modal_should_show, chat_view_should_show,
@@ -154,7 +178,7 @@ fn test_fingerprint_abbreviation_format() {
     let expected_fingerprint = "12345678...7890";
 
     let actual_fingerprint = if full_key.len() > 12 {
-        format!("{}...{}", &full_key[..8], &full_key[full_key.len()-4..])
+        format!("{}...{}", &full_key[..8], &full_key[full_key.len() - 4..])
     } else {
         full_key.to_string()
     };
@@ -178,10 +202,10 @@ fn test_modal_verification_status_at_top_of_modal() {
     // to meet AC1: "The verification status section is at the top"
 
     // Verify modal structure by checking the order of content sections
-    let verification_order = 1;  // Verification is section 1 (top)
-    let message_order = 2;       // Message content is section 2
-    let public_key_order = 3;    // Public key is section 3
-    let signature_order = 4;     // Signature is section 4 (bottom)
+    let verification_order = 1; // Verification is section 1 (top)
+    let message_order = 2; // Message content is section 2
+    let public_key_order = 3; // Public key is section 3
+    let signature_order = 4; // Signature is section 4 (bottom)
 
     assert!(
         verification_order < message_order,
@@ -200,8 +224,10 @@ fn test_modal_verification_status_at_top_of_modal() {
 #[test]
 fn test_explanation_text_is_clear_and_non_technical() {
     // Test that explanation text uses simple language (not cryptographic jargon)
-    let verified_text = "This message was cryptographically verified. It came from owner of abc123...xyz.";
-    let not_verified_text = "This message failed signature verification. It may have been tampered with.";
+    let verified_text =
+        "This message was cryptographically verified. It came from owner of abc123...xyz.";
+    let not_verified_text =
+        "This message failed signature verification. It may have been tampered with.";
 
     // Should be readable by Alex (casual user)
     assert!(

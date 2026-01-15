@@ -18,7 +18,7 @@ static CLIPBOARD_LOCK: Mutex<()> = Mutex::new(());
 fn integration_test_clipboard_available() {
     let _lock = CLIPBOARD_LOCK.lock().unwrap();
     let clipboard_result = Clipboard::new();
-    
+
     // On headless CI, clipboard might not be available - that's okay
     // On Windows with GUI, it should work
     match clipboard_result {
@@ -38,28 +38,33 @@ fn integration_test_clipboard_available() {
 #[test]
 fn integration_test_clipboard_roundtrip() {
     let _lock = CLIPBOARD_LOCK.lock().unwrap();
-    
+
     // Try to get clipboard
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
         Err(e) => {
-            println!("⚠ Skipping test - clipboard not available (headless environment): {}", e);
+            println!(
+                "⚠ Skipping test - clipboard not available (headless environment): {}",
+                e
+            );
             return; // Skip test in headless environment
         }
     };
-    
+
     // Sample public key (64 hex characters)
     let sample_key = "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456";
-    
+
     // Set clipboard
-    clipboard.set_text(sample_key).expect("Should set clipboard text");
-    
+    clipboard
+        .set_text(sample_key)
+        .expect("Should set clipboard text");
+
     // Small delay to ensure clipboard is updated (platform timing issue)
     std::thread::sleep(std::time::Duration::from_millis(10));
-    
+
     // Get clipboard
     let retrieved = clipboard.get_text().expect("Should get clipboard text");
-    
+
     // Verify roundtrip
     assert_eq!(
         retrieved, sample_key,
@@ -71,7 +76,7 @@ fn integration_test_clipboard_roundtrip() {
 #[test]
 fn integration_test_clipboard_no_truncation() {
     let _lock = CLIPBOARD_LOCK.lock().unwrap();
-    
+
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
         Err(e) => {
@@ -79,29 +84,34 @@ fn integration_test_clipboard_no_truncation() {
             return;
         }
     };
-    
+
     // Generate multiple test keys
     let test_keys = vec![
-        "0".repeat(64),  // All zeros
-        "f".repeat(64),  // All max values
+        "0".repeat(64),               // All zeros
+        "f".repeat(64),               // All max values
         "0123456789abcdef".repeat(4), // Pattern repeated 4 times = 64 chars
-        "c".repeat(64), // All 'c' (unique to avoid conflicts)
+        "c".repeat(64),               // All 'c' (unique to avoid conflicts)
     ];
-    
+
     for (i, key) in test_keys.iter().enumerate() {
         // Set THEN get - clipboard is shared state
-        clipboard.set_text(key).expect(&format!("Should set key #{}", i));
-        
+        clipboard
+            .set_text(key)
+            .expect(&format!("Should set key #{}", i));
+
         // Small delay to ensure clipboard is updated (platform timing issue)
         std::thread::sleep(std::time::Duration::from_millis(10));
-        
-        let retrieved = clipboard.get_text().expect(&format!("Should get key #{}", i));
-        
+
+        let retrieved = clipboard
+            .get_text()
+            .expect(&format!("Should get key #{}", i));
+
         assert_eq!(
             retrieved.len(),
             64,
             "Key #{} should be 64 characters after clipboard roundtrip, got: {}",
-            i, retrieved
+            i,
+            retrieved
         );
         assert_eq!(
             &retrieved, key,
@@ -115,7 +125,7 @@ fn integration_test_clipboard_no_truncation() {
 #[test]
 fn integration_test_clipboard_exact_content() {
     let _lock = CLIPBOARD_LOCK.lock().unwrap();
-    
+
     let mut clipboard = match Clipboard::new() {
         Ok(cb) => cb,
         Err(e) => {
@@ -123,36 +133,47 @@ fn integration_test_clipboard_exact_content() {
             return;
         }
     };
-    
+
     // Use unique key to avoid conflicts with other tests
     let key_with_no_whitespace = "d".repeat(64);
-    
+
     // Set THEN get - always set before expecting a value
-    clipboard.set_text(&key_with_no_whitespace).expect("Should set clipboard");
-    
+    clipboard
+        .set_text(&key_with_no_whitespace)
+        .expect("Should set clipboard");
+
     // Small delay to ensure clipboard is updated (platform timing issue)
     std::thread::sleep(std::time::Duration::from_millis(10));
-    
+
     let retrieved = clipboard.get_text().expect("Should get clipboard");
-    
+
     // Verify no extra whitespace added
-    assert_eq!(retrieved, key_with_no_whitespace, "Clipboard should preserve exact content");
-    assert!(!retrieved.starts_with(' '), "Should not start with whitespace");
+    assert_eq!(
+        retrieved, key_with_no_whitespace,
+        "Clipboard should preserve exact content"
+    );
+    assert!(
+        !retrieved.starts_with(' '),
+        "Should not start with whitespace"
+    );
     assert!(!retrieved.ends_with(' '), "Should not end with whitespace");
     assert!(!retrieved.contains('\n'), "Should not contain newlines");
-    assert!(!retrieved.contains('\r'), "Should not contain carriage returns");
+    assert!(
+        !retrieved.contains('\r'),
+        "Should not contain carriage returns"
+    );
 }
 
 /// Test clipboard error handling when clipboard is locked by another process
 #[test]
 fn integration_test_clipboard_error_handling() {
     let _lock = CLIPBOARD_LOCK.lock().unwrap();
-    
+
     // This test just verifies the error handling pattern exists
     // Actual failure requires clipboard to be locked by another process (hard to simulate)
-    
+
     let clipboard_result = Clipboard::new();
-    
+
     match clipboard_result {
         Ok(mut clipboard) => {
             // Try to set text
@@ -165,7 +186,7 @@ fn integration_test_clipboard_error_handling() {
             println!("⚠ Clipboard initialization failed: {}", e);
         }
     }
-    
+
     // Test always passes - we're just verifying error handling compiles
     // If the match block above didn't compile or crashed, this assert wouldn't be reached
     assert!(true);

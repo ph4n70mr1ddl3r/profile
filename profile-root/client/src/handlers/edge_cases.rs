@@ -9,15 +9,15 @@
 //!
 //! Story 3.8: Handle Message Composition Edge Cases
 
-use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
 use crate::state::messages::{ChatMessage, MessageHistory};
 use crate::ui::chat::format_timestamp;
+use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
 /// Test unicode message handling
 #[cfg(test)]
 mod unicode_tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_chinese_characters() {
@@ -31,7 +31,10 @@ mod unicode_tests {
         let signature = sign_message(&private_key, canonical.as_bytes()).unwrap();
         let result = verify_signature(&public_key, canonical.as_bytes(), &signature);
 
-        assert!(result.is_ok(), "Chinese characters should be handled correctly");
+        assert!(
+            result.is_ok(),
+            "Chinese characters should be handled correctly"
+        );
     }
 
     #[tokio::test]
@@ -61,7 +64,10 @@ mod unicode_tests {
         let signature = sign_message(&private_key, canonical.as_bytes()).unwrap();
         let result = verify_signature(&public_key, canonical.as_bytes(), &signature);
 
-        assert!(result.is_ok(), "Spanish accents should be handled correctly");
+        assert!(
+            result.is_ok(),
+            "Spanish accents should be handled correctly"
+        );
     }
 
     #[tokio::test]
@@ -99,7 +105,7 @@ mod unicode_tests {
 #[cfg(test)]
 mod special_char_tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_special_symbols() {
@@ -113,7 +119,10 @@ mod special_char_tests {
         let signature = sign_message(&private_key, canonical.as_bytes()).unwrap();
         let result = verify_signature(&public_key, canonical.as_bytes(), &signature);
 
-        assert!(result.is_ok(), "Special symbols should be handled correctly");
+        assert!(
+            result.is_ok(),
+            "Special symbols should be handled correctly"
+        );
     }
 
     #[tokio::test]
@@ -128,7 +137,10 @@ mod special_char_tests {
         let signature = sign_message(&private_key, canonical.as_bytes()).unwrap();
         let result = verify_signature(&public_key, canonical.as_bytes(), &signature);
 
-        assert!(result.is_ok(), "Quotes and apostrophes should be handled correctly");
+        assert!(
+            result.is_ok(),
+            "Quotes and apostrophes should be handled correctly"
+        );
     }
 
     #[tokio::test]
@@ -151,8 +163,8 @@ mod special_char_tests {
 #[cfg(test)]
 mod long_message_tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
     use crate::state::messages::{ChatMessage, MessageHistory};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_10kb_message() {
@@ -230,7 +242,10 @@ mod long_message_tests {
         assert!(verify_signature(&public_key, canonical.as_bytes(), &sig2).is_ok());
 
         // Signatures should be identical (deterministic)
-        assert_eq!(sig1, sig2, "Long messages should have deterministic signatures");
+        assert_eq!(
+            sig1, sig2,
+            "Long messages should have deterministic signatures"
+        );
     }
 }
 
@@ -238,7 +253,7 @@ mod long_message_tests {
 #[cfg(test)]
 mod whitespace_tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
     async fn test_multiple_spaces() {
@@ -325,7 +340,10 @@ mod whitespace_tests {
         assert!(verify_signature(&public_key, canonical.as_bytes(), &sig2).is_ok());
 
         // Signatures should be identical
-        assert_eq!(sig1, sig2, "Whitespace should produce deterministic signatures");
+        assert_eq!(
+            sig1, sig2,
+            "Whitespace should produce deterministic signatures"
+        );
     }
 }
 
@@ -333,18 +351,12 @@ mod whitespace_tests {
 #[cfg(test)]
 mod binary_validation_tests {
     use super::*;
-    use profile_shared::{generate_private_key, derive_public_key, sign_message, verify_signature};
+    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[test]
     fn test_valid_utf8_detection() {
         // Valid UTF-8 strings should be accepted
-        let valid_strings = vec![
-            "Hello world",
-            "你好世界",
-            "🎉🚀",
-            "Ñoño tilde",
-            "",
-        ];
+        let valid_strings = vec!["Hello world", "你好世界", "🎉🚀", "Ñoño tilde", ""];
 
         for s in valid_strings {
             assert!(is_valid_utf8(s), "{} should be valid UTF-8", s);
@@ -364,7 +376,13 @@ mod binary_validation_tests {
 
         for (name, input, expected) in test_cases {
             let result = is_valid_utf8(input);
-            assert_eq!(result, expected, "{} should be {}", name, if expected { "valid" } else { "invalid" });
+            assert_eq!(
+                result,
+                expected,
+                "{} should be {}",
+                name,
+                if expected { "valid" } else { "invalid" }
+            );
         }
     }
 
@@ -490,7 +508,8 @@ mod history_edge_tests {
             history.add_message(msg);
         }
 
-        let from_alice: Vec<&str> = history.messages_from("alice")
+        let from_alice: Vec<&str> = history
+            .messages_from("alice")
             .iter()
             .map(|m| m.message.as_str())
             .collect();

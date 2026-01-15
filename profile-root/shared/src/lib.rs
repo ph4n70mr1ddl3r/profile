@@ -8,7 +8,7 @@ pub use crypto::{
     derive_public_key, generate_private_key, sign_message, verify_signature, PrivateKey, PublicKey,
 };
 pub use errors::{CryptoError, LobbyError};
-pub use protocol::{Message, LobbyUser, LobbyUserCompact};
+pub use protocol::{LobbyUser, Message};
 
 #[cfg(test)]
 mod tests {
@@ -19,7 +19,7 @@ mod tests {
         // This test ensures all required functions are exported for downstream stories
         // If you remove any of the pub use statements above, this test will fail
         // and warn you that future stories will break
-        
+
         // Verify that all key functions are accessible at crate level
         let _ = generate_private_key;
         let _ = derive_public_key;

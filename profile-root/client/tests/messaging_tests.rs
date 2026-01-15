@@ -9,14 +9,14 @@
 //! - Message draft preservation (Task 6.6)
 //! - Edge case handling (Task 6.7)
 
+use profile_client::connection::message::ClientMessage;
+use profile_client::handlers::compose::{compose_and_send_message, compose_message_draft};
+use profile_client::handlers::lobby::{handle_lobby_user_select, is_selection_valid};
 use profile_client::state::create_shared_message_history;
 use profile_client::state::session::create_shared_key_state;
 use profile_client::ui::lobby_state::LobbyUser;
-use profile_client::handlers::lobby::{handle_lobby_user_select, is_selection_valid};
-use profile_client::handlers::compose::{compose_message_draft, compose_and_send_message};
-use profile_client::connection::message::ClientMessage;
-use profile_shared::generate_private_key;
 use profile_shared::derive_public_key;
+use profile_shared::generate_private_key;
 
 /// Test Task 6.1: Composer integrates with lobby selection
 ///
@@ -99,7 +99,12 @@ async fn test_message_draft_preservation() {
     let composer_state = profile_client::state::create_shared_composer_state();
 
     // Set a draft message
-    compose_message_draft("This is a draft message".to_string(), &create_shared_key_state()).await.unwrap();
+    compose_message_draft(
+        "This is a draft message".to_string(),
+        &create_shared_key_state(),
+    )
+    .await
+    .unwrap();
 
     // Verify draft is stored
     let draft = composer_state.lock().await.get_draft();
@@ -123,12 +128,12 @@ async fn test_message_content_varieties() {
     let recipient = "recipient_public_key_1234567890abcdef1234567890abcdef12345678";
 
     let test_cases = vec![
-        "Hello, 世界!",         // Chinese characters
-        "🔐 Cryptographic",     // Emoji
-        "Ñoño tilde",           // Accented characters
-        "Привет мир",           // Cyrillic
-        "!@#$%^&*()_+-=[]{}|",  // Special characters
-        "Normal ASCII text",    // Standard text
+        "Hello, 世界!",        // Chinese characters
+        "🔐 Cryptographic",    // Emoji
+        "Ñoño tilde",          // Accented characters
+        "Привет мир",          // Cyrillic
+        "!@#$%^&*()_+-=[]{}|", // Special characters
+        "Normal ASCII text",   // Standard text
     ];
 
     for content in test_cases {
@@ -172,7 +177,8 @@ async fn test_full_message_flow_composition_to_history() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await;
+    )
+    .await;
 
     // Verify flow completed successfully
     assert!(result.is_ok(), "Full message flow should succeed");
@@ -200,7 +206,10 @@ async fn test_empty_message_rejected() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     let key_state = create_shared_key_state();
-    key_state.lock().await.set_generated_key(private_key, public_key.clone());
+    key_state
+        .lock()
+        .await
+        .set_generated_key(private_key, public_key.clone());
 
     let message_history = create_shared_message_history();
     let recipient_key = "recipient_key";
@@ -211,7 +220,8 @@ async fn test_empty_message_rejected() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await;
+    )
+    .await;
 
     assert!(result.is_err());
 }
@@ -223,7 +233,10 @@ async fn test_whitespace_only_message_rejected() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     let key_state = create_shared_key_state();
-    key_state.lock().await.set_generated_key(private_key, public_key.clone());
+    key_state
+        .lock()
+        .await
+        .set_generated_key(private_key, public_key.clone());
 
     let message_history = create_shared_message_history();
     let recipient_key = "recipient_key";
@@ -234,7 +247,8 @@ async fn test_whitespace_only_message_rejected() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await;
+    )
+    .await;
 
     assert!(result.is_err());
 }
@@ -246,7 +260,10 @@ async fn test_deterministic_signing_consistency() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     let key_state = create_shared_key_state();
-    key_state.lock().await.set_generated_key(private_key, public_key.clone());
+    key_state
+        .lock()
+        .await
+        .set_generated_key(private_key, public_key.clone());
 
     let message_history = create_shared_message_history();
     let recipient_key = "fixed_recipient_key";
@@ -259,14 +276,18 @@ async fn test_deterministic_signing_consistency() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let result2 = compose_and_send_message(
         msg_content.clone(),
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Both should succeed
     let parsed1: serde_json::Value = serde_json::from_str(&result1).unwrap();
@@ -283,7 +304,10 @@ async fn test_different_messages_different_signatures() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     let key_state = create_shared_key_state();
-    key_state.lock().await.set_generated_key(private_key, public_key.clone());
+    key_state
+        .lock()
+        .await
+        .set_generated_key(private_key, public_key.clone());
 
     let message_history = create_shared_message_history();
     let recipient_key = "recipient_key";
@@ -294,14 +318,18 @@ async fn test_different_messages_different_signatures() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let result2 = compose_and_send_message(
         "Message 2".to_string(),
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let parsed1: serde_json::Value = serde_json::from_str(&result1).unwrap();
     let parsed2: serde_json::Value = serde_json::from_str(&result2).unwrap();
@@ -319,7 +347,10 @@ async fn test_message_format_for_websocket() {
     let public_key = derive_public_key(&private_key).unwrap();
 
     let key_state = create_shared_key_state();
-    key_state.lock().await.set_generated_key(private_key, public_key.clone());
+    key_state
+        .lock()
+        .await
+        .set_generated_key(private_key, public_key.clone());
 
     let message_history = create_shared_message_history();
     let recipient_key = "recipient123";
@@ -329,14 +360,19 @@ async fn test_message_format_for_websocket() {
         recipient_key.to_string(),
         &key_state,
         &message_history,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     // Verify all required protocol fields
     assert!(parsed.get("message_type").is_some(), "Missing message_type");
     assert!(parsed.get("message").is_some(), "Missing message");
-    assert!(parsed.get("sender_public_key").is_some(), "Missing sender_public_key");
+    assert!(
+        parsed.get("sender_public_key").is_some(),
+        "Missing sender_public_key"
+    );
     assert!(parsed.get("signature").is_some(), "Missing signature");
     assert!(parsed.get("timestamp").is_some(), "Missing timestamp");
 }

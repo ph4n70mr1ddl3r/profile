@@ -3,11 +3,11 @@
 //! This module provides functionality for composing and sending
 //! cryptographically signed messages to other users.
 
+use hex;
 use profile_shared::sign_message;
 use serde::{Deserialize, Serialize};
-use hex;
-use zeroize::Zeroizing;
 use std::time::{SystemTime, UNIX_EPOCH};
+use zeroize::Zeroizing;
 
 /// Client message structure for sending to server
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,8 +86,8 @@ fn generate_timestamp() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use profile_shared::generate_private_key;
     use profile_shared::derive_public_key;
+    use profile_shared::generate_private_key;
 
     #[tokio::test]
     async fn test_client_message_creation() {
@@ -102,7 +102,11 @@ mod tests {
             private_key.clone(),
         );
 
-        assert!(result.is_ok(), "Client message creation should work: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Client message creation should work: {:?}",
+            result.err()
+        );
 
         let msg = result.unwrap();
         assert_eq!(msg.r#type, "message");
@@ -156,7 +160,10 @@ mod tests {
         let sig2 = sign_message(&private_key, canonical_message_2.as_bytes()).unwrap();
 
         // Same canonical message must produce identical signatures
-        assert_eq!(sig1, sig2, "Deterministic signing failed: same input should produce same signature");
+        assert_eq!(
+            sig1, sig2,
+            "Deterministic signing failed: same input should produce same signature"
+        );
 
         // Verify the signature is valid length (64 bytes for ed25519)
         assert_eq!(sig1.len(), 64, "Ed25519 signature should be 64 bytes");
@@ -164,7 +171,10 @@ mod tests {
         // Different canonical messages should produce different signatures
         let canonical_message_3 = "Same message:2025-12-27T10:30:00.123456790Z";
         let sig3 = sign_message(&private_key, canonical_message_3.as_bytes()).unwrap();
-        assert_ne!(sig2, sig3, "Different timestamp should produce different signature");
+        assert_ne!(
+            sig2, sig3,
+            "Different timestamp should produce different signature"
+        );
 
         println!("✅ Deterministic signing verified: same input produces identical signatures");
     }
@@ -175,7 +185,8 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
-        let recipient = "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
+        let recipient =
+            "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
         // Create a message
         let msg = ClientMessage::new(
@@ -194,7 +205,10 @@ mod tests {
         assert!(!msg.timestamp.is_empty());
 
         // Verify the timestamp format is RFC3339
-        assert!(msg.timestamp.contains('T'), "Timestamp should be ISO 8601 format");
+        assert!(
+            msg.timestamp.contains('T'),
+            "Timestamp should be ISO 8601 format"
+        );
 
         println!("✅ ClientMessage with fixed timestamp structure verified");
     }
@@ -212,7 +226,8 @@ mod tests {
             "Привет мир".to_string(),
         ];
 
-        let recipient = "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
+        let recipient =
+            "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
         for msg_text in unicode_messages {
             let result = ClientMessage::new(
@@ -238,7 +253,8 @@ mod tests {
 
         // Create a long message (10KB+)
         let long_message: String = (0..10240).map(|_| 'x').collect();
-        let recipient = "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
+        let recipient =
+            "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
         let result = ClientMessage::new(
             long_message.clone(),

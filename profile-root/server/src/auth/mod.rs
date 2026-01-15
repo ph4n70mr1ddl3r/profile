@@ -2,4 +2,6 @@
 
 pub mod handler;
 
-pub use handler::{handle_authentication, create_success_message, create_error_message, AuthResult};
+pub use handler::{
+    create_error_message, create_success_message, handle_authentication, AuthResult,
+};

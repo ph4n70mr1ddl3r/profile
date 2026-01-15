@@ -4,9 +4,9 @@
 //! that maintains messages in chronological order by timestamp.
 
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::collections::VecDeque;
 
 /// Represents a chat message in the message history
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -145,7 +145,8 @@ impl MessageHistory {
     /// * `message` - The message to add
     pub fn add_message(&mut self, message: ChatMessage) {
         // Find the correct position based on timestamp
-        let insert_pos = self.messages
+        let insert_pos = self
+            .messages
             .iter()
             .position(|msg| msg.timestamp > message.timestamp)
             .unwrap_or(self.messages.len());
@@ -254,7 +255,9 @@ impl MessageHistory {
     /// # Returns
     /// true if at least one message exists
     pub fn has_messages_from(&self, public_key: &str) -> bool {
-        self.messages.iter().any(|msg| msg.sender_public_key == public_key)
+        self.messages
+            .iter()
+            .any(|msg| msg.sender_public_key == public_key)
     }
 
     /// Get messages within a time range
@@ -308,7 +311,11 @@ impl From<MessageHistorySerializable> for MessageHistory {
 impl From<&MessageHistory> for MessageHistorySerializable {
     fn from(history: &MessageHistory) -> Self {
         Self {
-            messages: history.messages.iter().map(|msg| msg.clone().into()).collect(),
+            messages: history
+                .messages
+                .iter()
+                .map(|msg| msg.clone().into())
+                .collect(),
         }
     }
 }
@@ -390,9 +397,7 @@ mod tests {
         ));
 
         // Should be in chronological order
-        let messages: Vec<&str> = history.messages()
-            .map(|m| m.message.as_str())
-            .collect();
+        let messages: Vec<&str> = history.messages().map(|m| m.message.as_str()).collect();
 
         assert_eq!(messages, vec!["first", "middle", "last"]);
     }
@@ -402,8 +407,18 @@ mod tests {
         let mut history = MessageHistory::with_default_capacity();
 
         let messages = vec![
-            ChatMessage::new("s1".to_string(), "msg1".to_string(), "sig1".to_string(), "t1".to_string()),
-            ChatMessage::new("s2".to_string(), "msg2".to_string(), "sig2".to_string(), "t2".to_string()),
+            ChatMessage::new(
+                "s1".to_string(),
+                "msg1".to_string(),
+                "sig1".to_string(),
+                "t1".to_string(),
+            ),
+            ChatMessage::new(
+                "s2".to_string(),
+                "msg2".to_string(),
+                "sig2".to_string(),
+                "t2".to_string(),
+            ),
         ];
 
         history.add_messages(messages);
@@ -470,7 +485,8 @@ mod tests {
             "2025-12-27T10:02:00Z".to_string(),
         ));
 
-        let from_a: Vec<&str> = history.messages_from("sender_a")
+        let from_a: Vec<&str> = history
+            .messages_from("sender_a")
             .iter()
             .map(|m| m.message.as_str())
             .collect();

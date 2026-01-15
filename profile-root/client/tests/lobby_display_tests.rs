@@ -24,7 +24,8 @@ fn test_lobby_state_set_users_populates_lobby() {
             is_online: true,
         },
         LobbyUser {
-            public_key: "7b4d9c2a3e8f1d4c5a6b7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9".to_string(),
+            public_key: "7b4d9c2a3e8f1d4c5a6b7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9"
+                .to_string(),
             is_online: true,
         },
     ];
