@@ -83,7 +83,7 @@ fn validate_message_not_empty(message: &str) -> Result<(), ComposeError> {
 /// - Lock acquisition fails
 pub async fn compose_and_send_message(
     message_text: String,
-    recipient_public_key: String,
+    _recipient_public_key: String,
     key_state: &SharedKeyState,
     message_history: &SharedMessageHistory,
 ) -> Result<String, ComposeError> {

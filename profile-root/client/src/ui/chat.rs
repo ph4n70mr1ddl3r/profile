@@ -123,7 +123,7 @@ pub fn format_timestamp(iso_timestamp: &str) -> String {
         Err(_) => {
             // Fallback: try to extract time from string
             // Handle formats like "2025-12-27T10:30:00Z" or "2025-12-27T10:30:00.123456789Z"
-            let parts: Vec<&str> = iso_timestamp.split(|c| c == 'T' || c == 't').collect();
+            let parts: Vec<&str> = iso_timestamp.split(['T', 't']).collect();
             if parts.len() >= 2 {
                 let time_part = parts[1];
                 let time_chars: Vec<char> = time_part.chars().collect();
@@ -320,7 +320,7 @@ impl<B: ChatUiBridge + Clone> ChatUi<B> {
     }
 
     /// Handle a message click event from the UI
-    pub fn on_message_clicked(&self, index: usize, message_id: &str) {
+    pub fn on_message_clicked(&self, _index: usize, message_id: &str) {
         if let Some(ref callback) = self.on_message_clicked {
             callback(message_id.to_string());
         }

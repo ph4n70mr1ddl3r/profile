@@ -9,9 +9,10 @@
 //!
 //! Story 3.8: Handle Message Composition Edge Cases
 
+#[allow(unused)]
 use crate::state::messages::{ChatMessage, MessageHistory};
+#[allow(unused)]
 use crate::ui::chat::format_timestamp;
-use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
 /// Test unicode message handling
 #[cfg(test)]

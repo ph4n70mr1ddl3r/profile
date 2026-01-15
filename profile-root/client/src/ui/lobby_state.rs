@@ -244,11 +244,7 @@ impl LobbyState {
     /// `true` if user was present and removed, `false` otherwise
     #[inline]
     pub fn remove_user(&mut self, public_key: &str) -> bool {
-        let was_present = self
-            .users
-            .iter()
-            .position(|u| u.public_key == public_key)
-            .is_some();
+        let was_present = self.users.iter().any(|u| u.public_key == public_key);
         self.users.retain(|u| u.public_key != public_key);
 
         if self.selected_user.as_deref() == Some(public_key) {

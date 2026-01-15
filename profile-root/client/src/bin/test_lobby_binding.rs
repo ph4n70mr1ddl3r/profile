@@ -180,7 +180,7 @@ fn main() {
     // Simulate ArrowDown selection - clone keys to avoid borrow issues
     let keys: Vec<String> = lobby.users().iter().map(|u| u.public_key.clone()).collect();
 
-    if let Some(key) = keys.get(0) {
+    if let Some(key) = keys.first() {
         lobby.select(key);
         println!("\nAfter ArrowDown (select first):");
         println!("  Selected: {:?}\n", lobby.selected_user());
@@ -259,7 +259,7 @@ fn main() {
     // Simulate ArrowDown selection - clone keys to avoid borrow issues
     let keys: Vec<String> = lobby.users().iter().map(|u| u.public_key.clone()).collect();
 
-    if let Some(key) = keys.get(0) {
+    if let Some(key) = keys.first() {
         lobby.select(key);
         println!("\nAfter ArrowDown (select first):");
         println!("  Selected: {:?}\n", lobby.selected_user());
