@@ -11,6 +11,9 @@ use std::rc::Rc;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, info, warn};
 
+/// Type alias for recipient offline callback
+type RecipientOfflineCallback = Rc<RefCell<dyn Fn(String) + 'static>>;
+
 /// Authentication response from server
 #[derive(Debug, Clone, PartialEq)]
 pub enum AuthResponse {
@@ -508,7 +511,7 @@ pub struct WebSocketClient {
     /// Queue for messages to send after reconnection (AC4 - race handling)
     pending_messages: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
     /// Notification when recipient goes offline during message composition (AC4)
-    recipient_offline_handler: Option<Rc<RefCell<dyn Fn(String) + 'static>>>,
+    recipient_offline_handler: Option<RecipientOfflineCallback>,
 }
 
 impl WebSocketClient {

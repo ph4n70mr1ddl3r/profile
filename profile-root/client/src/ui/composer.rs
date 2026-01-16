@@ -12,6 +12,12 @@ use hex;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Type alias for send message callback
+type SendMessageCallback = Arc<dyn Fn(String) -> Result<(), String> + Send + Sync>;
+
+/// Type alias for status callback
+type StatusCallback = Arc<dyn Fn(String) + Send + Sync>;
+
 /// Result of a send message operation
 #[derive(Debug, Clone)]
 pub enum SendMessageResult {
@@ -43,9 +49,9 @@ pub struct MessageComposer {
     /// Shared message history for storing sent messages
     message_history: SharedMessageHistory,
     /// Callback for sending message via WebSocket
-    send_callback: Option<Arc<dyn Fn(String) -> Result<(), String> + Send + Sync>>,
+    send_callback: Option<SendMessageCallback>,
     /// Callback for showing status to user
-    status_callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    status_callback: Option<StatusCallback>,
 }
 
 impl MessageComposer {

@@ -272,7 +272,6 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // Message history initialization (Story 4.2)
     let message_history = state::create_shared_message_history();
-    let _message_history_update = message_history.clone();
     let message_history_select = message_history.clone();
 
     // Message event handler for real-time message updates (Story 3.1)

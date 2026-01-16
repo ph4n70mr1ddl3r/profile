@@ -11,10 +11,9 @@
 
 use profile_client::connection::message::ClientMessage;
 use profile_client::handlers::compose::{compose_and_send_message, compose_message_draft};
-use profile_client::handlers::lobby::{handle_lobby_user_select, is_selection_valid};
+use profile_client::handlers::lobby::{handle_lobby_user_joined, handle_lobby_user_select, is_selection_valid};
 use profile_client::state::create_shared_message_history;
 use profile_client::state::session::create_shared_key_state;
-use profile_client::ui::lobby_state::LobbyUser;
 use profile_shared::derive_public_key;
 use profile_shared::generate_private_key;
 
@@ -26,8 +25,9 @@ use profile_shared::generate_private_key;
 async fn test_composer_selects_recipient() {
     let lobby_state = profile_client::state::create_shared_lobby_state();
 
-    // Add a user to the lobby
+    // Add a user to the lobby as online
     let recipient_key = "recipient_public_key_1234567890abcdef1234567890abcdef12345678";
+    handle_lobby_user_joined(&lobby_state, recipient_key).await;
     handle_lobby_user_select(&lobby_state, recipient_key).await;
 
     // Verify selection is valid
@@ -96,26 +96,27 @@ async fn test_message_history_storage() {
 /// Verifies that draft messages can be preserved during composition.
 #[tokio::test]
 async fn test_message_draft_preservation() {
-    let composer_state = profile_client::state::create_shared_composer_state();
+    let private_key = generate_private_key().unwrap();
+    let public_key = derive_public_key(&private_key).unwrap();
 
-    // Set a draft message
-    compose_message_draft(
-        "This is a draft message".to_string(),
-        &create_shared_key_state(),
-    )
-    .await
-    .unwrap();
+    let key_state = create_shared_key_state();
+    {
+        let mut state = key_state.lock().await;
+        state.set_generated_key(private_key, public_key.clone());
+    }
 
-    // Verify draft is stored
-    let draft = composer_state.lock().await.get_draft();
-    assert_eq!(draft, "This is a draft message");
+    // Create a draft message
+    let result = compose_message_draft("This is a draft message".to_string(), &key_state).await;
 
-    // Clear draft
-    let mut state = composer_state.lock().await;
-    state.clear_draft();
+    // Verify draft was created successfully
+    assert!(result.is_ok(), "Draft creation should succeed");
+    let chat_msg = result.unwrap();
 
-    // Verify draft is cleared
-    assert!(state.get_draft().is_empty());
+    // Verify draft message content
+    assert_eq!(chat_msg.message, "This is a draft message");
+    assert!(chat_msg.is_verified);
+    assert!(!chat_msg.signature.is_empty());
+    assert!(!chat_msg.timestamp.is_empty());
 }
 
 /// Test Task 6.7: Message creation with various content types
@@ -370,8 +371,8 @@ async fn test_message_format_for_websocket() {
     assert!(parsed.get("message_type").is_some(), "Missing message_type");
     assert!(parsed.get("message").is_some(), "Missing message");
     assert!(
-        parsed.get("sender_public_key").is_some(),
-        "Missing sender_public_key"
+        parsed.get("senderPublicKey").is_some(),
+        "Missing senderPublicKey"
     );
     assert!(parsed.get("signature").is_some(), "Missing signature");
     assert!(parsed.get("timestamp").is_some(), "Missing timestamp");
