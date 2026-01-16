@@ -6,6 +6,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+const MAX_LOBBY_USERS: usize = 5;
+const MAX_CHAT_MESSAGES: usize = 10;
+
 slint::include_modules!();
 
 /// Parse common clipboard error codes into user-friendly messages
@@ -92,7 +95,7 @@ async fn update_lobby_ui(
     ui.set_lobby_user_5_selected(false);
 
     // Populate slots with user data (up to 5 for MVP)
-    for (i, user) in users.iter().enumerate().take(5) {
+    for (i, user) in users.iter().enumerate().take(MAX_LOBBY_USERS) {
         let is_selected = selected_user.as_deref() == Some(user.public_key.as_str());
 
         match i {
@@ -145,13 +148,13 @@ async fn update_chat_messages_ui(
 
     let history = message_history.lock().await;
     let messages: Vec<_> = history.messages().collect();
-    let message_count = messages.len().min(10);
+    let message_count = messages.len().min(MAX_CHAT_MESSAGES);
 
     // Update message count
     ui.set_chat_message_count(message_count as i32);
 
     // Convert ChatMessages to DisplayMessages and update slots
-    for (i, msg) in messages.iter().enumerate().take(10) {
+    for (i, msg) in messages.iter().enumerate().take(MAX_CHAT_MESSAGES) {
         let index = i + 1;
         let is_self = msg.sender_public_key == my_public_key;
         let display_msg = DisplayMessage::from_chat_message(msg, is_self);
@@ -273,10 +276,9 @@ fn main() -> Result<(), slint::PlatformError> {
     let message_history_select = message_history.clone();
 
     // Message event handler for real-time message updates (Story 3.1)
-    // NOTE: Handler is created but stored value is intentionally unused for now
-    // The callbacks are defined but the handler pattern may be refactored in future stories
-    let _message_event_handler =
-        profile_client::connection::client::MessageEventHandler::with_callbacks(
+    // The callbacks are registered but the handler value is not stored since
+    // the handler manages its own internal state
+    profile_client::connection::client::MessageEventHandler::with_callbacks(
             {
                 let message_history = message_history.clone();
                 let ui_weak = ui.as_weak();
@@ -560,7 +562,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui_weak_lobby_nav_up.clone();
 
         let _ = slint::spawn_local(async move {
-            if let Some(_new_key) = handlers::handle_lobby_navigate_up(&lobby_state).await {
+            if handlers::handle_lobby_navigate_up(&lobby_state).await.is_some() {
                 // Update UI to reflect new selection
                 if let Some(ui) = ui_weak.upgrade() {
                     update_lobby_ui(&ui, &lobby_state).await;
@@ -579,7 +581,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui_weak_lobby_nav_down.clone();
 
         let _ = slint::spawn_local(async move {
-            if let Some(_new_key) = handlers::handle_lobby_navigate_down(&lobby_state).await {
+            if handlers::handle_lobby_navigate_down(&lobby_state).await.is_some() {
                 // Update UI to reflect new selection
                 if let Some(ui) = ui_weak.upgrade() {
                     update_lobby_ui(&ui, &lobby_state).await;

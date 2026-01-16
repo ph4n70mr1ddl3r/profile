@@ -393,7 +393,7 @@ mod tests {
             "100-char key should be rejected"
         );
 
-        println!("✅ All key length boundary tests passed (63, 64, 65, 66, 100 chars tested)");
+
     }
 
     #[tokio::test]
@@ -561,7 +561,7 @@ mod tests {
                 assert_eq!(joined.len(), 1);
                 assert_eq!(joined[0].public_key, connection_key);
 
-                println!("✅ Broadcast delta format verified - user joined");
+
             }
             _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
         }
@@ -648,12 +648,12 @@ mod tests {
                 ) => {
                     assert_eq!(text1, "test message for user1");
                     assert_eq!(text2, "test message for user1"); // Same message sent to both
-                    println!("✅ Message routing via WebSocket senders verified");
+
                 }
                 _ => {
                     // If we got LobbyUpdate messages instead, that's also valid behavior
                     // The important thing is that the senders work for routing
-                    println!("✅ Message routing senders work (received broadcast messages)");
+
                 }
             }
         } else {
@@ -741,10 +741,7 @@ mod tests {
             "Duplicate keys found in final lobby state"
         );
 
-        println!(
-            "✅ Rapid sequential operations safe: {} users in final state",
-            final_users.len()
-        );
+
     }
 
     #[tokio::test]
@@ -792,7 +789,7 @@ mod tests {
         assert_eq!(users_final.len(), 1);
         assert!(users_final.contains(&new_connection_key));
 
-        println!("✅ Ghost user prevention verified - no lingering connections");
+
     }
 
     #[tokio::test]
@@ -854,10 +851,7 @@ mod tests {
             elapsed.as_millis()
         );
 
-        println!(
-            "✅ Broadcast latency test passed: {}ms (<100ms requirement)",
-            elapsed.as_millis()
-        );
+
     }
 
     /// Test that leave broadcast latency is within 100ms requirement (AC#5)
@@ -934,9 +928,6 @@ mod tests {
             elapsed.as_millis()
         );
 
-        println!(
-            "✅ Leave broadcast latency test passed: {}ms (<100ms requirement)",
-            elapsed.as_millis()
-        );
+
     }
 }
