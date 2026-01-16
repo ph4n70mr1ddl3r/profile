@@ -278,41 +278,41 @@ fn main() -> Result<(), slint::PlatformError> {
     // The callbacks are registered but the handler value is not stored since
     // the handler manages its own internal state
     profile_client::connection::client::MessageEventHandler::with_callbacks(
-            {
+        {
+            let message_history = message_history.clone();
+            let ui_weak = ui.as_weak();
+            let key_state = key_state.clone();
+
+            move |_message: profile_client::state::messages::ChatMessage| {
+                let ui_weak = ui_weak.clone();
                 let message_history = message_history.clone();
-                let ui_weak = ui.as_weak();
                 let key_state = key_state.clone();
 
-                move |_message: profile_client::state::messages::ChatMessage| {
-                    let ui_weak = ui_weak.clone();
-                    let message_history = message_history.clone();
-                    let key_state = key_state.clone();
+                let _ = slint::spawn_local(async move {
+                    let Some(ui) = ui_weak.upgrade() else {
+                        return;
+                    };
 
-                    let _ = slint::spawn_local(async move {
-                        let Some(ui) = ui_weak.upgrade() else {
-                            return;
-                        };
+                    // Get user's public key for self-detection
+                    let my_key = {
+                        let state = key_state.lock().await;
+                        state.public_key().map(hex::encode).unwrap_or_default()
+                    };
 
-                        // Get user's public key for self-detection
-                        let my_key = {
-                            let state = key_state.lock().await;
-                            state.public_key().map(hex::encode).unwrap_or_default()
-                        };
-
-                        update_chat_messages_ui(&ui, &message_history, &my_key).await;
-                    });
-                }
-            },
-            |_notification: String| {
-                // Handle invalid signature notification (can be logged or shown to user)
-            },
-            |_error: String| {
-                // Handle error (can be logged or shown to user)
-            },
-            |_notification: String| {
-                // Handle general notification (e.g., offline status)
-            },
-        );
+                    update_chat_messages_ui(&ui, &message_history, &my_key).await;
+                });
+            }
+        },
+        |_notification: String| {
+            // Handle invalid signature notification (can be logged or shown to user)
+        },
+        |_error: String| {
+            // Handle error (can be logged or shown to user)
+        },
+        |_notification: String| {
+            // Handle general notification (e.g., offline status)
+        },
+    );
 
     // Initial lobby UI update (empty state)
     let ui_weak_lobby_update = ui.as_weak();
@@ -561,7 +561,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui_weak_lobby_nav_up.clone();
 
         let _ = slint::spawn_local(async move {
-            if handlers::handle_lobby_navigate_up(&lobby_state).await.is_some() {
+            if handlers::handle_lobby_navigate_up(&lobby_state)
+                .await
+                .is_some()
+            {
                 // Update UI to reflect new selection
                 if let Some(ui) = ui_weak.upgrade() {
                     update_lobby_ui(&ui, &lobby_state).await;
@@ -580,7 +583,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui_weak_lobby_nav_down.clone();
 
         let _ = slint::spawn_local(async move {
-            if handlers::handle_lobby_navigate_down(&lobby_state).await.is_some() {
+            if handlers::handle_lobby_navigate_down(&lobby_state)
+                .await
+                .is_some()
+            {
                 // Update UI to reflect new selection
                 if let Some(ui) = ui_weak.upgrade() {
                     update_lobby_ui(&ui, &lobby_state).await;

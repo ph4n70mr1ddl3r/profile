@@ -7,13 +7,10 @@
 //!
 //! All operations use ed25519-dalek 2.1+ for deterministic, industry-standard signing.
 
-pub mod error;
 pub mod keygen;
 pub mod signing;
 pub mod verification;
 
-// Core public API - CRITICAL for downstream stories
-pub use error::CryptoError;
 pub use keygen::{derive_public_key, generate_private_key};
 pub use signing::sign_message;
 pub use verification::verify_signature;
@@ -21,9 +18,10 @@ pub use verification::verify_signature;
 /// Private key type - always zeroize-protected
 ///
 /// # Security Notes
-/// ⚠️ **CRITICAL**: Never clone this type - it defeats zeroize protection  
-/// ⚠️ **CRITICAL**: Never unwrap to `Vec<u8>` and re-wrap - creates unprotected copy  
-/// ⚠️ **CRITICAL**: Debug formatting WILL expose bytes - never use {:?} with raw PrivateKey. Always wrap in a struct with custom Debug impl.  
+/// ⚠️ **CRITICAL**: Never clone this type - it defeats zeroize protection
+/// ⚠️ **CRITICAL**: Never unwrap to `Vec<u8>` and re-wrap - creates unprotected copy
+/// ⚠️ **CRITICAL**: Debug formatting WILL expose bytes - never use `{:?}` with raw
+///     PrivateKey. Always wrap in a struct with custom Debug impl.
 /// ⚠️ **CORRECT**: Pass `PrivateKey` directly to functions that need it  
 ///
 /// # Memory Safety

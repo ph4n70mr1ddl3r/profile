@@ -392,8 +392,6 @@ mod tests {
             Err(LobbyError::InvalidPublicKey),
             "100-char key should be rejected"
         );
-
-
     }
 
     #[tokio::test]
@@ -560,8 +558,6 @@ mod tests {
                 // Verify delta contains only the joined user
                 assert_eq!(joined.len(), 1);
                 assert_eq!(joined[0].public_key, connection_key);
-
-
             }
             _ => panic!("Expected LobbyUpdate message, got: {:?}", received_msg),
         }
@@ -648,12 +644,10 @@ mod tests {
                 ) => {
                     assert_eq!(text1, "test message for user1");
                     assert_eq!(text2, "test message for user1"); // Same message sent to both
-
                 }
                 _ => {
                     // If we got LobbyUpdate messages instead, that's also valid behavior
                     // The important thing is that the senders work for routing
-
                 }
             }
         } else {
@@ -740,8 +734,6 @@ mod tests {
             unique_keys.len(),
             "Duplicate keys found in final lobby state"
         );
-
-
     }
 
     #[tokio::test]
@@ -788,8 +780,6 @@ mod tests {
         let users_final = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_final.len(), 1);
         assert!(users_final.contains(&new_connection_key));
-
-
     }
 
     #[tokio::test]
@@ -850,8 +840,6 @@ mod tests {
             "Broadcast latency was {}ms, required <100ms",
             elapsed.as_millis()
         );
-
-
     }
 
     /// Test that leave broadcast latency is within 100ms requirement (AC#5)
@@ -927,7 +915,5 @@ mod tests {
             "Leave broadcast latency was {}ms, required <100ms",
             elapsed.as_millis()
         );
-
-
     }
 }

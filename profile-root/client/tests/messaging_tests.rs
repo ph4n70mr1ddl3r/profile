@@ -11,7 +11,9 @@
 
 use profile_client::connection::message::ClientMessage;
 use profile_client::handlers::compose::{compose_and_send_message, compose_message_draft};
-use profile_client::handlers::lobby::{handle_lobby_user_joined, handle_lobby_user_select, is_selection_valid};
+use profile_client::handlers::lobby::{
+    handle_lobby_user_joined, handle_lobby_user_select, is_selection_valid,
+};
 use profile_client::state::create_shared_message_history;
 use profile_client::state::session::create_shared_key_state;
 use profile_shared::derive_public_key;
