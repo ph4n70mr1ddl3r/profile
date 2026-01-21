@@ -1,6 +1,6 @@
 //! Key generation and derivation using ed25519-dalek
 
-use crate::crypto::PrivateKey;
+use crate::crypto::{PrivateKey, PublicKey};
 use crate::errors::CryptoError;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
@@ -36,7 +36,7 @@ pub fn generate_private_key() -> Result<PrivateKey, CryptoError> {
 ///
 /// Takes a private key and returns the corresponding
 /// 32-byte ed25519 public key
-pub fn derive_public_key(private_key: &PrivateKey) -> Result<Vec<u8>, CryptoError> {
+pub fn derive_public_key(private_key: &PrivateKey) -> Result<PublicKey, CryptoError> {
     if private_key.len() != 32 {
         return Err(CryptoError::InvalidKeyFormat(format!(
             "Expected 32-byte private key, got {}",
@@ -64,11 +64,11 @@ pub fn derive_public_key(private_key: &PrivateKey) -> Result<Vec<u8>, CryptoErro
     // Sanity check: public and private keys should never be identical
     if public_key.as_slice() == private_key.as_slice() {
         return Err(CryptoError::DerivationFailed(
-            "Public key matches private key (invalid derivation)".into(),
+            "Public and private keys are identical (implementation error)".into(),
         ));
     }
 
-    Ok(public_key)
+    Ok(PublicKey::new(public_key)?)
 }
 
 #[cfg(test)]
@@ -111,7 +111,7 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
         assert_eq!(
-            public_key.len(),
+            public_key.as_slice().len(),
             32,
             "Public key must be 32 bytes for ed25519"
         );
@@ -131,7 +131,7 @@ mod tests {
         let public_key = derive_public_key(&private_key).unwrap();
         assert_ne!(
             private_key.as_slice(),
-            &public_key[..],
+            public_key.as_slice(),
             "Public and private keys should be different"
         );
     }
@@ -173,7 +173,7 @@ mod tests {
             // If accepted, verify it's not identical to private key
             assert_ne!(
                 zero_key.as_slice(),
-                &public_key[..],
+                public_key.as_slice(),
                 "Public key should never match private key"
             );
         }
@@ -188,13 +188,13 @@ mod tests {
         // Verify validation catches identical keys
         assert_ne!(
             private_key.as_slice(),
-            &public_key[..],
+            public_key.as_slice(),
             "Derived public key must differ from private key"
         );
 
         // Verify validation catches all-zero public keys
         assert!(
-            !public_key.iter().all(|&b| b == 0),
+            !public_key.as_slice().iter().all(|&b| b == 0),
             "Derived public key should not be all zeros"
         );
     }

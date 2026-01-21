@@ -14,14 +14,14 @@ pub struct ClientAuthMessage {
 impl ClientAuthMessage {
     /// Create a new client authentication message
     pub fn new(
-        public_key: Vec<u8>,
+        public_key: profile_shared::PublicKey,
         private_key: PrivateKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Generate signature for "auth" message
         let signature = sign_message(&private_key, b"auth")?;
 
         // Encode to hex
-        let public_key_hex = hex::encode(&public_key);
+        let public_key_hex = hex::encode(public_key.as_slice());
         let signature_hex = hex::encode(signature);
 
         Ok(Self {
@@ -33,14 +33,14 @@ impl ClientAuthMessage {
 
     /// Create a new client authentication message with a reference to the private key
     pub fn new_with_ref(
-        public_key: Vec<u8>,
+        public_key: profile_shared::PublicKey,
         private_key: &PrivateKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Generate signature for "auth" message
         let signature = sign_message(private_key, b"auth")?;
 
         // Encode to hex
-        let public_key_hex = hex::encode(&public_key);
+        let public_key_hex = hex::encode(public_key.as_slice());
         let signature_hex = hex::encode(signature);
 
         Ok(Self {

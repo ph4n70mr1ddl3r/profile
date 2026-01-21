@@ -5,13 +5,13 @@ use tokio::sync::{mpsc, RwLock};
 
 /// Type alias for public keys for clarity and type safety
 /// This is exported for use in routing (Story 3.2)
-pub type PublicKey = String;
+pub type ServerPublicKey = String;
 
 /// Represents an active WebSocket connection for a user in the lobby
 #[derive(Debug, Clone)]
 #[must_use]
 pub struct ActiveConnection {
-    pub public_key: PublicKey,
+    pub public_key: ServerPublicKey,
     pub sender: mpsc::UnboundedSender<Message>,
     /// Unique identifier for this connection instance.
     /// Used to track reconnections and verify connection replacement.

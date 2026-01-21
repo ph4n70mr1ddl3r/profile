@@ -75,7 +75,7 @@ impl ClientMessage {
     pub fn new_with_ref(
         message_text: String,
         recipient_public_key: String,
-        sender_public_key: Vec<u8>,
+        sender_public_key: profile_shared::PublicKey,
         private_key: &PrivateKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Generate ISO 8601 timestamp
@@ -89,7 +89,7 @@ impl ClientMessage {
         let signature = sign_message(private_key, canonical_message.as_bytes())?;
 
         // Encode to hex
-        let sender_public_key_hex = hex::encode(&sender_public_key);
+        let sender_public_key_hex = hex::encode(sender_public_key.as_slice());
         let signature_hex = hex::encode(signature);
 
         Ok(Self {

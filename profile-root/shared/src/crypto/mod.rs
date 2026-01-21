@@ -1,13 +1,11 @@
 //! Shared cryptographic operations for Profile
 //!
-//! This module provides the foundation for all cryptographic operations:
+//! This module provides foundation for all cryptographic operations:
 //! - Key generation and derivation
 //! - Message signing (Story 1.5+)
 //! - Signature verification (Story 3.x+)
 //!
 //! All operations use ed25519-dalek 2.1+ for deterministic, industry-standard signing.
-
-use sha2::Digest;
 
 pub mod keygen;
 pub mod signing;
@@ -18,7 +16,6 @@ pub use signing::sign_message;
 pub use verification::verify_signature;
 
 /// Secure private key wrapper with safe debug implementation
-#[derive(Clone)]
 ///
 /// This wrapper prevents accidental exposure of private key material through
 /// debug formatting while maintaining zeroize protection.
@@ -29,7 +26,7 @@ pub use verification::verify_signature;
 /// ⚠️ **CORRECT**: Pass `PrivateKey` directly to functions that need it  
 ///
 /// # Memory Safety
-/// When `PrivateKey` goes out of scope, the `Zeroizing` wrapper's `Drop` trait
+/// When `PrivateKey` goes out of scope, `Zeroizing` wrapper's `Drop` trait
 /// automatically overwrites memory with zeros before deallocation. This provides
 /// protection against casual memory inspection and data leaks.
 ///
@@ -59,19 +56,30 @@ impl PrivateKey {
         Self(zeroize::Zeroizing::new(bytes))
     }
 
-    /// Get a reference to the inner bytes
+    /// Get a reference to inner bytes
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
 
-    /// Get the length of the key
+    /// Get length of key
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Check if the key is empty
+    /// Check if key is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Get key as bytes without copying
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_slice()
+    }
+
+    /// Create a copy for testing purposes only
+    #[cfg(test)]
+    pub fn clone_for_testing(&self) -> Self {
+        Self(zeroize::Zeroizing::new(self.as_slice().to_vec()))
     }
 }
 
@@ -91,10 +99,7 @@ impl std::fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PrivateKey")
             .field("length", &self.len())
-            .field(
-                "sha256_hash",
-                &format!("{:x}", sha2::Sha256::digest(self.as_slice())),
-            )
+            .field("is_present", &!self.is_empty())
             .finish()
     }
 }
@@ -141,12 +146,31 @@ impl PrivateKey {
 
         Ok(Self(zeroize::Zeroizing::new(bytes)))
     }
+}
 
-    /// Get the key as bytes without copying
-    pub fn as_bytes(&self) -> &[u8] {
-        self.as_slice()
+/// Secure public key wrapper
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PublicKey(Vec<u8>);
+
+impl PublicKey {
+    /// Create a new PublicKey from bytes with validation
+    pub fn new(bytes: Vec<u8>) -> Result<Self, crate::errors::CryptoError> {
+        if bytes.len() != 32 {
+            return Err(crate::errors::CryptoError::InvalidKeyFormat(
+                "Public key must be 32 bytes".into(),
+            ));
+        }
+        Ok(Self(bytes))
+    }
+
+    /// Get the key as a slice
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
     }
 }
 
-/// Public key type - raw 32 bytes (ed25519)
-pub type PublicKey = Vec<u8>;
+impl AsRef<[u8]> for PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
