@@ -186,7 +186,6 @@ mod tests {
     #[tokio::test]
     async fn test_signature_determinism() {
         use profile_shared::sign_message;
-        use zeroize::Zeroizing;
 
         let private_key = generate_private_key().unwrap();
         let _public_key = derive_public_key(&private_key).unwrap();

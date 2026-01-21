@@ -18,6 +18,7 @@ pub use signing::sign_message;
 pub use verification::verify_signature;
 
 /// Secure private key wrapper with safe debug implementation
+#[derive(Clone)]
 ///
 /// This wrapper prevents accidental exposure of private key material through
 /// debug formatting while maintaining zeroize protection.
@@ -95,6 +96,55 @@ impl std::fmt::Debug for PrivateKey {
                 &format!("{:x}", sha2::Sha256::digest(self.as_slice())),
             )
             .finish()
+    }
+}
+
+impl PartialEq for PrivateKey {
+    fn eq(&self, other: &Self) -> bool {
+        // Use constant-time comparison to prevent timing attacks
+        subtle::ConstantTimeEq::ct_eq(self.as_slice(), other.as_slice()).into()
+    }
+}
+
+impl Eq for PrivateKey {}
+
+impl PrivateKey {
+    /// Create a new PrivateKey from bytes with validation
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, crate::errors::CryptoError> {
+        // Validate length
+        if bytes.len() != 32 {
+            return Err(crate::errors::CryptoError::InvalidKeyFormat(format!(
+                "Expected 32-byte private key, got {}",
+                bytes.len()
+            )));
+        }
+
+        // Check for weak/degenerate keys
+        if bytes.iter().all(|&b| b == 0) {
+            return Err(crate::errors::CryptoError::InvalidKeyFormat(
+                "Private key cannot be all zeros".into(),
+            ));
+        }
+
+        // Additional validation: check if this is a weak ed25519 key
+        // This is a basic check - in production, consider more extensive validation
+        let key_array: [u8; 32] = <[u8; 32]>::try_from(&bytes[..]).map_err(|_| {
+            crate::errors::CryptoError::InvalidKeyFormat("Cannot convert to [u8; 32]".into())
+        })?;
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_array);
+        let public_key = signing_key.verifying_key().to_bytes();
+        if public_key.iter().all(|&b| b == 0) {
+            return Err(crate::errors::CryptoError::InvalidKeyFormat(
+                "Private key produces degenerate public key".into(),
+            ));
+        }
+
+        Ok(Self(zeroize::Zeroizing::new(bytes)))
+    }
+
+    /// Get the key as bytes without copying
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_slice()
     }
 }
 

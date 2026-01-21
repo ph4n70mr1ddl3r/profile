@@ -114,9 +114,9 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
             reason: "auth_failed".to_string(),
             details: "Signature verification failed".to_string(),
         },
-        Err(_) => AuthResult::Failure {
+        Err(e) => AuthResult::Failure {
             reason: "auth_failed".to_string(),
-            details: "Authentication error".to_string(),
+            details: format!("Authentication error: {}", e),
         },
     }
 }

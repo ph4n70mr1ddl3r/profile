@@ -29,10 +29,7 @@ pub fn generate_private_key() -> Result<PrivateKey, CryptoError> {
         ));
     }
 
-    let key_vec = key_bytes.to_vec();
-    key_bytes.zeroize();
-
-    Ok(PrivateKey::new(key_vec))
+    Ok(PrivateKey::new(key_bytes.to_vec()))
 }
 
 /// Derive the public key from a private key

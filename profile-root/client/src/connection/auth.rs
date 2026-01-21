@@ -70,6 +70,9 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
+        // Store hex encoding before moving public_key
+        let public_key_hex = hex::encode(&public_key);
+
         // This should work now that we have the implementation
         let result = ClientAuthMessage::new(public_key, private_key);
 
@@ -82,7 +85,7 @@ mod tests {
 
         let auth_msg = result.unwrap();
         assert_eq!(auth_msg.r#type, "auth");
-        assert_eq!(auth_msg.public_key, hex::encode(public_key));
+        assert_eq!(auth_msg.public_key, public_key_hex);
         assert!(!auth_msg.signature.is_empty());
 
         println!("✅ Client auth message created successfully");
@@ -110,6 +113,9 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
+        // Store hex encoding before moving public_key
+        let public_key_hex = hex::encode(&public_key);
+
         // 2. Create auth message
         let auth_msg = ClientAuthMessage::new(public_key, private_key)?;
 
@@ -119,7 +125,7 @@ mod tests {
         // Verify JSON structure
         let parsed: ClientAuthMessage = serde_json::from_str(&json)?;
         assert_eq!(parsed.r#type, "auth");
-        assert_eq!(parsed.public_key, hex::encode(public_key));
+        assert_eq!(parsed.public_key, public_key_hex);
         assert!(!parsed.signature.is_empty());
 
         println!("✅ JSON serialization works correctly");

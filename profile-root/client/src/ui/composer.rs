@@ -255,8 +255,6 @@ mod tests {
     use crate::state::messages::create_shared_message_history;
     use crate::state::session::create_shared_key_state;
     use crate::ui::lobby_state::LobbyUser;
-    use profile_shared::derive_public_key;
-    use profile_shared::generate_private_key;
 
     #[tokio::test]
     async fn test_composer_creation() {
@@ -288,7 +286,7 @@ mod tests {
 
         // Set draft
         {
-            let mut comp = composer.lock().await;
+            let comp = composer.lock().await;
             comp.set_draft("Hello, world!").await;
         }
 
@@ -298,7 +296,7 @@ mod tests {
 
         // Clear draft
         {
-            let mut comp = composer.lock().await;
+            let comp = composer.lock().await;
             comp.clear_draft().await;
         }
 

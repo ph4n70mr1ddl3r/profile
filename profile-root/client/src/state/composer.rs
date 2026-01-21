@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_connection_state() {
-        let mut composer = ComposerState::new();
+        let composer = ComposerState::new();
 
         // Initially connected
         assert!(composer.is_connected());

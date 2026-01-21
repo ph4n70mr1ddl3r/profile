@@ -7,7 +7,6 @@
 //! - Selection-aware broadcasts (AC5)
 
 use profile_shared::Message as SharedMessage;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{timeout, Duration};
 

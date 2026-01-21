@@ -172,7 +172,6 @@ pub fn create_undelivered_display_message(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::messages::create_shared_message_history;
 
     #[test]
     fn test_parse_offline_notification() {

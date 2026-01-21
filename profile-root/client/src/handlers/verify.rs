@@ -155,7 +155,6 @@ pub fn format_public_key(public_key: &str) -> String {
 mod tests {
     use super::*;
     use profile_shared::{derive_public_key, generate_private_key, sign_message};
-    use zeroize::Zeroizing;
 
     #[test]
     fn test_verify_valid_signature() {

@@ -374,7 +374,6 @@ async fn test_last_user_leave_empty_lobby() {
 /// Tests message format, recipient exclusion, and edge cases
 #[tokio::test]
 async fn test_broadcast_user_left_unit_behavior() {
-    use profile_server::lobby::manager;
     let lobby = Lobby::new();
 
     // Create 3 users with receivers

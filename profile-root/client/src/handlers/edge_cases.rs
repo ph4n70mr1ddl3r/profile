@@ -17,7 +17,6 @@ use crate::ui::chat::format_timestamp;
 /// Test unicode message handling
 #[cfg(test)]
 mod unicode_tests {
-    use super::*;
     use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
@@ -105,7 +104,6 @@ mod unicode_tests {
 /// Test special character handling
 #[cfg(test)]
 mod special_char_tests {
-    use super::*;
     use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
@@ -163,7 +161,6 @@ mod special_char_tests {
 /// Test long message handling
 #[cfg(test)]
 mod long_message_tests {
-    use super::*;
     use crate::state::messages::{ChatMessage, MessageHistory};
     use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
@@ -253,7 +250,6 @@ mod long_message_tests {
 /// Test whitespace handling
 #[cfg(test)]
 mod whitespace_tests {
-    use super::*;
     use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[tokio::test]
@@ -352,7 +348,6 @@ mod whitespace_tests {
 #[cfg(test)]
 mod binary_validation_tests {
     use super::*;
-    use profile_shared::{derive_public_key, generate_private_key, sign_message, verify_signature};
 
     #[test]
     fn test_valid_utf8_detection() {
@@ -397,7 +392,6 @@ mod binary_validation_tests {
 /// Test timestamp formatting edge cases
 #[cfg(test)]
 mod timestamp_tests {
-    use super::*;
     use crate::ui::chat::format_timestamp;
 
     #[test]
@@ -523,7 +517,6 @@ mod history_edge_tests {
 /// Test ChatMessage edge cases
 #[cfg(test)]
 mod chat_message_edge_tests {
-    use super::*;
     use crate::state::messages::ChatMessage;
 
     #[test]

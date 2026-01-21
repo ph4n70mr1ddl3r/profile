@@ -24,7 +24,7 @@ pub fn sign_message(private_key: &PrivateKey, message: &[u8]) -> Result<Vec<u8>,
 
 /// Convert message bytes to canonical JSON representation
 pub fn serialize_message_to_canonical_json(message: &[u8]) -> Result<String, CryptoError> {
-    let message_string = String::from_utf8(message.to_vec())
+    let message_string = std::str::from_utf8(message)
         .map_err(|e| CryptoError::SigningFailed(format!("Invalid UTF-8 message: {}", e)))?;
 
     serde_json::to_string(&message_string)
