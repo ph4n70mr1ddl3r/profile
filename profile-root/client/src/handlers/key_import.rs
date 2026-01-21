@@ -2,7 +2,6 @@
 
 use crate::state::SharedKeyState;
 use profile_shared::{derive_public_key, PrivateKey};
-use zeroize::Zeroizing;
 
 /// Handle the "Import Key" button press
 ///
@@ -69,7 +68,7 @@ pub async fn handle_import_key(
     }
 
     // Wrap in zeroize-protected container (security step before validation)
-    let private_key: PrivateKey = Zeroizing::new(key_bytes);
+    let private_key: PrivateKey = profile_shared::PrivateKey::new(key_bytes);
 
     // Step 7: Verify key derivation works (validates key is usable)
     let public_key = derive_public_key(&private_key)
@@ -123,7 +122,7 @@ mod tests {
 
         // Generate a valid key to use for testing
         let private_key = generate_private_key().unwrap();
-        let private_key_hex = hex::encode(&*private_key);
+        let private_key_hex = hex::encode(private_key.as_slice());
 
         let result = handle_import_key(&key_state, private_key_hex).await;
 
@@ -209,7 +208,7 @@ mod tests {
 
         // Generate valid key and add whitespace
         let private_key = generate_private_key().unwrap();
-        let private_key_hex = hex::encode(&*private_key);
+        let private_key_hex = hex::encode(private_key.as_slice());
         let with_whitespace = format!("  {}  \n", private_key_hex);
 
         let result = handle_import_key(&key_state, with_whitespace).await;
@@ -223,7 +222,7 @@ mod tests {
 
         // Generate valid key and uppercase it
         let private_key = generate_private_key().unwrap();
-        let private_key_hex = hex::encode(&*private_key).to_uppercase();
+        let private_key_hex = hex::encode(private_key.as_slice()).to_uppercase();
 
         let result = handle_import_key(&key_state, private_key_hex).await;
 
@@ -237,7 +236,7 @@ mod tests {
 
         // Import same key twice
         let private_key = generate_private_key().unwrap();
-        let private_key_hex = hex::encode(&*private_key);
+        let private_key_hex = hex::encode(private_key.as_slice());
 
         let result1 = handle_import_key(&key_state1, private_key_hex.clone()).await;
         let result2 = handle_import_key(&key_state2, private_key_hex).await;

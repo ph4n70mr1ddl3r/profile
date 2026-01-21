@@ -130,8 +130,8 @@ impl MessageComposer {
             }
         };
 
-        // Get keys for signing
-        let (public_key, private_key) = {
+        // AC3: Create and sign the message within single lock scope
+        let (client_message, public_key_hex) = {
             let key_state = self.key_state.lock().await;
             let public_key = match key_state.public_key() {
                 Some(pk) => pk.clone(),
@@ -141,30 +141,29 @@ impl MessageComposer {
                 }
             };
             let private_key = match key_state.private_key() {
-                Some(pk) => pk.clone(),
+                Some(pk) => pk,
                 None => {
                     self.show_status("Error: No private key available");
                     return SendMessageResult::SigningFailed("No private key".to_string());
                 }
             };
-            (public_key, private_key)
-        };
 
-        // Clone public_key for later use in history storage
-        let public_key_clone = public_key.clone();
+            let public_key_hex = hex::encode(&public_key);
 
-        // AC3: Create and sign the message
-        let client_message = match crate::connection::message::ClientMessage::new(
-            message_text.to_string(),
-            recipient.public_key.clone(),
-            public_key,
-            private_key,
-        ) {
-            Ok(msg) => msg,
-            Err(e) => {
-                self.show_status(&format!("Error signing message: {}", e));
-                return SendMessageResult::SigningFailed(e.to_string());
-            }
+            let client_message = match crate::connection::message::ClientMessage::new_with_ref(
+                message_text.to_string(),
+                recipient.public_key.clone(),
+                public_key,
+                private_key,
+            ) {
+                Ok(msg) => msg,
+                Err(e) => {
+                    self.show_status(&format!("Error signing message: {}", e));
+                    return SendMessageResult::SigningFailed(e.to_string());
+                }
+            };
+
+            (client_message, public_key_hex)
         };
 
         // Serialize to JSON
@@ -182,7 +181,7 @@ impl MessageComposer {
                 Ok(()) => {
                     // Task 2.6: Store message in SharedMessageHistory
                     let chat_message = ChatMessage::new(
-                        hex::encode(&public_key_clone),
+                        public_key_hex.clone(),
                         message_text.to_string(),
                         client_message.signature.clone(),
                         client_message.timestamp.clone(),

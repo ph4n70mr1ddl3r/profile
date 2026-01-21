@@ -352,7 +352,6 @@ fn main() -> Result<(), slint::PlatformError> {
         if generating.swap(true, Ordering::SeqCst) {
             return; // Already generating, ignore this click
         }
-        
         let key_state = key_state_generate.clone();
         let ui_weak = ui_weak_generate.clone();
         let generating = generating.clone();
@@ -392,7 +391,6 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_status_message(err.into());
                 }
             }
-            
             // Reset guard to allow future generations
             generating.store(false, Ordering::SeqCst);
         });
@@ -415,7 +413,6 @@ fn main() -> Result<(), slint::PlatformError> {
         if importing.swap(true, Ordering::SeqCst) {
             return; // Already importing, ignore this click
         }
-        
         let key_state = key_state_import.clone();
         let ui_weak = ui_weak_import_attempt.clone();
         let importing = importing.clone();
@@ -458,8 +455,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_show_import_error(true);
                 }
             }
-            
-            // Reset guard to allow future imports
+// Reset guard to allow future imports
             importing.store(false, Ordering::SeqCst);
         });
     });

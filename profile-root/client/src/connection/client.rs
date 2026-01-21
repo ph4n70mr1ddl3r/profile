@@ -705,9 +705,11 @@ impl WebSocketClient {
 
     /// Connect to the profile server
     pub async fn connect(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let url = "ws://127.0.0.1:8080";
+        // Use environment variable PROFILE_SERVER_URL if set, otherwise default to localhost
+        let url = std::env::var("PROFILE_SERVER_URL")
+            .unwrap_or_else(|_| "ws://127.0.0.1:8080".to_string());
 
-        let (ws_stream, _) = connect_async(url).await?;
+        let (ws_stream, _) = connect_async(&url).await?;
         self.connection = Some(ws_stream);
 
         Ok(())
@@ -718,7 +720,8 @@ impl WebSocketClient {
         &mut self,
     ) -> Result<AuthResponse, Box<dyn std::error::Error + Send + Sync>> {
         // Get keys from shared state
-        let (public_key, private_key) = {
+        // Create authentication message using auth.rs module within the lock scope
+        let auth_msg = {
             let key_state = self.key_state.lock().await;
             let public_key = key_state
                 .public_key()
@@ -726,13 +729,10 @@ impl WebSocketClient {
                 .clone();
             let private_key = key_state
                 .private_key()
-                .ok_or("No private key available. Generate or import a key first.")?
-                .clone();
-            (public_key, private_key)
-        };
+                .ok_or("No private key available. Generate or import a key first.")?;
 
-        // Create authentication message using auth.rs module
-        let auth_msg = super::auth::ClientAuthMessage::new(public_key, private_key)?;
+            super::auth::ClientAuthMessage::new_with_ref(public_key, private_key)?
+        };
         let auth_json = auth_msg.to_json()?;
 
         // Send auth message and wait for response

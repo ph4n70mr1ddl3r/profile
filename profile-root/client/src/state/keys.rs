@@ -135,8 +135,8 @@ mod tests {
     fn test_key_state_initialization() {
         let state = KeyState::new();
         assert!(!state.is_key_set());
-        assert_eq!(state.private_key(), None);
-        assert_eq!(state.public_key(), None);
+        assert!(state.private_key().is_none());
+        assert!(state.public_key().is_none());
     }
 
     #[test]

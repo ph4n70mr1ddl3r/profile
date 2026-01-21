@@ -3,13 +3,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-/// Maximum number of users allowed in the lobby at once.
-///
-/// This limit prevents memory exhaustion DoS attacks where an attacker
-/// could rapidly create many connections to exhaust server memory.
-/// Value is fixed at 10,000 users for MVP - can be made configurable in future phases.
-pub const MAX_LOBBY_SIZE: usize = 10_000;
-
 /// Type alias for public keys for clarity and type safety
 /// This is exported for use in routing (Story 3.2)
 pub type PublicKey = String;

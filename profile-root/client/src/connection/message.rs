@@ -4,10 +4,9 @@
 //! cryptographically signed messages to other users.
 
 use hex;
-use profile_shared::sign_message;
+use profile_shared::{sign_message, PrivateKey};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use zeroize::Zeroizing;
 
 /// Client message structure for sending to server
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,7 +36,7 @@ impl ClientMessage {
         message_text: String,
         recipient_public_key: String,
         sender_public_key: Vec<u8>,
-        private_key: Zeroizing<Vec<u8>>,
+        private_key: PrivateKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Generate ISO 8601 timestamp
         let timestamp = generate_timestamp();
@@ -48,6 +47,46 @@ impl ClientMessage {
 
         // Sign the canonical message
         let signature = sign_message(&private_key, canonical_message.as_bytes())?;
+
+        // Encode to hex
+        let sender_public_key_hex = hex::encode(&sender_public_key);
+        let signature_hex = hex::encode(signature);
+
+        Ok(Self {
+            r#type: "message".to_string(),
+            recipient_public_key,
+            message: message_text,
+            sender_public_key: sender_public_key_hex,
+            signature: signature_hex,
+            timestamp,
+        })
+    }
+
+    /// Create a new signed message with a reference to the private key
+    ///
+    /// # Arguments
+    /// * `message_text` - The message content to sign
+    /// * `recipient_public_key` - Hex-encoded public key of recipient
+    /// * `sender_public_key` - Hex-encoded public key of sender
+    /// * `private_key` - Reference to Zeroizing private key for signing
+    ///
+    /// # Returns
+    /// Signed client message ready to send
+    pub fn new_with_ref(
+        message_text: String,
+        recipient_public_key: String,
+        sender_public_key: Vec<u8>,
+        private_key: &PrivateKey,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        // Generate ISO 8601 timestamp
+        let timestamp = generate_timestamp();
+
+        // Create canonical message for signing (message + timestamp)
+        // This ensures deterministic signatures
+        let canonical_message = format!("{}:{}", message_text, timestamp);
+
+        // Sign the canonical message
+        let signature = sign_message(private_key, canonical_message.as_bytes())?;
 
         // Encode to hex
         let sender_public_key_hex = hex::encode(&sender_public_key);
@@ -95,11 +134,11 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
-        let result = ClientMessage::new(
+        let result = ClientMessage::new_with_ref(
             "Hello, world!".to_string(),
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string(),
             public_key.clone(),
-            private_key.clone(),
+            &private_key,
         );
 
         assert!(
@@ -123,11 +162,11 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
-        let msg = ClientMessage::new(
+        let msg = ClientMessage::new_with_ref(
             "Test message".to_string(),
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string(),
             public_key.clone(),
-            private_key.clone(),
+            &private_key,
         )
         .unwrap();
 
@@ -189,11 +228,11 @@ mod tests {
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
         // Create a message
-        let msg = ClientMessage::new(
+        let msg = ClientMessage::new_with_ref(
             "Test message".to_string(),
             recipient.clone(),
             public_key.clone(),
-            private_key.clone(),
+            &private_key,
         )
         .unwrap();
 
@@ -230,11 +269,11 @@ mod tests {
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
         for msg_text in unicode_messages {
-            let result = ClientMessage::new(
+            let result = ClientMessage::new_with_ref(
                 msg_text.clone(),
                 recipient.clone(),
                 public_key.clone(),
-                private_key.clone(),
+                &private_key,
             );
 
             assert!(result.is_ok(), "Should handle unicode: {}", msg_text);
@@ -256,11 +295,11 @@ mod tests {
         let recipient =
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string();
 
-        let result = ClientMessage::new(
+        let result = ClientMessage::new_with_ref(
             long_message.clone(),
             recipient.clone(),
             public_key.clone(),
-            private_key.clone(),
+            &private_key,
         );
 
         assert!(result.is_ok(), "Should handle long messages");
@@ -276,11 +315,11 @@ mod tests {
         let private_key = generate_private_key().unwrap();
         let public_key = derive_public_key(&private_key).unwrap();
 
-        let msg = ClientMessage::new(
+        let msg = ClientMessage::new_with_ref(
             "Test".to_string(),
             "recipient_public_key_here_1234567890abcdef1234567890abcdef12345678".to_string(),
             public_key.clone(),
-            private_key.clone(),
+            &private_key,
         )
         .unwrap();
 

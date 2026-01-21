@@ -23,7 +23,7 @@ async fn integration_test_generate_and_store_key() {
     assert_eq!(private_key.len(), 32, "Private key must be 32 bytes");
     assert_eq!(public_key.len(), 32, "Public key must be 32 bytes");
     assert_ne!(
-        &private_key[..],
+        private_key.as_slice(),
         &public_key[..],
         "Keys should be different"
     );
@@ -56,8 +56,8 @@ async fn integration_test_multiple_key_generations_are_unique() {
     for i in 0..keys.len() {
         for j in (i + 1)..keys.len() {
             assert_ne!(
-                &keys[i][..],
-                &keys[j][..],
+                keys[i].as_slice(),
+                keys[j].as_slice(),
                 "All generated keys must be unique (collision at {}:{})",
                 i,
                 j
@@ -146,8 +146,8 @@ async fn integration_test_async_concurrent_generation() {
     for i in 0..keys.len() {
         for j in (i + 1)..keys.len() {
             assert_ne!(
-                &keys[i][..],
-                &keys[j][..],
+                keys[i].as_slice(),
+                keys[j].as_slice(),
                 "Concurrent keys should all be unique"
             );
         }

@@ -25,13 +25,38 @@ pub enum AuthResult {
 /// Handle authentication request from client
 ///
 /// This function:
-/// 1. Uses `hex` crate to decode `publicKey` (JSON field) and `signature` from JSON
-/// 2. Calls `shared::verify_signature` for the literal string "auth"
-/// 3. Returns appropriate success/failure result
+/// 1. Validates input lengths and formats to prevent DoS attacks
+/// 2. Uses `hex` crate to decode `publicKey` (JSON field) and `signature` from JSON
+/// 3. Calls `shared::verify_signature` for literal string "auth"
+/// 4. Returns appropriate success/failure result
 pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) -> AuthResult {
+    // Validate input lengths to prevent DoS attacks
+    if auth_message.public_key.len() > 1024 {
+        return AuthResult::Failure {
+            reason: "auth_failed".to_string(),
+            details: "Public key too long (max 1024 characters)".to_string(),
+        };
+    }
+
+    if auth_message.signature.len() > 2048 {
+        return AuthResult::Failure {
+            reason: "auth_failed".to_string(),
+            details: "Signature too long (max 2048 characters)".to_string(),
+        };
+    }
+
     // Decode hex-encoded public key
     let public_key = match hex::decode(&auth_message.public_key) {
-        Ok(key) => key,
+        Ok(key) => {
+            // Validate public key length (ed25519 keys are 32 bytes)
+            if key.len() != 32 {
+                return AuthResult::Failure {
+                    reason: "auth_failed".to_string(),
+                    details: "Invalid public key length (must be 32 bytes)".to_string(),
+                };
+            }
+            key
+        }
         Err(_) => {
             return AuthResult::Failure {
                 reason: "auth_failed".to_string(),
@@ -42,7 +67,16 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
 
     // Decode hex-encoded signature
     let signature = match hex::decode(&auth_message.signature) {
-        Ok(sig) => sig,
+        Ok(sig) => {
+            // Validate signature length (ed25519 signatures are 64 bytes)
+            if sig.len() != 64 {
+                return AuthResult::Failure {
+                    reason: "auth_failed".to_string(),
+                    details: "Invalid signature length (must be 64 bytes)".to_string(),
+                };
+            }
+            sig
+        }
         Err(_) => {
             return AuthResult::Failure {
                 reason: "auth_failed".to_string(),

@@ -1,5 +1,6 @@
 //! Profile shared cryptographic library.
 
+pub mod config;
 pub mod crypto;
 pub mod errors;
 pub mod protocol;

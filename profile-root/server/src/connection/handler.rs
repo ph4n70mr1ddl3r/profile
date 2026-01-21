@@ -10,6 +10,7 @@ use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::{ActiveConnection, Lobby, PublicKey};
 use crate::message::{handle_incoming_message, route_message, MessageValidationResult};
 use crate::protocol::{AuthErrorMessage, AuthMessage, AuthSuccessMessage};
+use crate::rate_limiter::AuthRateLimiter;
 use profile_shared::LobbyError;
 
 /// Atomic counter for generating unique connection IDs
@@ -41,6 +42,9 @@ pub async fn handle_connection(
 
     let (mut write, mut read) = ws_stream.split();
 
+    // Create rate limiter for this connection
+    let rate_limiter = Arc::new(AuthRateLimiter::new());
+
     // Track authenticated user's public key for cleanup
     let mut authenticated_key: Option<PublicKey> = None;
 
@@ -48,7 +52,7 @@ pub async fn handle_connection(
     if let Some(message_result) = read.next().await {
         let message = message_result?;
 
-        match handle_auth_message(&message, &lobby).await {
+        match handle_auth_message(&message, &lobby, &rate_limiter).await {
             AuthResult::Success {
                 public_key,
                 lobby_state: _,
@@ -370,7 +374,21 @@ pub async fn handle_connection(
     Ok(())
 }
 
-async fn handle_auth_message(message: &Message, lobby: &Arc<Lobby>) -> AuthResult {
+async fn handle_auth_message(
+    message: &Message,
+    lobby: &Arc<Lobby>,
+    rate_limiter: &Arc<AuthRateLimiter>,
+) -> AuthResult {
+    // Check rate limit first
+    if !rate_limiter.check_auth_allowed().await {
+        tracing::warn!("Authentication attempt rate limited");
+        return AuthResult::Failure {
+            reason: "rate_limited".to_string(),
+            details: "Too many authentication attempts. Please wait before trying again."
+                .to_string(),
+        };
+    }
+
     match message {
         Message::Text(text) => match serde_json::from_str::<AuthMessage>(text) {
             Ok(auth_msg) => handle_authentication(&auth_msg, lobby).await,
@@ -413,7 +431,8 @@ mod tests {
         let lobby = Arc::new(Lobby::new());
 
         // This should work - message parsing should succeed even if auth fails
-        let auth_result = handle_auth_message(&message, &lobby).await;
+        let rate_limiter = Arc::new(AuthRateLimiter::new());
+        let auth_result = handle_auth_message(&message, &lobby, &rate_limiter).await;
 
         match auth_result {
             AuthResult::Failure { reason, details } => {
@@ -437,22 +456,23 @@ mod tests {
         // Test handling of different WebSocket message types
 
         let lobby = Arc::new(Lobby::new());
+        let rate_limiter = Arc::new(AuthRateLimiter::new());
 
         // Test 1: Valid auth message (will fail auth but parsing should work)
         let auth_message = Message::Text(
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
-        let result = handle_auth_message(&auth_message, &lobby).await;
+        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter).await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 2: Invalid JSON message
         let invalid_json = Message::Text(r#"{"type": "invalid", "data": "test"}"#.to_string());
-        let result = handle_auth_message(&invalid_json, &lobby).await;
+        let result = handle_auth_message(&invalid_json, &lobby, &rate_limiter).await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 3: Non-text message (should fail)
         let binary_message = Message::Binary(vec![1, 2, 3, 4]);
-        let result = handle_auth_message(&binary_message, &lobby).await;
+        let result = handle_auth_message(&binary_message, &lobby, &rate_limiter).await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         println!("✅ All message type tests passed");
@@ -482,7 +502,8 @@ mod tests {
         let auth_message = Message::Text(
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
-        let result = handle_auth_message(&auth_message, &lobby).await;
+        let rate_limiter = Arc::new(AuthRateLimiter::new());
+        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter).await;
 
         match result {
             AuthResult::Success { lobby_state, .. } => {

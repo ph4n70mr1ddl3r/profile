@@ -5,3 +5,4 @@ pub mod connection;
 pub mod lobby;
 pub mod message;
 pub mod protocol;
+pub mod rate_limiter;

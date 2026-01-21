@@ -90,18 +90,28 @@ pub async fn compose_and_send_message(
     // Validate message is not empty
     validate_message_not_empty(&message_text)?;
 
-    // 1. Get keys from shared state
-    let (public_key, private_key) = {
+    // 1. Get keys and create signature within lock scope
+    let (public_key, signature) = {
         let key_guard = key_state.lock().await;
         let public_key = key_guard
             .public_key()
             .ok_or(ComposeError::NoPublicKey)?
             .clone();
-        let private_key = key_guard
-            .private_key()
-            .ok_or(ComposeError::NoPrivateKey)?
-            .clone();
-        (public_key, private_key)
+        let private_key = key_guard.private_key().ok_or(ComposeError::NoPrivateKey)?;
+
+        // Create canonical JSON for signing
+        let canonical_json = serde_json::json!({
+            "type": "message",
+            "message": message_text,
+            "senderPublicKey": hex::encode(&public_key),
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        });
+
+        // Sign the canonical JSON
+        let signature = sign_message(private_key, canonical_json.to_string().as_bytes())
+            .map_err(|e| ComposeError::SigningError(e.to_string()))?;
+
+        (public_key, signature)
     };
 
     // Convert public_key to hex string for message
@@ -109,20 +119,6 @@ pub async fn compose_and_send_message(
 
     // 2. Generate timestamp (ISO8601 format - RFC3339 with seconds precision)
     let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
-
-    // 3. Create canonical JSON for deterministic signing
-    // We serialize only the essential fields that need to be signed
-    let canonical_json = serde_json::json!({
-        "type": "message",
-        "message": message_text,
-        "senderPublicKey": public_key,
-        "timestamp": timestamp
-    });
-
-    // 4. Sign the canonical JSON
-    // The signature covers: type + message + senderPublicKey + timestamp
-    let signature = sign_message(&private_key, canonical_json.to_string().as_bytes())
-        .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
     // 5. Create ChatMessage object with all fields
     // This message is marked as "verified" since we just signed it ourselves
@@ -133,13 +129,13 @@ pub async fn compose_and_send_message(
         timestamp.clone(),
     );
 
-    // 6. Store message in SharedMessageHistory
+    // 3. Store message in SharedMessageHistory
     {
         let mut history = message_history.lock().await;
         history.add_message(chat_message);
     }
 
-    // 7. Create and serialize the protocol message for WebSocket transmission
+    // 4. Create and serialize the protocol message for WebSocket transmission
     let protocol_message = profile_shared::protocol::Message::new_text(
         message_text,
         public_key_hex.clone(),
@@ -171,37 +167,35 @@ pub async fn compose_message_draft(
     message_text: String,
     key_state: &SharedKeyState,
 ) -> Result<ChatMessage, ComposeError> {
-    // Get keys from shared state
-    let (public_key, private_key) = {
+    // Get keys and sign within lock scope
+    let (public_key_hex, timestamp, signature) = {
         let key_guard = key_state.lock().await;
         let public_key = key_guard
             .public_key()
             .ok_or(ComposeError::NoPublicKey)?
             .clone();
-        let private_key = key_guard
-            .private_key()
-            .ok_or(ComposeError::NoPrivateKey)?
-            .clone();
-        (public_key, private_key)
+        let private_key = key_guard.private_key().ok_or(ComposeError::NoPrivateKey)?;
+
+        // Convert public_key to hex string
+        let public_key_hex = hex::encode(&public_key);
+
+        // Generate timestamp
+        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
+
+        // Create canonical JSON
+        let canonical_json = serde_json::json!({
+            "type": "message",
+            "message": message_text,
+            "senderPublicKey": public_key_hex,
+            "timestamp": timestamp
+        });
+
+        // Sign the message
+        let signature = sign_message(private_key, canonical_json.to_string().as_bytes())
+            .map_err(|e| ComposeError::SigningError(e.to_string()))?;
+
+        (public_key_hex, timestamp, signature)
     };
-
-    // Convert public_key to hex string
-    let public_key_hex = hex::encode(&public_key);
-
-    // Generate timestamp
-    let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
-
-    // Create canonical JSON
-    let canonical_json = serde_json::json!({
-        "type": "message",
-        "message": message_text,
-        "senderPublicKey": public_key_hex,
-        "timestamp": timestamp
-    });
-
-    // Sign the message
-    let signature = sign_message(&private_key, canonical_json.to_string().as_bytes())
-        .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
     // Create and return ChatMessage
     Ok(ChatMessage::verified(

@@ -52,7 +52,7 @@ fn convert_signature_to_ed25519_format(signature: &[u8]) -> Result<Signature, Cr
 mod tests {
     use super::*;
     use crate::crypto::signing::sign_message;
-    use zeroize::Zeroizing;
+    use crate::crypto::PrivateKey;
 
     #[test]
     fn test_verify_signature_valid() {
@@ -68,7 +68,7 @@ mod tests {
 
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key = signing_key.verifying_key();
-        let private_key = Zeroizing::new(key_bytes.to_vec());
+        let private_key = PrivateKey::new(key_bytes.to_vec());
         let public_key = verifying_key.to_bytes().to_vec();
         let message = b"auth";
 
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_verify_signature_wrong_message() {
-        let private_key = Zeroizing::new(vec![42u8; 32]);
+        let private_key = PrivateKey::new(vec![42u8; 32]);
         let public_key = vec![42u8; 32];
         let message1 = b"auth";
         let message2 = b"different";
@@ -126,7 +126,7 @@ mod tests {
 
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key = signing_key.verifying_key();
-        let private_key = Zeroizing::new(key_bytes.to_vec());
+        let private_key = PrivateKey::new(key_bytes.to_vec());
         let public_key = verifying_key.to_bytes().to_vec();
         let message = b"auth";
 

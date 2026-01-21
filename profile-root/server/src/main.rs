@@ -1,10 +1,13 @@
 //! Profile server binary entry point
 //!
 //! This server handles WebSocket connections and user authentication
-//! for the Profile secure messaging application.
+//! for Profile secure messaging application.
+//!
+//! TODO: Add HTTP health check endpoint at /health for monitoring
 
 use profile_server::connection;
 use profile_server::lobby::Lobby;
+use profile_shared::config;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
@@ -21,8 +24,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let lobby = Arc::new(Lobby::new());
 
     // Bind to WebSocket port
-    let listener = TcpListener::bind("127.0.0.1:8080").await?;
-    println!("✅ Server listening on ws://127.0.0.1:8080");
+    let listener = TcpListener::bind(config::server::BIND_ADDRESS).await?;
+    println!(
+        "✅ Server listening on ws://{}",
+        config::server::BIND_ADDRESS
+    );
 
     // Accept and handle WebSocket connections
     loop {

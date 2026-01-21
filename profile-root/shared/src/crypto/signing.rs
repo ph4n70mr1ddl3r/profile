@@ -3,10 +3,10 @@
 //! This module provides deterministic signing for messages using ed25519-dalek.
 //! Required by Story 1.5 (Authentication) and Story 3.x (Messaging).
 
+use crate::crypto::PrivateKey;
 use crate::errors::CryptoError;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json;
-use zeroize::Zeroizing;
 
 /// Sign a message with a private key using canonical JSON serialization
 ///
@@ -14,10 +14,7 @@ use zeroize::Zeroizing;
 /// 1. Converting the message to canonical JSON format
 /// 2. Converting the 32-byte private key to SigningKey without unprotected copies
 /// 3. Using ed25519-dalek to create a signature
-pub fn sign_message(
-    private_key: &Zeroizing<Vec<u8>>,
-    message: &[u8],
-) -> Result<Vec<u8>, CryptoError> {
+pub fn sign_message(private_key: &PrivateKey, message: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let canonical_json = serialize_message_to_canonical_json(message)?;
     let signing_key = convert_private_key_to_signing_key(private_key)?;
     let signature = signing_key.sign(canonical_json.as_bytes());
@@ -35,9 +32,7 @@ pub fn serialize_message_to_canonical_json(message: &[u8]) -> Result<String, Cry
 }
 
 /// Convert 32-byte private key to SigningKey without unprotected copies
-fn convert_private_key_to_signing_key(
-    private_key: &Zeroizing<Vec<u8>>,
-) -> Result<SigningKey, CryptoError> {
+fn convert_private_key_to_signing_key(private_key: &PrivateKey) -> Result<SigningKey, CryptoError> {
     let private_key_bytes: [u8; 32] = private_key
         .as_slice()
         .try_into()
@@ -58,16 +53,16 @@ mod tests {
 
         // Generate a deterministic private key for testing
         let mut rng = StdRng::seed_from_u64(42);
-        let private_key = Zeroizing::new((0..32).map(|_| rng.gen::<u8>()).collect());
+        let private_key = PrivateKey::new((0..32).map(|_| rng.gen::<u8>()).collect());
         let message = b"auth";
 
         // Generate 10,000 signatures and verify they're all identical
-        let first_signature =
-            sign_message(&private_key, message).expect("First signature should succeed");
+        let first_signature = sign_message(&private_key, message)
+            .unwrap_or_else(|_| panic!("First signature should succeed"));
 
         for i in 1..10_000 {
             let signature = sign_message(&private_key, message)
-                .expect(format!("Signature {} should succeed", i).as_str());
+                .unwrap_or_else(|_| panic!("Signature {} should succeed", i));
 
             assert_eq!(
                 signature, first_signature,
@@ -82,7 +77,7 @@ mod tests {
     #[test]
     fn test_signing_stub_exists() {
         // Test with valid key and message to verify new implementation works
-        let private_key = Zeroizing::new(vec![42u8; 32]); // Simple test key
+        let private_key = PrivateKey::new(vec![42u8; 32]); // Simple test key
         let message = b"test message";
 
         let result = sign_message(&private_key, message);
@@ -94,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_canonical_json_serialization() {
-        let private_key = Zeroizing::new(vec![42u8; 32]);
+        let private_key = PrivateKey::new(vec![42u8; 32]);
         let message = b"auth";
 
         let signature1 = sign_message(&private_key, message).unwrap();
@@ -106,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_different_messages_different_signatures() {
-        let private_key = Zeroizing::new(vec![42u8; 32]);
+        let private_key = PrivateKey::new(vec![42u8; 32]);
         let message1 = b"auth";
         let message2 = b"auth2";
 
