@@ -74,7 +74,7 @@ async fn test_extended_session_consistency() {
     // - Final count: 5 users (15, 16, 17, 18, 19)
     let count = get_lobby_user_count(&state).await;
     assert!(
-        count >= 3 && count <= 10,
+        (3..=10).contains(&count),
         "Expected 3-10 users, got {}",
         count
     );

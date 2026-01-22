@@ -363,12 +363,9 @@ async fn test_network_resilience_rapid_changes() {
     let mut leave_count = 0;
 
     while let Ok(Some(msg)) = timeout(Duration::from_millis(50), observer_receiver.recv()).await {
-        match msg {
-            SharedMessage::LobbyUpdate { joined, left } => {
-                join_count += joined.len();
-                leave_count += left.len();
-            }
-            _ => {}
+        if let SharedMessage::LobbyUpdate { joined, left } = msg {
+            join_count += joined.len();
+            leave_count += left.len();
         }
     }
 

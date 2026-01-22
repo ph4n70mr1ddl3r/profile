@@ -345,7 +345,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_message_recipient_offline() {
-        use profile_shared::{generate_private_key, derive_public_key, sign_message};
+        use profile_shared::{derive_public_key, generate_private_key, sign_message};
 
         let lobby = Lobby::new();
 
@@ -364,7 +364,7 @@ mod tests {
         let recipient_key = "offline_recipient_1234567890abcdef1234567890abcdef12345678";
         let message_content = "Hello";
         let timestamp = "2025-12-27T10:30:00Z";
-        
+
         // Create valid signature for the message
         let canonical_message = format!("{}:{}", message_content, timestamp);
         let signature = sign_message(&private_key, canonical_message.as_bytes())
@@ -386,7 +386,10 @@ mod tests {
         assert!(matches!(
             result,
             MessageValidationResult::Invalid {
-                reason: ValidationError::RecipientOffline { recipient_key: _actual_key, .. }
+                reason: ValidationError::RecipientOffline {
+                    recipient_key: _actual_key,
+                    ..
+                }
             }
         ));
     }

@@ -80,24 +80,30 @@ mod tests {
     #[test]
     fn test_configuration_consistency() {
         // Ensure display limits don't exceed actual limits
-        assert!(
-            ui::MAX_LOBBY_USERS_DISPLAY <= lobby::MAX_LOBBY_SIZE,
-            "Display limit should not exceed actual lobby size limit"
-        );
+        const {
+            assert!(
+                ui::MAX_LOBBY_USERS_DISPLAY <= lobby::MAX_LOBBY_SIZE,
+                "Display limit should not exceed actual lobby size limit"
+            )
+        };
 
-        assert!(
-            ui::MAX_CHAT_MESSAGES_DISPLAY <= message::MAX_MESSAGE_HISTORY,
-            "Display message limit should not exceed actual message history limit"
-        );
+        const {
+            assert!(
+                ui::MAX_CHAT_MESSAGES_DISPLAY <= message::MAX_MESSAGE_HISTORY,
+                "Display message limit should not exceed actual message history limit"
+            )
+        };
     }
 
     #[test]
     fn test_rate_limit_configuration() {
         // Ensure rate limit configuration is reasonable
-        assert!(
-            connection::rate_limit::MAX_AUTH_ATTEMPTS > 0,
-            "Should allow at least one auth attempt"
-        );
+        const {
+            assert!(
+                connection::rate_limit::MAX_AUTH_ATTEMPTS > 0,
+                "Should allow at least one auth attempt"
+            )
+        };
 
         assert!(
             connection::rate_limit::AUTH_WINDOW_DURATION.as_secs() > 0,

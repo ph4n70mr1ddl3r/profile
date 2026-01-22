@@ -86,7 +86,7 @@ fn integration_test_clipboard_no_truncation() {
     };
 
     // Generate multiple test keys
-    let test_keys = vec![
+    let test_keys = [
         "0".repeat(64),               // All zeros
         "f".repeat(64),               // All max values
         "0123456789abcdef".repeat(4), // Pattern repeated 4 times = 64 chars
@@ -97,14 +97,14 @@ fn integration_test_clipboard_no_truncation() {
         // Set THEN get - clipboard is shared state
         clipboard
             .set_text(key)
-            .expect(&format!("Should set key #{}", i));
+            .unwrap_or_else(|_| panic!("Should set key #{}", i));
 
         // Small delay to ensure clipboard is updated (platform timing issue)
         std::thread::sleep(std::time::Duration::from_millis(10));
 
         let retrieved = clipboard
             .get_text()
-            .expect(&format!("Should get key #{}", i));
+            .unwrap_or_else(|_| panic!("Should get key #{}", i));
 
         assert_eq!(
             retrieved.len(),
@@ -188,6 +188,5 @@ fn integration_test_clipboard_error_handling() {
     }
 
     // Test always passes - we're just verifying error handling compiles
-    // If the match block above didn't compile or crashed, this assert wouldn't be reached
-    assert!(true);
+    // If the match block above didn't compile or crashed, we wouldn't reach this point
 }

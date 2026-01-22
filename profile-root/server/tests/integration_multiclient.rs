@@ -42,7 +42,7 @@ async fn test_e2e_multiple_clients_lobby_consistency() {
     let key2 = generate_test_key(2);
     let key3 = generate_test_key(3);
 
-    let keys = vec![key1.clone(), key2.clone(), key3.clone()];
+    let keys = [key1.clone(), key2.clone(), key3.clone()];
 
     // Simulate 3 clients connecting and authenticating
     let mut handles = Vec::new();
@@ -194,7 +194,7 @@ async fn test_e2e_rapid_joins_leaves_no_ghosts() {
     // Rapidly add and remove users
     for i in 0..num_operations {
         let key = generate_test_key(100 + i);
-        let connection = create_test_connection(&key, i as u64);
+        let connection = create_test_connection(&key, i);
 
         // Add
         add_user(&lobby, key.clone(), connection).await.unwrap();
@@ -214,7 +214,7 @@ async fn test_e2e_rapid_joins_leaves_no_ghosts() {
     // Now add some users and remove half
     for i in 0..10 {
         let key = generate_test_key(200 + i);
-        let connection = create_test_connection(&key, i as u64);
+        let connection = create_test_connection(&key, i);
         add_user(&lobby, key.clone(), connection).await.unwrap();
     }
 
@@ -263,7 +263,7 @@ async fn test_e2e_concurrent_lobby_consistency() {
         let key = generate_test_key(300 + i);
 
         let handle = tokio::spawn(async move {
-            let connection = create_test_connection(&key, i as u64);
+            let connection = create_test_connection(&key, i);
 
             // Some clients will add, some will add then remove
             if i % 3 == 0 {

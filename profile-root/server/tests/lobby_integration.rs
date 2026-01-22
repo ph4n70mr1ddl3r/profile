@@ -296,7 +296,7 @@ async fn test_lobby_broadcast_on_leave() {
     // Verify the remaining user is still in the lobby (to receive broadcasts)
     let remaining_conn = get_user(
         &lobby,
-        &"eeff1234567890abcdef1234567890abcdef1234567890abcdef1234567890ef".to_string(),
+        "eeff1234567890abcdef1234567890abcdef1234567890abcdef1234567890ef",
     )
     .await
     .unwrap();
