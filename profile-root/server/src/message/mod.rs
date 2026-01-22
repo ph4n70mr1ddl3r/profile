@@ -345,34 +345,48 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_message_recipient_offline() {
+        use profile_shared::{generate_private_key, derive_public_key, sign_message};
+
         let lobby = Lobby::new();
 
+        // Create valid key pair for sender
+        let private_key = generate_private_key().expect("Should generate private key");
+        let public_key = derive_public_key(&private_key).expect("Should derive public key");
+        let sender_key = hex::encode(public_key.as_bytes());
+
         // Add sender to lobby
-        let sender_key = "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
-        let sender_conn = create_test_connection(sender_key);
-        crate::lobby::add_user(&lobby, sender_key.to_string(), sender_conn)
+        let sender_conn = create_test_connection(&sender_key);
+        crate::lobby::add_user(&lobby, sender_key.clone(), sender_conn)
             .await
             .unwrap();
 
         // Create a valid message request but recipient is not in lobby
-        // Note: This will fail signature validation first since we don't have real keys
-        // We need to test with invalid signature to get past that check
-        let message_json = r#"{
+        let recipient_key = "offline_recipient_1234567890abcdef1234567890abcdef12345678";
+        let message_content = "Hello";
+        let timestamp = "2025-12-27T10:30:00Z";
+        
+        // Create valid signature for the message
+        let canonical_message = format!("{}:{}", message_content, timestamp);
+        let signature = sign_message(&private_key, canonical_message.as_bytes())
+            .expect("Should create valid signature");
+        let signature_hex = hex::encode(&signature);
+
+        let message_json = serde_json::json!({
             "type": "message",
-            "recipientPublicKey": "offline_recipient_1234567890abcdef1234567890abcdef12345678",
-            "message": "Hello",
-            "senderPublicKey": "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
-            "signature": "invalid_signature_0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-            "timestamp": "2025-12-27T10:30:00Z"
-        }"#;
+            "recipientPublicKey": recipient_key,
+            "message": message_content,
+            "senderPublicKey": sender_key,
+            "signature": signature_hex,
+            "timestamp": timestamp
+        });
 
-        let result = handle_incoming_message(&lobby, sender_key, message_json).await;
+        let result = handle_incoming_message(&lobby, &sender_key, &message_json.to_string()).await;
 
-        // Should fail signature validation (invalid signature)
+        // Should fail because recipient is offline
         assert!(matches!(
             result,
             MessageValidationResult::Invalid {
-                reason: ValidationError::SignatureInvalid { .. }
+                reason: ValidationError::RecipientOffline { recipient_key: _actual_key, .. }
             }
         ));
     }

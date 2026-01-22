@@ -77,7 +77,7 @@ impl PrivateKey {
     }
 
     /// Create a copy for testing purposes only
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn clone_for_testing(&self) -> Self {
         Self(zeroize::Zeroizing::new(self.as_slice().to_vec()))
     }
@@ -147,9 +147,9 @@ impl PrivateKey {
         Ok(Self(zeroize::Zeroizing::new(bytes)))
     }
 
-    /// Clone the private key for testing purposes only
-    #[cfg(test)]
-    pub fn clone(&self) -> Self {
+    /// Create a testing clone of the private key (security: intentionally avoids implementing Clone)
+    #[cfg(any(test, feature = "testing"))]
+    pub fn clone_for_testing_only(&self) -> Self {
         Self(zeroize::Zeroizing::new(self.as_slice().to_vec()))
     }
 }

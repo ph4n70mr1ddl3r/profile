@@ -16,7 +16,7 @@ name = "verify_lobby_binding"
 path = "src/bin/verify_lobby_binding.rs"
 
 [dependencies]
-profile-shared = { path = "../shared" }
+profile-shared = { path = "../shared", features = ["testing"] }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true }
