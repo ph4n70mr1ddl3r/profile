@@ -68,7 +68,7 @@ pub fn derive_public_key(private_key: &PrivateKey) -> Result<PublicKey, CryptoEr
         ));
     }
 
-    Ok(PublicKey::new(public_key)?)
+    PublicKey::new(public_key)
 }
 
 #[cfg(test)]

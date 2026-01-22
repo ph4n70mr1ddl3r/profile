@@ -14,7 +14,7 @@
 
 use crate::lobby::{ActiveConnection, Lobby};
 use crate::protocol::{ErrorMessage, SendMessageRequest};
-use profile_shared::{verify_signature, PublicKey};
+use profile_shared::verify_signature;
 use std::sync::Arc;
 
 /// Result of message validation
@@ -116,23 +116,23 @@ pub async fn handle_incoming_message(
         }
     };
 
-    let sender_public_key = match PublicKey::new(sender_key_bytes) {
-        Ok(key) => key,
-        Err(e) => {
-            return MessageValidationResult::Invalid {
-                reason: ValidationError::MalformedJson {
-                    details: format!("Invalid sender public key format: {}", e),
-                },
-            };
-        }
-    };
-
     let signature_bytes = match hex::decode(&message_request.signature) {
         Ok(bytes) => bytes,
         Err(e) => {
             return MessageValidationResult::Invalid {
                 reason: ValidationError::MalformedJson {
                     details: format!("Invalid signature hex: {}", e),
+                },
+            };
+        }
+    };
+
+    let sender_public_key = match profile_shared::PublicKey::new(sender_key_bytes) {
+        Ok(key) => key,
+        Err(_) => {
+            return MessageValidationResult::Invalid {
+                reason: ValidationError::MalformedJson {
+                    details: "Invalid sender public key format".to_string(),
                 },
             };
         }
@@ -147,7 +147,7 @@ pub async fn handle_incoming_message(
             tracing::debug!(recipient = %message_request.recipient_public_key, "Signature verified");
         }
         Err(e) => {
-            tracing::warn!(error = %e, "Signature verification failed for {}", sender_public_key);
+            tracing::warn!(error = %e, "Signature verification failed for {}", &sender_public_key);
             return MessageValidationResult::Invalid {
                 reason: ValidationError::SignatureInvalid {
                     details: "Signature did not verify against public key".to_string(),
@@ -185,8 +185,10 @@ pub async fn handle_incoming_message(
 
 /// Get the sender's connection from the lobby
 async fn get_sender_connection(lobby: &Lobby, public_key: &str) -> Option<Arc<ActiveConnection>> {
-    let pk: PublicKey = public_key.to_string();
-    crate::lobby::get_user(lobby, &pk).await.ok().flatten()
+    crate::lobby::get_user(lobby, public_key)
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Get the recipient's connection from the lobby
@@ -194,8 +196,10 @@ async fn get_recipient_connection(
     lobby: &Lobby,
     public_key: &str,
 ) -> Option<Arc<ActiveConnection>> {
-    let pk: PublicKey = public_key.to_string();
-    crate::lobby::get_user(lobby, &pk).await.ok().flatten()
+    crate::lobby::get_user(lobby, public_key)
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Parse incoming JSON into a SendMessageRequest

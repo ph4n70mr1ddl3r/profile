@@ -143,7 +143,7 @@ mod tests {
     fn test_key_state_stores_keys() {
         let mut state = KeyState::new();
         let private = profile_shared::PrivateKey::new(vec![0u8; 32]);
-        let public = vec![1u8; 32];
+        let public = profile_shared::PublicKey::new(vec![1u8; 32]).unwrap();
 
         state.set_generated_key(private, public.clone());
         assert!(state.is_key_set());
@@ -168,7 +168,7 @@ mod tests {
         {
             let mut state = KeyState::new();
             let private = PrivateKey::new(vec![42u8; 32]);
-            let public = vec![1u8; 32];
+            let public = profile_shared::PublicKey::new(vec![1u8; 32]).unwrap();
             state.set_generated_key(private, public);
 
             // PrivateKey = Zeroizing<Vec<u8>>
@@ -191,7 +191,7 @@ mod tests {
 
         let mut state = KeyState::new();
         let private = PrivateKey::new(vec![42u8; 32]);
-        let public = vec![1u8; 32];
+        let public = profile_shared::PublicKey::new(vec![1u8; 32]).unwrap();
         state.set_generated_key(private, public);
 
         let debug_output = format!("{:?}", state);

@@ -41,8 +41,8 @@ async fn integration_test_import_hex_and_derive() {
     // All should produce the same public key (deterministic)
     for i in 1..public_keys.len() {
         assert_eq!(
-            &public_keys[0][..],
-            &public_keys[i][..],
+            public_keys[0].as_bytes(),
+            public_keys[i].as_bytes(),
             "All concurrent imports should produce the same result"
         );
     }
@@ -81,8 +81,8 @@ async fn integration_test_case_insensitive_import() {
         profile_shared::derive_public_key(&private_upper).expect("Derivation should succeed");
 
     assert_eq!(
-        &public_lower[..],
-        &public_upper[..],
+        public_lower.as_bytes(),
+        public_upper.as_bytes(),
         "Case insensitive import should produce same public key"
     );
 }
@@ -113,5 +113,9 @@ async fn integration_test_import_with_async_state() {
         profile_shared::derive_public_key(&private_key).expect("Derivation should succeed")
     };
 
-    assert_eq!(public_key.len(), 32, "Public key should be 32 bytes");
+    assert_eq!(
+        public_key.as_bytes().len(),
+        32,
+        "Public key should be 32 bytes"
+    );
 }

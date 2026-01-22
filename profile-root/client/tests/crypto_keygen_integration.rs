@@ -21,10 +21,14 @@ async fn integration_test_generate_and_store_key() {
 
     // Verify properties
     assert_eq!(private_key.len(), 32, "Private key must be 32 bytes");
-    assert_eq!(public_key.len(), 32, "Public key must be 32 bytes");
+    assert_eq!(
+        public_key.as_bytes().len(),
+        32,
+        "Public key must be 32 bytes"
+    );
     assert_ne!(
         private_key.as_slice(),
-        &public_key[..],
+        public_key.as_bytes(),
         "Keys should be different"
     );
 
@@ -83,8 +87,8 @@ async fn integration_test_derivation_is_deterministic() {
     // All derivations must be identical
     for i in 1..derived_keys.len() {
         assert_eq!(
-            &derived_keys[0][..],
-            &derived_keys[i][..],
+            derived_keys[0].as_bytes(),
+            derived_keys[i].as_bytes(),
             "Derivation must be deterministic (failed at iteration {})",
             i
         );
@@ -175,5 +179,9 @@ async fn integration_test_hex_encoding_roundtrip() {
     // Decode back to bytes
     let decoded_vec = hex::decode(&hex_string).expect("Should decode successfully");
 
-    assert_eq!(public_key, decoded_vec, "Roundtrip should match");
+    assert_eq!(
+        public_key.as_bytes(),
+        &decoded_vec[..],
+        "Roundtrip should match"
+    );
 }

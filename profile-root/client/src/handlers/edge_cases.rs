@@ -347,7 +347,6 @@ mod whitespace_tests {
 /// Test binary content validation
 #[cfg(test)]
 mod binary_validation_tests {
-    use super::*;
 
     #[test]
     fn test_valid_utf8_detection() {

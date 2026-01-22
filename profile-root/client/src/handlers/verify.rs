@@ -68,12 +68,22 @@ pub fn verify_message(
         }
     };
 
+    let sender_public_key_obj = match profile_shared::PublicKey::new(sender_key_bytes) {
+        Ok(key) => key,
+        Err(e) => {
+            return VerificationResult::Invalid {
+                sender_public_key: sender_public_key.to_string(),
+                reason: format!("Invalid public key format: {}", e),
+            };
+        }
+    };
+
     // Create canonical message for verification (same format as signing)
     let canonical_message = format!("{}:{}", message, timestamp);
 
     // Verify signature
     match verify_signature(
-        &sender_key_bytes,
+        &sender_public_key_obj,
         canonical_message.as_bytes(),
         &signature_bytes,
     ) {

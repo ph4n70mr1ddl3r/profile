@@ -161,7 +161,7 @@ async fn test_keys_remain_in_memory_after_disconnect() {
 
     {
         let mut state = key_state.lock().await;
-        state.set_generated_key(private_key.clone(), public_key.clone());
+        state.set_generated_key(private_key.clone_for_testing(), public_key.clone());
     }
 
     // Simulate disconnection

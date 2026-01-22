@@ -140,8 +140,12 @@ fn test_hex_encoding_roundtrip() {
     let public_key_decoded = hex::decode(&public_key_hex).expect("Should decode public key");
     let signature_decoded = hex::decode(&signature_hex).expect("Should decode signature");
 
+    // Recreate PublicKey from decoded bytes
+    let public_key_obj =
+        profile_shared::PublicKey::new(public_key_decoded).expect("Should create public key");
+
     // Verify decoded signature
-    let result = verify_signature(&public_key_decoded, b"auth", &signature_decoded);
+    let result = verify_signature(&public_key_obj, b"auth", &signature_decoded);
     assert!(
         result.is_ok(),
         "Hex roundtrip should preserve signature validity"

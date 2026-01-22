@@ -38,9 +38,9 @@ async fn test_lobby_state_implementation() {
 
 #[tokio::test]
 async fn test_public_key_type_alias() {
-    use profile_server::lobby::PublicKey;
+    // No longer needed - we use String directly
 
-    let key: PublicKey = "test_key".to_string();
+    let key: String = "test_key".to_string();
     assert_eq!(key, "test_key");
 }
 

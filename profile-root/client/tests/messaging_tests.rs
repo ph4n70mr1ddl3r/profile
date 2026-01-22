@@ -144,7 +144,7 @@ async fn test_message_content_varieties() {
             content.to_string(),
             recipient.to_string(),
             public_key.clone(),
-            private_key.clone(),
+            private_key.clone_for_testing(),
         );
 
         assert!(result.is_ok(), "Should handle content: {}", content);

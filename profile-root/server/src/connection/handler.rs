@@ -8,11 +8,11 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::auth::handler::{handle_authentication, AuthResult};
 use crate::lobby::{ActiveConnection, Lobby};
-use profile_shared::PublicKey;
 use crate::message::{handle_incoming_message, route_message, MessageValidationResult};
 use crate::protocol::{AuthErrorMessage, AuthMessage, AuthSuccessMessage};
 use crate::rate_limiter::AuthRateLimiter;
 use profile_shared::LobbyError;
+use profile_shared::PublicKey;
 
 /// Atomic counter for generating unique connection IDs
 ///
@@ -238,7 +238,10 @@ pub async fn handle_connection(
                 // Log disconnect event with tracing (subscriber configured in main.rs)
                 // Note: authenticated_key should always be Some if we reached this point
                 // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string());
+                let user_key = authenticated_key
+                    .as_ref()
+                    .map(|k| hex::encode(k.as_slice()))
+                    .unwrap_or_else(|| "unauthenticated".to_string());
                 tracing::info!(
                     "User {} disconnected, broadcasting leave notification",
                     user_key
@@ -295,7 +298,10 @@ pub async fn handle_connection(
             Err(e) => {
                 // Note: authenticated_key should always be Some if we reached this point
                 // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string());
+                let user_key = authenticated_key
+                    .as_ref()
+                    .map(|k| hex::encode(k.as_slice()))
+                    .unwrap_or_else(|| "unauthenticated".to_string());
                 // Log the error but don't claim "disconnection" - WebSocket read errors
                 // could be network flakiness, malformed messages, etc., not actual disconnections
                 tracing::error!("WebSocket error for user {}: {}", user_key, e);
@@ -353,7 +359,10 @@ pub async fn handle_connection(
                 // Log at debug level for debugging purposes - these are normal WebSocket events
                 tracing::debug!(
                     "Received non-text, non-close message type for user {}: {:?}",
-                    authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string()),
+                    authenticated_key
+                        .as_ref()
+                        .map(|k| hex::encode(k.as_slice()))
+                        .unwrap_or_else(|| "unauthenticated".to_string()),
                     msg_result
                         .as_ref()
                         .map(|m| m.to_string())
@@ -537,7 +546,7 @@ mod tests {
             .unwrap();
 
         // Verify user is in lobby
-        let users_before = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users_before: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_before.len(), 1);
         assert!(users_before.contains(&public_key));
 
@@ -552,7 +561,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify: User removed from lobby
-        let users_after = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users_after: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_after.len(), 0);
         assert!(!users_after.contains(&public_key));
 

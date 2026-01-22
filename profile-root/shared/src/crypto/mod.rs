@@ -146,6 +146,12 @@ impl PrivateKey {
 
         Ok(Self(zeroize::Zeroizing::new(bytes)))
     }
+
+    /// Clone the private key for testing purposes only
+    #[cfg(test)]
+    pub fn clone(&self) -> Self {
+        Self(zeroize::Zeroizing::new(self.as_slice().to_vec()))
+    }
 }
 
 /// Secure public key wrapper
@@ -163,8 +169,23 @@ impl PublicKey {
         Ok(Self(bytes))
     }
 
-    /// Get the key as a slice
+    /// Get key as a slice
     pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Get the length of the key
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Check if key is empty
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Get the key as bytes
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
@@ -172,5 +193,11 @@ impl PublicKey {
 impl AsRef<[u8]> for PublicKey {
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
+    }
+}
+
+impl std::fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(&self.0))
     }
 }

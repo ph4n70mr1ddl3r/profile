@@ -24,7 +24,7 @@ use std::sync::Arc;
 #[tracing::instrument(skip(lobby, conn), fields(public_key = %key.chars().take(16).collect::<String>(), connection_id = conn.connection_id))]
 pub async fn add_user(
     lobby: &Lobby,
-    key: PublicKey,
+    key: String,
     conn: ActiveConnection,
 ) -> Result<(), LobbyError> {
     // Validate public key format (must be valid hex, exactly 64 chars = 32 bytes)
@@ -107,7 +107,7 @@ pub async fn add_user(
 /// * `Ok(())` on success (including when user not found - idempotent)
 /// * `LobbyError::LockFailed` if lobby lock cannot be acquired
 #[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
-pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
+pub async fn remove_user(lobby: &Lobby, key: &str) -> Result<(), LobbyError> {
     let mut users = lobby.users.write().await;
 
     // Remove user (idempotent - OK if user doesn't exist)
@@ -142,13 +142,13 @@ pub async fn remove_user(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyErro
 /// * `Err(LobbyError::LockFailed)` if lobby lock cannot be acquired
 pub async fn get_user(
     lobby: &Lobby,
-    key: &PublicKey,
+    key: &str,
 ) -> Result<Option<Arc<ActiveConnection>>, LobbyError> {
     let users = lobby.users.read().await;
     Ok(users.get(key).cloned()) // Clone the Arc (cheap), not the connection
 }
 
-pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyError> {
+pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<String>, LobbyError> {
     let users = lobby.users.read().await;
     let mut result = Vec::with_capacity(users.len());
     result.extend(users.keys().cloned());
@@ -160,10 +160,10 @@ pub async fn get_current_users(lobby: &Lobby) -> Result<Vec<PublicKey>, LobbyErr
 /// **AC1**: Notifies all other users when someone joins
 /// Constructs delta message: {"type": "lobby_update", "joined": [{"publicKey": "..."}]}
 #[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
-async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
+async fn broadcast_user_joined(lobby: &Lobby, key: &str) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
         joined: vec![profile_shared::LobbyUser {
-            public_key: key.clone(),
+            public_key: key.to_string(),
             status: None,
         }],
         left: vec![],
@@ -195,10 +195,10 @@ async fn broadcast_user_joined(lobby: &Lobby, key: &PublicKey) -> Result<(), Lob
 /// **AC3**: Notifies all other users when someone leaves
 /// Constructs delta message: {"type": "lobby_update", "left": [{"publicKey": "..."}]}
 #[tracing::instrument(skip(lobby), fields(public_key = %key.chars().take(16).collect::<String>()))]
-async fn broadcast_user_left(lobby: &Lobby, key: &PublicKey) -> Result<(), LobbyError> {
+async fn broadcast_user_left(lobby: &Lobby, key: &str) -> Result<(), LobbyError> {
     let update = Message::LobbyUpdate {
         joined: vec![],
-        left: vec![key.clone()],
+        left: vec![key.to_string()],
     };
 
     let users = lobby.users.read().await;
@@ -516,7 +516,7 @@ mod tests {
         let key3 = connection3.public_key.clone();
         add_user(&lobby, key3.clone(), connection3).await.unwrap();
 
-        let result = get_current_users(&lobby).await;
+        let result: Result<Vec<String>, LobbyError> = get_current_users(&lobby).await;
         assert!(result.is_ok());
 
         let users = result.unwrap();
@@ -691,7 +691,7 @@ mod tests {
         }
 
         // Verify lobby is empty and consistent
-        let users = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(
             users.len(),
             0,
@@ -730,7 +730,7 @@ mod tests {
         }
 
         // Verify final state is consistent - should have 10 users (odd indices: 1, 3, 5, 7, 9, 11, 13, 15, 17, 19)
-        let final_users = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let final_users: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(
             final_users.len(),
             10,
@@ -763,7 +763,7 @@ mod tests {
             .unwrap();
 
         // Verify user is in lobby
-        let users_before = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users_before: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_before.len(), 1);
         assert!(users_before.contains(&connection_key));
 
@@ -773,7 +773,7 @@ mod tests {
             .unwrap();
 
         // Verify NO ghost user remains
-        let users_after = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users_after: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_after.len(), 0);
         assert!(!users_after.contains(&connection_key));
 
@@ -791,7 +791,7 @@ mod tests {
             .unwrap();
 
         // Verify user is back in lobby
-        let users_final = crate::lobby::get_current_users(&lobby).await.unwrap();
+        let users_final: Vec<String> = crate::lobby::get_current_users(&lobby).await.unwrap();
         assert_eq!(users_final.len(), 1);
         assert!(users_final.contains(&new_connection_key));
     }
