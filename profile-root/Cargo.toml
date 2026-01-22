@@ -27,3 +27,6 @@ debug = true
 opt-level = 3
 lto = true
 codegen-units = 1
+
+# Code quality tools
+# Note: Clippy configuration can be added per-crate in individual Cargo.toml files
