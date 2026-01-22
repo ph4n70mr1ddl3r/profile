@@ -7,7 +7,8 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::auth::handler::{handle_authentication, AuthResult};
-use crate::lobby::{ActiveConnection, Lobby, PublicKey};
+use crate::lobby::{ActiveConnection, Lobby};
+use profile_shared::PublicKey;
 use crate::message::{handle_incoming_message, route_message, MessageValidationResult};
 use crate::protocol::{AuthErrorMessage, AuthMessage, AuthSuccessMessage};
 use crate::rate_limiter::AuthRateLimiter;
@@ -65,17 +66,6 @@ pub async fn handle_connection(
                 // This fixes the bug where lobby_state was captured BEFORE the user
                 // was added, causing the new user to not see themselves.
 
-                // Convert Vec<u8> to String for lobby API
-                // Validate that public key is exactly 32 bytes before encoding
-                if public_key.len() != 32 {
-                    tracing::error!(
-                        "Invalid public key length: {} bytes (expected 32)",
-                        public_key.len()
-                    );
-                    return Err("Invalid public key".into());
-                }
-                let public_key_string = hex::encode(public_key);
-
                 // Create active connection for lobby
                 // NOTE: The sender channel is for future Epic 3 message routing.
                 // Currently messages to clients are sent directly via 'write' sink.
@@ -85,18 +75,20 @@ pub async fn handle_connection(
                 // implementing broadcast helpers in Story 2.3.
                 let (sender, _receiver) =
                     tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                let public_key_string = hex::encode(public_key.as_slice());
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),
                     sender,
                     connection_id: generate_connection_id(),
                 };
 
-                // Add user to lobby FIRST (critical for correct lobby state)
+                // Add user to lobby before sending auth success
+                // SECURITY: Only add to lobby after successful authentication
                 // If this fails, we should NOT send auth success - user is not in lobby
                 match crate::lobby::add_user(&lobby, public_key_string.clone(), connection).await {
                     Ok(()) => {
                         // User successfully added to lobby, proceed with auth success
-                        authenticated_key = Some(public_key_string.clone());
+                        authenticated_key = Some(public_key.clone());
                     }
                     Err(e) => {
                         tracing::error!("Failed to add user to lobby: {}", e);
@@ -114,10 +106,10 @@ pub async fn handle_connection(
                             frame::coding::CloseCode, CloseFrame,
                         };
                         let close_frame = CloseFrame {
-                            code: CloseCode::Away,
-                            reason: "Lobby error - please retry".into(),
+                            code: CloseCode::Policy,
+                            reason: "Failed to join lobby".into(),
                         };
-                        let _ = write.send(Message::Close(Some(close_frame))).await;
+                        write.send(Message::Close(Some(close_frame))).await?;
                         return Ok(());
                     }
                 }
@@ -167,11 +159,11 @@ pub async fn handle_connection(
                 // Handle incoming message from authenticated user (Story 3.2 + 3.3)
                 // AC1: Route validated message to recipient via real-time push
                 if let Some(ref sender_key) = authenticated_key {
-                    tracing::debug!(sender = %sender_key, "Received message, validating and routing...");
-
                     // Validate the message (Story 3.2)
+                    let sender_key_hex = hex::encode(sender_key.as_slice());
+                    tracing::debug!(sender = %sender_key_hex, "Received message, validating and routing...");
                     let validation_result =
-                        handle_incoming_message(&lobby, sender_key, &text).await;
+                        handle_incoming_message(&lobby, &sender_key_hex, &text).await;
 
                     // Handle validation result
                     match validation_result {
@@ -190,11 +182,11 @@ pub async fn handle_connection(
                         }
                         MessageValidationResult::Invalid { reason } => {
                             // Validation failed - send error response back to sender
-                            tracing::debug!(sender = %sender_key, ?reason, "Message validation failed");
+                            tracing::debug!(sender = %sender_key_hex, ?reason, "Message validation failed");
 
                             // Get sender's connection to send error response
                             if let Ok(Some(sender_conn)) =
-                                crate::lobby::get_user(&lobby, sender_key).await
+                                crate::lobby::get_user(&lobby, &sender_key_hex).await
                             {
                                 // Create error message format matching protocol spec (AC3, AC4, AC5)
                                 let error_response = match &reason {
@@ -246,7 +238,7 @@ pub async fn handle_connection(
                 // Log disconnect event with tracing (subscriber configured in main.rs)
                 // Note: authenticated_key should always be Some if we reached this point
                 // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key.as_deref().unwrap_or("unauthenticated");
+                let user_key = authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string());
                 tracing::info!(
                     "User {} disconnected, broadcasting leave notification",
                     user_key
@@ -255,7 +247,8 @@ pub async fn handle_connection(
                 // CRITICAL: Clean up lobby using new API
                 // Note: remove_user() handles broadcast_user_left internally
                 if let Some(ref key) = authenticated_key {
-                    if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
+                    let key_hex = hex::encode(key.as_slice());
+                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
                         match e {
                             LobbyError::LockFailed => {
                                 // CRITICAL: User may remain "stuck" in lobby
@@ -263,7 +256,7 @@ pub async fn handle_connection(
                                 tracing::error!(
                                     "CRITICAL: Failed to acquire lobby lock for user {} removal: {}. \
                                      User may remain visible to others incorrectly.",
-                                    key.chars().take(16).collect::<String>(),
+                                    &key_hex[..16],
                                     e
                                 );
                                 // Return error to signal this needs attention
@@ -276,15 +269,15 @@ pub async fn handle_connection(
                                 // This is a non-critical error - user is cleaned up but others
                                 // won't be notified. Log as warning.
                                 tracing::warn!(
-                                    "User {} removed from lobby but leave notification failed to broadcast: {}",
-                                    key.chars().take(16).collect::<String>(),
+                                    "User {}... removed from lobby but leave notification failed to broadcast: {}",
+                                    &key_hex[..16],
                                     e
                                 );
                             }
                             _ => {
                                 tracing::error!(
-                                    "Failed to remove user {} from lobby: {}",
-                                    key.chars().take(16).collect::<String>(),
+                                    "Failed to remove user {}... from lobby: {}",
+                                    &key_hex[..16],
                                     e
                                 );
                                 return Err(format!("Lobby removal error: {}", e).into());
@@ -292,8 +285,8 @@ pub async fn handle_connection(
                         }
                     } else {
                         tracing::debug!(
-                            "User {} removed from lobby successfully",
-                            key.chars().take(16).collect::<String>()
+                            "User {}... removed from lobby successfully",
+                            &key_hex[..16]
                         );
                     }
                 }
@@ -302,7 +295,7 @@ pub async fn handle_connection(
             Err(e) => {
                 // Note: authenticated_key should always be Some if we reached this point
                 // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key.as_deref().unwrap_or("unauthenticated");
+                let user_key = authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string());
                 // Log the error but don't claim "disconnection" - WebSocket read errors
                 // could be network flakiness, malformed messages, etc., not actual disconnections
                 tracing::error!("WebSocket error for user {}: {}", user_key, e);
@@ -310,15 +303,16 @@ pub async fn handle_connection(
                 // Clean up lobby on error - this is treated as a disconnection event
                 // because the connection stream has failed
                 if let Some(ref key) = authenticated_key {
-                    if let Err(e) = crate::lobby::remove_user(&lobby, key).await {
+                    let key_hex = hex::encode(key.as_slice());
+                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
                         match e {
                             LobbyError::LockFailed => {
                                 // CRITICAL: User may remain "stuck" in lobby
                                 // This is a serious error that could lead to ghost users
                                 tracing::error!(
-                                    "CRITICAL: Failed to acquire lobby lock for user {} removal on error: {}. \
+                                    "CRITICAL: Failed to acquire lobby lock for user {}... removal on error: {}. \
                                      User may remain visible to others incorrectly.",
-                                    key.chars().take(16).collect::<String>(),
+                                    &key_hex[..16],
                                     e
                                 );
                                 // Return error to signal this needs attention
@@ -329,28 +323,26 @@ pub async fn handle_connection(
                                 .into());
                             }
                             LobbyError::BroadcastFailed => {
-                                // User was removed from lobby but broadcast to other users failed
+                                // Non-critical: User removed but notification failed
                                 tracing::warn!(
-                                    "User {} removed from lobby but leave notification failed to broadcast: {}",
-                                    key.chars().take(16).collect::<String>(),
+                                    "User {}... removed from lobby but leave notification failed to broadcast: {}",
+                                    &key_hex[..16],
                                     e
                                 );
                             }
                             _ => {
                                 tracing::error!(
-                                    "Failed to remove user {} from lobby on error: {}",
-                                    key.chars().take(16).collect::<String>(),
+                                    "Failed to remove user {}... from lobby: {}",
+                                    &key_hex[..16],
                                     e
                                 );
-                                return Err(
-                                    format!("Lobby removal error on disconnect: {}", e).into()
-                                );
+                                return Err(format!("Lobby removal error: {}", e).into());
                             }
                         }
                     } else {
                         tracing::debug!(
-                            "User {} removed from lobby successfully after WebSocket error",
-                            key.chars().take(16).collect::<String>()
+                            "User {}... removed from lobby successfully after WebSocket error",
+                            &key_hex[..16]
                         );
                     }
                 }
@@ -361,7 +353,7 @@ pub async fn handle_connection(
                 // Log at debug level for debugging purposes - these are normal WebSocket events
                 tracing::debug!(
                     "Received non-text, non-close message type for user {}: {:?}",
-                    authenticated_key.as_deref().unwrap_or("unauthenticated"),
+                    authenticated_key.as_ref().map(|k| hex::encode(k.as_slice())).unwrap_or_else(|| "unauthenticated".to_string()),
                     msg_result
                         .as_ref()
                         .map(|m| m.to_string())

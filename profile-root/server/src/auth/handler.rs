@@ -7,13 +7,13 @@ use crate::lobby::Lobby;
 use crate::protocol::{AuthErrorMessage, AuthMessage, AuthSuccessMessage};
 use hex;
 use profile_shared::errors::CryptoError;
-use profile_shared::verify_signature;
+use profile_shared::{verify_signature, PublicKey};
 
 /// Authentication result indicating success or failure
 #[derive(Debug, Clone)]
 pub enum AuthResult {
     Success {
-        public_key: Vec<u8>,
+        public_key: PublicKey,
         lobby_state: Vec<String>,
     },
     Failure {
@@ -85,15 +85,26 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
         }
     };
 
+    // Convert Vec<u8> to PublicKey for verification
+    let public_key_wrapper = match PublicKey::new(public_key) {
+        Ok(key) => key,
+        Err(_) => {
+            return AuthResult::Failure {
+                reason: "auth_failed".to_string(),
+                details: "Invalid public key format".to_string(),
+            };
+        }
+    };
+
     // Verify signature for literal string "auth" using shared crypto module
-    let verification_result = verify_signature(&public_key, b"auth", &signature);
+    let verification_result = verify_signature(&public_key_wrapper, b"auth", &signature);
 
     match verification_result {
         Ok(_) => {
             // Signature is valid - user authenticated successfully
             match lobby.get_full_lobby_state().await {
                 Ok(lobby_state) => AuthResult::Success {
-                    public_key,
+                    public_key: public_key_wrapper,
                     lobby_state,
                 },
                 Err(_) => AuthResult::Failure {

@@ -12,9 +12,9 @@
 //! 4. Check recipient exists in lobby
 //! 5. Route accordingly (deliver if online, error if not)
 
-use crate::lobby::{ActiveConnection, Lobby, PublicKey};
+use crate::lobby::{ActiveConnection, Lobby};
 use crate::protocol::{ErrorMessage, SendMessageRequest};
-use profile_shared::verify_signature;
+use profile_shared::{verify_signature, PublicKey};
 use std::sync::Arc;
 
 /// Result of message validation
@@ -116,11 +116,22 @@ pub async fn handle_incoming_message(
         }
     };
 
+    let sender_public_key = match PublicKey::new(sender_key_bytes) {
+        Ok(key) => key,
+        Err(e) => {
+            return MessageValidationResult::Invalid {
+                reason: ValidationError::MalformedJson {
+                    details: format!("Invalid sender public key format: {}", e),
+                },
+            };
+        }
+    };
+
     let signature_bytes = match hex::decode(&message_request.signature) {
         Ok(bytes) => bytes,
         Err(e) => {
             return MessageValidationResult::Invalid {
-                reason: ValidationError::SignatureInvalid {
+                reason: ValidationError::MalformedJson {
                     details: format!("Invalid signature hex: {}", e),
                 },
             };
@@ -128,7 +139,7 @@ pub async fn handle_incoming_message(
     };
 
     match verify_signature(
-        &sender_key_bytes,
+        &sender_public_key,
         canonical_message.as_bytes(),
         &signature_bytes,
     ) {

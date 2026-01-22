@@ -27,7 +27,7 @@ pub struct ActiveConnection {
 /// - Arc<ActiveConnection>: Enables efficient shared references without cloning
 #[derive(Debug, Clone)]
 pub struct Lobby {
-    pub users: Arc<RwLock<HashMap<PublicKey, Arc<ActiveConnection>>>>,
+    pub users: Arc<RwLock<HashMap<ServerPublicKey, Arc<ActiveConnection>>>>,
 }
 
 impl Lobby {
@@ -40,40 +40,40 @@ impl Lobby {
 
     /// Add a user to lobby (wraps connection in Arc)
     pub async fn add_user(&self, connection: ActiveConnection) -> Result<(), LobbyError> {
-        let mut users = self.users.write().await;
+        let mut users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.write().await;
         users.insert(connection.public_key.clone(), Arc::new(connection));
         Ok(())
     }
 
     /// Remove a user from the lobby
-    pub async fn remove_user(&self, public_key: &PublicKey) -> Result<(), LobbyError> {
-        let mut users = self.users.write().await;
+    pub async fn remove_user(&self, public_key: &ServerPublicKey) -> Result<(), LobbyError> {
+        let mut users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.write().await;
         users.remove(public_key);
         Ok(())
     }
 
     /// Get full lobby state as public keys
     pub async fn get_full_lobby_state(&self) -> Result<Vec<String>, LobbyError> {
-        let users = self.users.read().await;
+        let users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.read().await;
         let online_users: Vec<String> = users.keys().cloned().collect();
         Ok(online_users)
     }
 
     /// Check if a user is in lobby
-    pub async fn user_exists(&self, public_key: &PublicKey) -> Result<bool, LobbyError> {
-        let users = self.users.read().await;
+    pub async fn user_exists(&self, public_key: &ServerPublicKey) -> Result<bool, LobbyError> {
+        let users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.read().await;
         Ok(users.contains_key(public_key))
     }
 
     /// Get number of online users
     pub async fn user_count(&self) -> Result<usize, LobbyError> {
-        let users = self.users.read().await;
+        let users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.read().await;
         Ok(users.len())
     }
 
     /// Get all current connections as Arc wrappers (for broadcasting to all users)
     pub async fn get_all_connections(&self) -> Result<Vec<Arc<ActiveConnection>>, LobbyError> {
-        let users = self.users.read().await;
+        let users: std::collections::HashMap<ServerPublicKey, Arc<ActiveConnection>> = self.users.read().await;
         Ok(users.values().cloned().collect())
     }
 }
@@ -91,13 +91,58 @@ mod tests {
 
     #[tokio::test]
     async fn test_public_key_type_alias() {
-        let key: PublicKey = "test_key".to_string();
+        let key: ServerPublicKey = "test_key".to_string();
         assert_eq!(key, "test_key");
     }
 
     #[tokio::test]
     async fn test_active_connection_struct_construction() {
         let public_key = "test_key_123".to_string();
+
+        // Create mpsc channel for sender
+        let (sender, _) = mpsc::unbounded_channel::<Message>();
+
+        let connection = ActiveConnection {
+            public_key: public_key.clone(),
+            sender,
+            connection_id: 42,
+        };
+
+        assert_eq!(connection.public_key, public_key);
+        assert_eq!(connection.connection_id, 42);
+        // Note: sender field tested in integration tests with actual message sending
+    }
+
+    #[tokio::test]
+    async fn test_add_and_remove_user() {
+        let lobby = Lobby::new();
+        let public_key = "test_key".to_string();
+
+        // Test basic lobby state before adding user
+        assert_eq!(lobby.user_count().await.unwrap(), 0);
+        assert!(!lobby.user_exists(&public_key).await.unwrap());
+
+        // Add user
+        let (sender, _) = mpsc::unbounded_channel::<Message>();
+        let connection = ActiveConnection {
+            public_key: public_key.clone(),
+            sender,
+            connection_id: 1,
+        };
+
+        lobby.add_user(connection).await.unwrap();
+        assert_eq!(lobby.user_count().await.unwrap(), 1);
+        assert!(lobby.user_exists(&public_key).await.unwrap());
+
+        // Remove user
+        lobby.remove_user(&public_key).await.unwrap();
+        assert_eq!(lobby.user_count().await.unwrap(), 0);
+        assert!(!lobby.user_exists(&public_key).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_active_connection_struct_construction() {
+        let public_key = PublicKey::new(vec![42u8; 32]).unwrap();
 
         // Create mpsc channel for sender
         let (sender, _) = mpsc::unbounded_channel::<Message>();
@@ -123,7 +168,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_and_remove_user() {
         let lobby = Lobby::new();
-        let public_key = "test_key".to_string();
+        let public_key = PublicKey::new(vec![42u8; 32]).unwrap();
 
         // Test basic lobby state before adding user
         assert_eq!(lobby.user_count().await.unwrap(), 0);

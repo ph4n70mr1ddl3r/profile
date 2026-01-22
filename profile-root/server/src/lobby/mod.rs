@@ -12,4 +12,4 @@ pub mod manager;
 pub mod state;
 
 pub use manager::{add_user, get_current_users, get_user, remove_user};
-pub use state::{ActiveConnection, Lobby, PublicKey};
+pub use state::{ActiveConnection, Lobby, ServerPublicKey};

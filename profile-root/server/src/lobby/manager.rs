@@ -3,7 +3,7 @@
 //! This module implements the core lobby operations including add, remove, query,
 //! and broadcast functionality as specified in the story requirements.
 
-use crate::lobby::state::{ActiveConnection, Lobby, PublicKey};
+use crate::lobby::state::{ActiveConnection, Lobby};
 use profile_shared::{config, LobbyError, Message};
 use std::sync::Arc;
 

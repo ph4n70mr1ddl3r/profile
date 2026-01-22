@@ -3,7 +3,7 @@
 //! This module provides signature verification for messages using ed25519-dalek.
 //! Required by Story 1.5 (Authentication) and Story 3.4 (Receive/Verify Message Signature).
 
-use super::{signing::serialize_message_to_canonical_json, PublicKey};
+use super::signing::serialize_message_to_canonical_json;
 use crate::errors::CryptoError;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -14,7 +14,7 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 /// 2. Converting the public key to VerifyingKey
 /// 3. Using ed25519-dalek to verify the signature
 pub fn verify_signature(
-    public_key: &super::PublicKey,
+    public_key: &crate::crypto::PublicKey,
     message: &[u8],
     signature: &[u8],
 ) -> Result<(), CryptoError> {
@@ -31,7 +31,7 @@ pub fn verify_signature(
 
 /// Convert public key bytes to VerifyingKey
 fn convert_public_key_to_verifying_key(
-    public_key: &super::PublicKey,
+    public_key: &crate::crypto::PublicKey,
 ) -> Result<VerifyingKey, CryptoError> {
     let public_key_bytes: [u8; 32] = public_key.as_slice().try_into().map_err(|_| {
         CryptoError::VerificationFailed("Public key must be exactly 32 bytes".into())
@@ -78,7 +78,7 @@ mod tests {
         let signature = sign_message(&private_key, message).unwrap();
 
         // Verify should succeed
-        let public_key_wrapper = super::PublicKey::new(public_key).unwrap();
+        let public_key_wrapper = crate::crypto::PublicKey::new(public_key).unwrap();
         let result = verify_signature(&public_key_wrapper, message, &signature);
         assert!(result.is_ok(), "Valid signature should verify successfully");
     }
@@ -90,7 +90,7 @@ mod tests {
         let message = b"auth";
         let invalid_signature = vec![0u8; 64]; // Invalid signature
 
-        let public_key_wrapper = super::PublicKey::new(public_key).unwrap();
+        let public_key_wrapper = crate::crypto::PublicKey::new(public_key).unwrap();
         let result = verify_signature(&public_key_wrapper, message, &invalid_signature);
         assert!(
             result.is_err(),
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_verify_signature_wrong_message() {
         let private_key = PrivateKey::new(vec![42u8; 32]);
-        let public_key = super::PublicKey::new(vec![42u8; 32]).unwrap();
+        let public_key = crate::crypto::PublicKey::new(vec![42u8; 32]).unwrap();
         let message1 = b"auth";
         let message2 = b"different";
 
@@ -131,7 +131,7 @@ mod tests {
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key = signing_key.verifying_key();
         let private_key = PrivateKey::new(key_bytes.to_vec());
-        let public_key = super::PublicKey::new(verifying_key.to_bytes().to_vec()).unwrap();
+        let public_key = crate::crypto::PublicKey::new(verifying_key.to_bytes().to_vec()).unwrap();
         let message = b"auth";
 
         let signature = sign_message(&private_key, message).unwrap();
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn test_verify_signature_stub_exists() {
         // Test with stub implementation to ensure compilation
-        let public_key = super::PublicKey::new(vec![0u8; 32]).unwrap();
+        let public_key = crate::crypto::PublicKey::new(vec![0u8; 32]).unwrap();
         let message = b"test message";
         let signature = vec![0u8; 64];
 
