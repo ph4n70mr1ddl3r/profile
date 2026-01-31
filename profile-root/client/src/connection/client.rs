@@ -7,6 +7,7 @@ use crate::ui::lobby_state::{LobbyState, LobbyUser};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, info, warn};
@@ -509,7 +510,8 @@ pub struct WebSocketClient {
     /// Backoff multiplier for exponential backoff (AC4)
     reconnect_backoff_ms: u64,
     /// Queue for messages to send after reconnection (AC4 - race handling)
-    pending_messages: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
+    /// Maps recipient public key -> list of pending messages for that recipient
+    pending_messages: std::sync::Arc<tokio::sync::Mutex<HashMap<String, Vec<String>>>>,
     /// Notification when recipient goes offline during message composition (AC4)
     recipient_offline_handler: Option<RecipientOfflineCallback>,
 }
@@ -527,7 +529,7 @@ impl WebSocketClient {
             connection_state: ConnectionState::Disconnected,
             max_reconnect_attempts: 5,
             reconnect_backoff_ms: 1000,
-            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             recipient_offline_handler: None,
         }
     }
@@ -544,7 +546,7 @@ impl WebSocketClient {
             connection_state: ConnectionState::Disconnected,
             max_reconnect_attempts: 5,
             reconnect_backoff_ms: 1000,
-            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            pending_messages: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             recipient_offline_handler: None,
         }
     }
@@ -634,11 +636,16 @@ impl WebSocketClient {
                 let messages_to_send: Vec<String> = {
                     let mut pending = self.pending_messages.lock().await;
                     if !pending.is_empty() {
+                        let total_count: usize = pending.values().map(|v| v.len()).sum();
                         info!(
-                            count = pending.len(),
+                            count = total_count,
                             "Sending pending messages from reconnection"
                         );
-                        pending.drain(..).collect()
+                        // Flatten all pending messages into a single vector
+                        let messages: Vec<String> = pending.values().flatten().cloned().collect();
+                        // Clear the HashMap
+                        pending.clear();
+                        messages
                     } else {
                         vec![]
                     }
@@ -967,7 +974,9 @@ impl WebSocketClient {
                                     // Queue message for delivery when recipient comes online (AC4)
                                     if let Some(msg_content) = message {
                                         let mut pending = self.pending_messages.lock().await;
-                                        pending.push(msg_content.clone());
+                                        pending.entry(recipient_key.clone())
+                                            .or_insert_with(Vec::new)
+                                            .push(msg_content.clone());
                                         debug!(recipient = %recipient_key, message = %msg_content, "Message queued for delivery when recipient comes online");
                                     }
 
@@ -986,12 +995,9 @@ impl WebSocketClient {
 
                                     // Send pending messages for this user (AC4 - Deliver queued messages)
                                     let user_messages: Vec<String> = {
-                                        let pending = self.pending_messages.lock().await;
-                                        pending
-                                            .iter()
-                                            .filter(|msg| msg.contains(&public_key))
-                                            .cloned()
-                                            .collect()
+                                        let mut pending = self.pending_messages.lock().await;
+                                        // Remove and return messages for this recipient
+                                        pending.remove(&public_key).unwrap_or_default()
                                     };
 
                                     // Send messages after releasing lock
@@ -999,12 +1005,6 @@ impl WebSocketClient {
                                         if let Err(e) = self.send_message_internal(msg).await {
                                             warn!(user = %public_key, error = %e, "Failed to send queued message");
                                         }
-                                    }
-
-                                    // Remove delivered messages from queue
-                                    {
-                                        let mut pending = self.pending_messages.lock().await;
-                                        pending.retain(|msg| !msg.contains(&public_key));
                                     }
                                     info!(user = %public_key, count = user_messages.len(), "Delivered queued messages");
                                 }

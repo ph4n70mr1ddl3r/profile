@@ -3,6 +3,7 @@ use hex;
 use serde_json;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -43,6 +44,9 @@ pub async fn handle_connection(
 
     let (mut write, mut read) = ws_stream.split();
 
+    // Generate unique connection ID for rate limiting
+    let connection_id = generate_connection_id().to_string();
+
     // Create rate limiter for this connection
     let rate_limiter = Arc::new(AuthRateLimiter::new());
 
@@ -53,7 +57,7 @@ pub async fn handle_connection(
     if let Some(message_result) = read.next().await {
         let message = message_result?;
 
-        match handle_auth_message(&message, &lobby, &rate_limiter).await {
+        match handle_auth_message(&message, &lobby, &rate_limiter, &connection_id).await {
             AuthResult::Success {
                 public_key,
                 lobby_state: _,
@@ -153,8 +157,14 @@ pub async fn handle_connection(
     }
 
     // Connection loop - handle messages and disconnections
-    while let Some(msg_result) = read.next().await {
-        match msg_result {
+    loop {
+        // Add read timeout to prevent hanging connections
+        match tokio::time::timeout(
+            Duration::from_secs(30),
+            read.next()
+        ).await {
+            Ok(Some(msg_result)) => {
+                match msg_result {
             Ok(Message::Text(text)) => {
                 // Handle incoming message from authenticated user (Story 3.2 + 3.3)
                 // AC1: Route validated message to recipient via real-time push
@@ -370,6 +380,23 @@ pub async fn handle_connection(
                 );
             }
         }
+        }
+            Ok(None) | Err(_) => {
+                // Timeout or stream closed - treat as disconnection
+                let user_key = authenticated_key
+                    .as_ref()
+                    .map(|k| hex::encode(k.as_slice()))
+                    .unwrap_or_else(|| "unauthenticated".to_string());
+                tracing::info!("User {} disconnected (timeout or stream closed)", user_key);
+
+                // Clean up lobby on timeout
+                if let Some(ref key) = authenticated_key {
+                    let key_hex = hex::encode(key.as_slice());
+                    let _ = crate::lobby::remove_user(&lobby, &key_hex).await;
+                }
+                break;
+            }
+        }
     }
 
     Ok(())
@@ -379,9 +406,10 @@ async fn handle_auth_message(
     message: &Message,
     lobby: &Arc<Lobby>,
     rate_limiter: &Arc<AuthRateLimiter>,
+    client_id: &str,
 ) -> AuthResult {
     // Check rate limit first
-    if !rate_limiter.check_auth_allowed().await {
+    if !rate_limiter.check_auth_allowed(client_id).await {
         tracing::warn!("Authentication attempt rate limited");
         return AuthResult::Failure {
             reason: "rate_limited".to_string(),
@@ -433,7 +461,7 @@ mod tests {
 
         // This should work - message parsing should succeed even if auth fails
         let rate_limiter = Arc::new(AuthRateLimiter::new());
-        let auth_result = handle_auth_message(&message, &lobby, &rate_limiter).await;
+        let auth_result = handle_auth_message(&message, &lobby, &rate_limiter, "test_client_1").await;
 
         match auth_result {
             AuthResult::Failure { reason, details } => {
@@ -463,17 +491,17 @@ mod tests {
         let auth_message = Message::Text(
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
-        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter).await;
+        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_2a").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 2: Invalid JSON message
         let invalid_json = Message::Text(r#"{"type": "invalid", "data": "test"}"#.to_string());
-        let result = handle_auth_message(&invalid_json, &lobby, &rate_limiter).await;
+        let result = handle_auth_message(&invalid_json, &lobby, &rate_limiter, "test_client_2b").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 3: Non-text message (should fail)
         let binary_message = Message::Binary(vec![1, 2, 3, 4]);
-        let result = handle_auth_message(&binary_message, &lobby, &rate_limiter).await;
+        let result = handle_auth_message(&binary_message, &lobby, &rate_limiter, "test_client_2c").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         println!("✅ All message type tests passed");
@@ -504,7 +532,7 @@ mod tests {
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
         let rate_limiter = Arc::new(AuthRateLimiter::new());
-        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter).await;
+        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_3").await;
 
         match result {
             AuthResult::Success { lobby_state, .. } => {

@@ -810,9 +810,12 @@ fn main() -> Result<(), slint::PlatformError> {
                     "This message was cryptographically verified. It came from your public key.".into()
                 );
             } else {
-                // Show abbreviated fingerprint (first 8 chars + "...")
+                // Show abbreviated fingerprint (first 8 chars + "...") - safe UTF-8 handling
                 let fingerprint = if sender_key.len() > 12 {
-                    format!("{}...{}", &sender_key[..8], &sender_key[sender_key.len()-4..])
+                    let chars: Vec<char> = sender_key.chars().collect();
+                    let start: String = chars.iter().take(8).collect();
+                    let end: String = chars.iter().skip(chars.len() - 4).collect();
+                    format!("{}...{}", start, end)
                 } else {
                     sender_key.clone()
                 };

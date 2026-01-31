@@ -45,6 +45,22 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
         };
     }
 
+    // Validate hex format of public key
+    if !auth_message.public_key.chars().all(|c| c.is_ascii_hexdigit()) {
+        return AuthResult::Failure {
+            reason: "auth_failed".to_string(),
+            details: "Public key must be hexadecimal (0-9, a-f)".to_string(),
+        };
+    }
+
+    // Validate minimum length for ed25519 public keys (64 hex chars = 32 bytes)
+    if auth_message.public_key.len() < 64 {
+        return AuthResult::Failure {
+            reason: "auth_failed".to_string(),
+            details: "Public key too short (must be 64 hexadecimal characters)".to_string(),
+        };
+    }
+
     // Decode hex-encoded public key
     let public_key = match hex::decode(&auth_message.public_key) {
         Ok(key) => {
@@ -162,7 +178,7 @@ mod tests {
         match result {
             AuthResult::Failure { reason, details } => {
                 assert_eq!(reason, "auth_failed");
-                assert!(details.contains("Invalid hex encoding"));
+                assert!(details.contains("hexadecimal"));
             }
             AuthResult::Success { .. } => {
                 panic!("Authentication should have failed with invalid hex");
