@@ -59,10 +59,13 @@ impl AuthRateLimiter {
         // Get or create client state
         let window_duration = state.window_duration;
         let max_attempts = state.max_attempts_per_window;
-        let client_state = state.client_attempts.entry(client_id.to_string()).or_insert(ClientState {
-            attempts: 0,
-            window_start: now,
-        });
+        let client_state = state
+            .client_attempts
+            .entry(client_id.to_string())
+            .or_insert(ClientState {
+                attempts: 0,
+                window_start: now,
+            });
 
         // Reset window if expired
         if now.duration_since(client_state.window_start) >= window_duration {
@@ -83,7 +86,9 @@ impl AuthRateLimiter {
     pub async fn remaining_attempts(&self, client_id: &str) -> u32 {
         let state = self.state.lock().await;
         if let Some(client_state) = state.client_attempts.get(client_id) {
-            state.max_attempts_per_window.saturating_sub(client_state.attempts)
+            state
+                .max_attempts_per_window
+                .saturating_sub(client_state.attempts)
         } else {
             state.max_attempts_per_window
         }

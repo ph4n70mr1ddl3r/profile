@@ -44,8 +44,9 @@ pub async fn handle_connection(
 
     let (mut write, mut read) = ws_stream.split();
 
-    // Generate unique connection ID for rate limiting
-    let connection_id = generate_connection_id().to_string();
+    // Generate unique connection ID (used for both rate limiting and ActiveConnection)
+    let connection_id = generate_connection_id();
+    let connection_id_str = connection_id.to_string();
 
     // Create rate limiter for this connection
     let rate_limiter = Arc::new(AuthRateLimiter::new());
@@ -57,7 +58,7 @@ pub async fn handle_connection(
     if let Some(message_result) = read.next().await {
         let message = message_result?;
 
-        match handle_auth_message(&message, &lobby, &rate_limiter, &connection_id).await {
+        match handle_auth_message(&message, &lobby, &rate_limiter, &connection_id_str).await {
             AuthResult::Success {
                 public_key,
                 lobby_state: _,
@@ -83,7 +84,7 @@ pub async fn handle_connection(
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),
                     sender,
-                    connection_id: generate_connection_id(),
+                    connection_id,
                 };
 
                 // Add user to lobby before sending auth success
@@ -159,228 +160,228 @@ pub async fn handle_connection(
     // Connection loop - handle messages and disconnections
     loop {
         // Add read timeout to prevent hanging connections
-        match tokio::time::timeout(
-            Duration::from_secs(30),
-            read.next()
-        ).await {
+        match tokio::time::timeout(Duration::from_secs(30), read.next()).await {
             Ok(Some(msg_result)) => {
                 match msg_result {
-            Ok(Message::Text(text)) => {
-                // Handle incoming message from authenticated user (Story 3.2 + 3.3)
-                // AC1: Route validated message to recipient via real-time push
-                if let Some(ref sender_key) = authenticated_key {
-                    // Validate the message (Story 3.2)
-                    let sender_key_hex = hex::encode(sender_key.as_slice());
-                    tracing::debug!(sender = %sender_key_hex, "Received message, validating and routing...");
-                    let validation_result =
-                        handle_incoming_message(&lobby, &sender_key_hex, &text).await;
+                    Ok(Message::Text(text)) => {
+                        // Handle incoming message from authenticated user (Story 3.2 + 3.3)
+                        // AC1: Route validated message to recipient via real-time push
+                        if let Some(ref sender_key) = authenticated_key {
+                            // Validate the message (Story 3.2)
+                            let sender_key_hex = hex::encode(sender_key.as_slice());
+                            tracing::debug!(sender = %sender_key_hex, "Received message, validating and routing...");
+                            let validation_result =
+                                handle_incoming_message(&lobby, &sender_key_hex, &text).await;
 
-                    // Handle validation result
-                    match validation_result {
-                        MessageValidationResult::Valid { .. } => {
-                            // Message is valid, route to recipient (Story 3.3)
-                            match route_message(&lobby, &validation_result).await {
-                                Ok(()) => {
-                                    tracing::debug!("Message routed successfully");
-                                }
-                                Err(e) => {
-                                    // AC7: Log failed delivery but don't return error to sender
-                                    tracing::warn!("Message delivery failed: {}", e);
-                                    // No error returned to sender - server-side issue
-                                }
-                            }
-                        }
-                        MessageValidationResult::Invalid { reason } => {
-                            // Validation failed - send error response back to sender
-                            tracing::debug!(sender = %sender_key_hex, ?reason, "Message validation failed");
-
-                            // Get sender's connection to send error response
-                            if let Ok(Some(sender_conn)) =
-                                crate::lobby::get_user(&lobby, &sender_key_hex).await
-                            {
-                                // Create error message format matching protocol spec (AC3, AC4, AC5)
-                                let error_response = match &reason {
-                                    crate::message::ValidationError::NotAuthenticated {
-                                        details,
-                                    } => profile_shared::Message::Error {
-                                        reason: "auth_failed".to_string(),
-                                        details: Some(details.clone()),
-                                    },
-                                    crate::message::ValidationError::MalformedJson { details } => {
-                                        profile_shared::Message::Error {
-                                            reason: "malformed_json".to_string(),
-                                            details: Some(details.clone()),
+                            // Handle validation result
+                            match validation_result {
+                                MessageValidationResult::Valid { .. } => {
+                                    // Message is valid, route to recipient (Story 3.3)
+                                    match route_message(&lobby, &validation_result).await {
+                                        Ok(()) => {
+                                            tracing::debug!("Message routed successfully");
+                                        }
+                                        Err(e) => {
+                                            // AC7: Log failed delivery but don't return error to sender
+                                            tracing::warn!("Message delivery failed: {}", e);
+                                            // No error returned to sender - server-side issue
                                         }
                                     }
-                                    crate::message::ValidationError::SignatureInvalid {
-                                        details,
-                                    } => profile_shared::Message::Error {
-                                        reason: "signature_invalid".to_string(),
-                                        details: Some(details.clone()),
-                                    },
-                                    crate::message::ValidationError::RecipientOffline {
-                                        recipient_key,
-                                    } => profile_shared::Message::Error {
-                                        reason: "offline".to_string(),
-                                        details: Some(format!(
-                                            "User {} is not currently online",
-                                            recipient_key
-                                        )),
-                                    },
-                                    crate::message::ValidationError::CannotMessageSelf => {
-                                        profile_shared::Message::Error {
-                                            reason: "invalid_recipient".to_string(),
-                                            details: Some(
-                                                "Cannot send message to yourself".to_string(),
-                                            ),
-                                        }
-                                    }
-                                };
+                                }
+                                MessageValidationResult::Invalid { reason } => {
+                                    // Validation failed - send error response back to sender
+                                    tracing::debug!(sender = %sender_key_hex, ?reason, "Message validation failed");
 
-                                // Send error via the sender's WebSocket connection
-                                let _ = sender_conn.sender.send(error_response);
+                                    // Get sender's connection to send error response
+                                    if let Ok(Some(sender_conn)) =
+                                        crate::lobby::get_user(&lobby, &sender_key_hex).await
+                                    {
+                                        // Create error message format matching protocol spec (AC3, AC4, AC5)
+                                        let error_response = match &reason {
+                                            crate::message::ValidationError::NotAuthenticated {
+                                                details,
+                                            } => profile_shared::Message::Error {
+                                                reason: "auth_failed".to_string(),
+                                                details: Some(details.clone()),
+                                            },
+                                            crate::message::ValidationError::MalformedJson {
+                                                details,
+                                            } => profile_shared::Message::Error {
+                                                reason: "malformed_json".to_string(),
+                                                details: Some(details.clone()),
+                                            },
+                                            crate::message::ValidationError::SignatureInvalid {
+                                                details,
+                                            } => profile_shared::Message::Error {
+                                                reason: "signature_invalid".to_string(),
+                                                details: Some(details.clone()),
+                                            },
+                                            crate::message::ValidationError::RecipientOffline {
+                                                recipient_key,
+                                            } => profile_shared::Message::Error {
+                                                reason: "offline".to_string(),
+                                                details: Some(format!(
+                                                    "User {} is not currently online",
+                                                    recipient_key
+                                                )),
+                                            },
+                                            crate::message::ValidationError::CannotMessageSelf => {
+                                                profile_shared::Message::Error {
+                                                    reason: "invalid_recipient".to_string(),
+                                                    details: Some(
+                                                        "Cannot send message to yourself"
+                                                            .to_string(),
+                                                    ),
+                                                }
+                                            }
+                                        };
+
+                                        // Send error via the sender's WebSocket connection
+                                        let _ = sender_conn.sender.send(error_response);
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            }
-            Ok(Message::Close(_frame)) => {
-                // Log disconnect event with tracing (subscriber configured in main.rs)
-                // Note: authenticated_key should always be Some if we reached this point
-                // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key
-                    .as_ref()
-                    .map(|k| hex::encode(k.as_slice()))
-                    .unwrap_or_else(|| "unauthenticated".to_string());
-                tracing::info!(
-                    "User {} disconnected, broadcasting leave notification",
-                    user_key
-                );
+                    Ok(Message::Close(_frame)) => {
+                        // Log disconnect event with tracing (subscriber configured in main.rs)
+                        // Note: authenticated_key should always be Some if we reached this point
+                        // as we only enter the message loop after successful authentication
+                        let user_key = authenticated_key
+                            .as_ref()
+                            .map(|k| hex::encode(k.as_slice()))
+                            .unwrap_or_else(|| "unauthenticated".to_string());
+                        tracing::info!(
+                            "User {} disconnected, broadcasting leave notification",
+                            user_key
+                        );
 
-                // CRITICAL: Clean up lobby using new API
-                // Note: remove_user() handles broadcast_user_left internally
-                if let Some(ref key) = authenticated_key {
-                    let key_hex = hex::encode(key.as_slice());
-                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
-                        match e {
-                            LobbyError::LockFailed => {
-                                // CRITICAL: User may remain "stuck" in lobby
-                                // This is a serious error that could lead to ghost users
-                                tracing::error!(
+                        // CRITICAL: Clean up lobby using new API
+                        // Note: remove_user() handles broadcast_user_left internally
+                        if let Some(ref key) = authenticated_key {
+                            let key_hex = hex::encode(key.as_slice());
+                            if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
+                                match e {
+                                    LobbyError::LockFailed => {
+                                        // CRITICAL: User may remain "stuck" in lobby
+                                        // This is a serious error that could lead to ghost users
+                                        tracing::error!(
                                     "CRITICAL: Failed to acquire lobby lock for user {} removal: {}. \
                                      User may remain visible to others incorrectly.",
                                     &key_hex[..16],
                                     e
                                 );
-                                // Return error to signal this needs attention
-                                return Err(
-                                    format!("Lobby lock failure on disconnect: {}", e).into()
-                                );
-                            }
-                            LobbyError::BroadcastFailed => {
-                                // User was removed from lobby but broadcast to other users failed
-                                // This is a non-critical error - user is cleaned up but others
-                                // won't be notified. Log as warning.
-                                tracing::warn!(
+                                        // Return error to signal this needs attention
+                                        return Err(format!(
+                                            "Lobby lock failure on disconnect: {}",
+                                            e
+                                        )
+                                        .into());
+                                    }
+                                    LobbyError::BroadcastFailed => {
+                                        // User was removed from lobby but broadcast to other users failed
+                                        // This is a non-critical error - user is cleaned up but others
+                                        // won't be notified. Log as warning.
+                                        tracing::warn!(
                                     "User {}... removed from lobby but leave notification failed to broadcast: {}",
                                     &key_hex[..16],
                                     e
                                 );
-                            }
-                            _ => {
-                                tracing::error!(
-                                    "Failed to remove user {}... from lobby: {}",
-                                    &key_hex[..16],
-                                    e
+                                    }
+                                    _ => {
+                                        tracing::error!(
+                                            "Failed to remove user {}... from lobby: {}",
+                                            &key_hex[..16],
+                                            e
+                                        );
+                                        return Err(format!("Lobby removal error: {}", e).into());
+                                    }
+                                }
+                            } else {
+                                tracing::debug!(
+                                    "User {}... removed from lobby successfully",
+                                    &key_hex[..16]
                                 );
-                                return Err(format!("Lobby removal error: {}", e).into());
                             }
                         }
-                    } else {
-                        tracing::debug!(
-                            "User {}... removed from lobby successfully",
-                            &key_hex[..16]
-                        );
+                        break;
                     }
-                }
-                break;
-            }
-            Err(e) => {
-                // Note: authenticated_key should always be Some if we reached this point
-                // as we only enter the message loop after successful authentication
-                let user_key = authenticated_key
-                    .as_ref()
-                    .map(|k| hex::encode(k.as_slice()))
-                    .unwrap_or_else(|| "unauthenticated".to_string());
-                // Log the error but don't claim "disconnection" - WebSocket read errors
-                // could be network flakiness, malformed messages, etc., not actual disconnections
-                tracing::error!("WebSocket error for user {}: {}", user_key, e);
+                    Err(e) => {
+                        // Note: authenticated_key should always be Some if we reached this point
+                        // as we only enter the message loop after successful authentication
+                        let user_key = authenticated_key
+                            .as_ref()
+                            .map(|k| hex::encode(k.as_slice()))
+                            .unwrap_or_else(|| "unauthenticated".to_string());
+                        // Log the error but don't claim "disconnection" - WebSocket read errors
+                        // could be network flakiness, malformed messages, etc., not actual disconnections
+                        tracing::error!("WebSocket error for user {}: {}", user_key, e);
 
-                // Clean up lobby on error - this is treated as a disconnection event
-                // because the connection stream has failed
-                if let Some(ref key) = authenticated_key {
-                    let key_hex = hex::encode(key.as_slice());
-                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
-                        match e {
-                            LobbyError::LockFailed => {
-                                // CRITICAL: User may remain "stuck" in lobby
-                                // This is a serious error that could lead to ghost users
-                                tracing::error!(
+                        // Clean up lobby on error - this is treated as a disconnection event
+                        // because the connection stream has failed
+                        if let Some(ref key) = authenticated_key {
+                            let key_hex = hex::encode(key.as_slice());
+                            if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
+                                match e {
+                                    LobbyError::LockFailed => {
+                                        // CRITICAL: User may remain "stuck" in lobby
+                                        // This is a serious error that could lead to ghost users
+                                        tracing::error!(
                                     "CRITICAL: Failed to acquire lobby lock for user {}... removal on error: {}. \
                                      User may remain visible to others incorrectly.",
                                     &key_hex[..16],
                                     e
                                 );
-                                // Return error to signal this needs attention
-                                return Err(format!(
-                                    "Lobby lock failure on error disconnect: {}",
-                                    e
-                                )
-                                .into());
-                            }
-                            LobbyError::BroadcastFailed => {
-                                // Non-critical: User removed but notification failed
-                                tracing::warn!(
+                                        // Return error to signal this needs attention
+                                        return Err(format!(
+                                            "Lobby lock failure on error disconnect: {}",
+                                            e
+                                        )
+                                        .into());
+                                    }
+                                    LobbyError::BroadcastFailed => {
+                                        // Non-critical: User removed but notification failed
+                                        tracing::warn!(
                                     "User {}... removed from lobby but leave notification failed to broadcast: {}",
                                     &key_hex[..16],
                                     e
                                 );
-                            }
-                            _ => {
-                                tracing::error!(
-                                    "Failed to remove user {}... from lobby: {}",
-                                    &key_hex[..16],
-                                    e
-                                );
-                                return Err(format!("Lobby removal error: {}", e).into());
-                            }
-                        }
-                    } else {
-                        tracing::debug!(
+                                    }
+                                    _ => {
+                                        tracing::error!(
+                                            "Failed to remove user {}... from lobby: {}",
+                                            &key_hex[..16],
+                                            e
+                                        );
+                                        return Err(format!("Lobby removal error: {}", e).into());
+                                    }
+                                }
+                            } else {
+                                tracing::debug!(
                             "User {}... removed from lobby successfully after WebSocket error",
                             &key_hex[..16]
                         );
+                            }
+                        }
+                        break;
+                    }
+                    _ => {
+                        // Handle other message types (binary, ping, pong, etc.)
+                        // Log at debug level for debugging purposes - these are normal WebSocket events
+                        tracing::debug!(
+                            "Received non-text, non-close message type for user {}: {:?}",
+                            authenticated_key
+                                .as_ref()
+                                .map(|k| hex::encode(k.as_slice()))
+                                .unwrap_or_else(|| "unauthenticated".to_string()),
+                            msg_result
+                                .as_ref()
+                                .map(|m| m.to_string())
+                                .unwrap_or_else(|e| format!("Error: {}", e))
+                        );
                     }
                 }
-                break;
             }
-            _ => {
-                // Handle other message types (binary, ping, pong, etc.)
-                // Log at debug level for debugging purposes - these are normal WebSocket events
-                tracing::debug!(
-                    "Received non-text, non-close message type for user {}: {:?}",
-                    authenticated_key
-                        .as_ref()
-                        .map(|k| hex::encode(k.as_slice()))
-                        .unwrap_or_else(|| "unauthenticated".to_string()),
-                    msg_result
-                        .as_ref()
-                        .map(|m| m.to_string())
-                        .unwrap_or_else(|e| format!("Error: {}", e))
-                );
-            }
-        }
-        }
             Ok(None) | Err(_) => {
                 // Timeout or stream closed - treat as disconnection
                 let user_key = authenticated_key
@@ -461,7 +462,8 @@ mod tests {
 
         // This should work - message parsing should succeed even if auth fails
         let rate_limiter = Arc::new(AuthRateLimiter::new());
-        let auth_result = handle_auth_message(&message, &lobby, &rate_limiter, "test_client_1").await;
+        let auth_result =
+            handle_auth_message(&message, &lobby, &rate_limiter, "test_client_1").await;
 
         match auth_result {
             AuthResult::Failure { reason, details } => {
@@ -491,17 +493,20 @@ mod tests {
         let auth_message = Message::Text(
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
-        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_2a").await;
+        let result =
+            handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_2a").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 2: Invalid JSON message
         let invalid_json = Message::Text(r#"{"type": "invalid", "data": "test"}"#.to_string());
-        let result = handle_auth_message(&invalid_json, &lobby, &rate_limiter, "test_client_2b").await;
+        let result =
+            handle_auth_message(&invalid_json, &lobby, &rate_limiter, "test_client_2b").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         // Test 3: Non-text message (should fail)
         let binary_message = Message::Binary(vec![1, 2, 3, 4]);
-        let result = handle_auth_message(&binary_message, &lobby, &rate_limiter, "test_client_2c").await;
+        let result =
+            handle_auth_message(&binary_message, &lobby, &rate_limiter, "test_client_2c").await;
         assert!(matches!(result, AuthResult::Failure { .. }));
 
         println!("✅ All message type tests passed");
@@ -532,7 +537,8 @@ mod tests {
             r#"{"type": "auth", "publicKey": "deadbeef", "signature": "cafebabe"}"#.to_string(),
         );
         let rate_limiter = Arc::new(AuthRateLimiter::new());
-        let result = handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_3").await;
+        let result =
+            handle_auth_message(&auth_message, &lobby, &rate_limiter, "test_client_3").await;
 
         match result {
             AuthResult::Success { lobby_state, .. } => {

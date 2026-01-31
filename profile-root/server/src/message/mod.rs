@@ -215,10 +215,7 @@ fn parse_message_json(json: &str) -> Result<SendMessageRequest, String> {
 ///
 /// # Returns
 /// Ok(()) if message was delivered, Err(reason) if delivery failed
-#[tracing::instrument(
-    skip(lobby, validated),
-    fields(sender = "validated", recipient = "validated")
-)]
+#[tracing::instrument(skip(lobby, validated))]
 pub async fn route_message(
     lobby: &Lobby,
     validated: &MessageValidationResult,

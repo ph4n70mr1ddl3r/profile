@@ -46,7 +46,11 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
     }
 
     // Validate hex format of public key
-    if !auth_message.public_key.chars().all(|c| c.is_ascii_hexdigit()) {
+    if !auth_message
+        .public_key
+        .chars()
+        .all(|c| c.is_ascii_hexdigit())
+    {
         return AuthResult::Failure {
             reason: "auth_failed".to_string(),
             details: "Public key must be hexadecimal (0-9, a-f)".to_string(),

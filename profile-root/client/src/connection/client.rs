@@ -974,7 +974,8 @@ impl WebSocketClient {
                                     // Queue message for delivery when recipient comes online (AC4)
                                     if let Some(msg_content) = message {
                                         let mut pending = self.pending_messages.lock().await;
-                                        pending.entry(recipient_key.clone())
+                                        pending
+                                            .entry(recipient_key.clone())
                                             .or_insert_with(Vec::new)
                                             .push(msg_content.clone());
                                         debug!(recipient = %recipient_key, message = %msg_content, "Message queued for delivery when recipient comes online");
