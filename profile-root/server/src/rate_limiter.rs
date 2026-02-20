@@ -19,6 +19,7 @@ struct RateLimitState {
     client_attempts: HashMap<String, ClientState>,
     max_attempts_per_window: u32,
     window_duration: Duration,
+    max_tracked_clients: usize,
 }
 
 /// Multiplier for cleanup threshold (entries older than this * window_duration are removed)
@@ -42,6 +43,7 @@ impl AuthRateLimiter {
                 client_attempts: HashMap::new(),
                 max_attempts_per_window: config::connection::rate_limit::MAX_AUTH_ATTEMPTS,
                 window_duration: config::connection::rate_limit::AUTH_WINDOW_DURATION,
+                max_tracked_clients: config::connection::rate_limit::MAX_TRACKED_CLIENTS,
             })),
         }
     }
@@ -59,6 +61,21 @@ impl AuthRateLimiter {
             now.duration_since(client_state.window_start)
                 < window_duration * CLEANUP_MULTIPLIER as u32
         });
+
+        // Memory protection: enforce maximum tracked clients limit
+        // If at capacity and this is a new client, reject to prevent memory exhaustion
+        let max_tracked = state.max_tracked_clients;
+        if state.client_attempts.len() >= max_tracked
+            && !state.client_attempts.contains_key(client_id)
+        {
+            tracing::warn!(
+                client_id = %client_id,
+                current_count = state.client_attempts.len(),
+                max_tracked = max_tracked,
+                "Rate limiter at capacity, rejecting new client"
+            );
+            return false;
+        }
 
         // Get or create client state
         let window_duration = state.window_duration;

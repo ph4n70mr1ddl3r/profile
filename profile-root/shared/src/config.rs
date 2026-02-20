@@ -48,8 +48,8 @@ pub mod connection {
         /// Time window for rate limiting
         pub const AUTH_WINDOW_DURATION: std::time::Duration = std::time::Duration::from_secs(60);
 
-        /// Burst allowance for rate limiting
-        pub const BURST_ALLOWANCE: u32 = 3;
+        /// Maximum number of tracked clients in rate limiter (memory protection)
+        pub const MAX_TRACKED_CLIENTS: usize = 10000;
     }
 }
 

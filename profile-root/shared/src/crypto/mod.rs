@@ -146,12 +146,6 @@ impl PrivateKey {
 
         Ok(Self(zeroize::Zeroizing::new(bytes)))
     }
-
-    /// Create a testing clone of the private key (security: intentionally avoids implementing Clone)
-    #[cfg(any(test, feature = "testing"))]
-    pub fn clone_for_testing_only(&self) -> Self {
-        Self(zeroize::Zeroizing::new(self.as_slice().to_vec()))
-    }
 }
 
 /// Secure public key wrapper

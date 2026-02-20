@@ -31,7 +31,10 @@ enum CleanupResult {
 async fn cleanup_user_from_lobby(lobby: &Arc<Lobby>, key_hex: &str) -> CleanupResult {
     match crate::lobby::remove_user(lobby, key_hex).await {
         Ok(()) => {
-            tracing::debug!("User {}... removed from lobby successfully", truncate_key(key_hex));
+            tracing::debug!(
+                "User {}... removed from lobby successfully",
+                truncate_key(key_hex)
+            );
             CleanupResult::Success
         }
         Err(LobbyError::LockFailed) => {
@@ -50,7 +53,11 @@ async fn cleanup_user_from_lobby(lobby: &Arc<Lobby>, key_hex: &str) -> CleanupRe
             CleanupResult::BroadcastFailed
         }
         Err(e) => {
-            tracing::error!("Failed to remove user {}... from lobby: {}", truncate_key(key_hex), e);
+            tracing::error!(
+                "Failed to remove user {}... from lobby: {}",
+                truncate_key(key_hex),
+                e
+            );
             CleanupResult::OtherError(e)
         }
     }

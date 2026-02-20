@@ -66,8 +66,11 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
         };
     }
 
+    // Normalize public key to lowercase for consistent processing
+    let normalized_public_key = auth_message.public_key.to_lowercase();
+
     // Decode hex-encoded public key
-    let public_key = match hex::decode(&auth_message.public_key) {
+    let public_key = match hex::decode(&normalized_public_key) {
         Ok(key) => {
             // Validate public key length (ed25519 keys are 32 bytes)
             if key.len() != 32 {
@@ -146,10 +149,13 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
             reason: "auth_failed".to_string(),
             details: "Signature verification failed".to_string(),
         },
-        Err(e) => AuthResult::Failure {
-            reason: "auth_failed".to_string(),
-            details: format!("Authentication error: {}", e),
-        },
+        Err(e) => {
+            tracing::error!("Authentication error: {}", e);
+            AuthResult::Failure {
+                reason: "auth_failed".to_string(),
+                details: "Authentication failed".to_string(),
+            }
+        }
     }
 }
 
