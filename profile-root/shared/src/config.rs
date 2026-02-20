@@ -25,6 +25,9 @@ pub mod message {
 
     /// Maximum allowed timestamp drift in seconds (5 minutes)
     pub const MAX_TIMESTAMP_DRIFT_SECS: i64 = 300;
+
+    /// Hard limit for extreme/malformed timestamps (24 hours)
+    pub const MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE: i64 = 86400;
 }
 
 /// Connection configuration

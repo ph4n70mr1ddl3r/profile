@@ -82,6 +82,7 @@ pub async fn handle_connection(
                 // implementing broadcast helpers in Story 2.3.
                 let (sender, _receiver) =
                     tokio::sync::mpsc::unbounded_channel::<profile_shared::Message>();
+                drop(_receiver); // Explicit drop for clarity
                 let public_key_string = hex::encode(public_key.as_slice());
                 let connection = ActiveConnection {
                     public_key: public_key_string.clone(),

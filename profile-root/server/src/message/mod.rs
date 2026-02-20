@@ -125,7 +125,8 @@ pub async fn handle_incoming_message(
 
     // Validate timestamp to prevent replay attacks
     const MAX_TIMESTAMP_DRIFT_SECS: i64 = profile_shared::config::message::MAX_TIMESTAMP_DRIFT_SECS;
-    const MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE: i64 = 86400; // 24 hours - hard limit for extreme values
+    const MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE: i64 =
+        profile_shared::config::message::MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE;
     match chrono::DateTime::parse_from_rfc3339(&message_request.timestamp) {
         Ok(timestamp) => {
             let timestamp_utc = timestamp.with_timezone(&chrono::Utc);

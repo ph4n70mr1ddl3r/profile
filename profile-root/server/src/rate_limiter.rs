@@ -21,6 +21,9 @@ struct RateLimitState {
     window_duration: Duration,
 }
 
+/// Multiplier for cleanup threshold (entries older than this * window_duration are removed)
+const CLEANUP_MULTIPLIER: u8 = 2;
+
 struct ClientState {
     attempts: u32,
     window_start: Instant,
@@ -50,10 +53,11 @@ impl AuthRateLimiter {
         let mut state = self.state.lock().await;
         let now = Instant::now();
 
-        // Clean up expired entries (older than 2x window duration)
+        // Clean up expired entries (older than CLEANUP_MULTIPLIER * window duration)
         let window_duration = state.window_duration;
         state.client_attempts.retain(|_, client_state| {
-            now.duration_since(client_state.window_start) < window_duration * 2
+            now.duration_since(client_state.window_start)
+                < window_duration * CLEANUP_MULTIPLIER as u32
         });
 
         // Get or create client state

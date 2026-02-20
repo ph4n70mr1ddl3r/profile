@@ -512,9 +512,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_import_error_message(err.into());
                     ui.set_show_import_error(true);
                 }
-            }
-// Reset guard to allow future imports
-            importing.store(false, Ordering::SeqCst);
+                }
+                // Reset guard to allow future imports
+                importing.store(false, Ordering::SeqCst);
         });
     });
 
