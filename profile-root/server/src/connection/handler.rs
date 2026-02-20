@@ -36,22 +36,17 @@ fn generate_connection_id() -> u64 {
         .unwrap_or(1)
 }
 
-/// Connection handler that processes WebSocket connections
 pub async fn handle_connection(
     stream: TcpStream,
     lobby: Arc<Lobby>,
+    rate_limiter: Arc<AuthRateLimiter>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Accept WebSocket handshake
     let ws_stream = tokio_tungstenite::accept_async(stream).await?;
 
     let (mut write, mut read) = ws_stream.split();
 
-    // Generate unique connection ID (used for both rate limiting and ActiveConnection)
     let connection_id = generate_connection_id();
     let connection_id_str = connection_id.to_string();
-
-    // Create rate limiter for this connection
-    let rate_limiter = Arc::new(AuthRateLimiter::new());
 
     // Track authenticated user's public key for cleanup
     let mut authenticated_key: Option<PublicKey> = None;
@@ -100,11 +95,10 @@ pub async fn handle_connection(
                     }
                     Err(e) => {
                         tracing::error!("Failed to add user to lobby: {}", e);
-                        // Send error and close connection - user cannot be authenticated
                         let error_msg = AuthErrorMessage {
                             r#type: "error".to_string(),
                             reason: "lobby_error".to_string(),
-                            details: format!("Failed to join lobby: {}", e),
+                            details: "Unable to join lobby. Please try again.".to_string(),
                         };
                         let error_json = serde_json::to_string(&error_msg)?;
                         write.send(Message::Text(error_json)).await?;
@@ -160,10 +154,11 @@ pub async fn handle_connection(
         }
     }
 
-    // Connection loop - handle messages and disconnections
+    const AUTHENTICATED_READ_TIMEOUT_SECS: u64 = 300;
+    let read_timeout = Duration::from_secs(AUTHENTICATED_READ_TIMEOUT_SECS);
+
     loop {
-        // Add read timeout to prevent hanging connections
-        match tokio::time::timeout(Duration::from_secs(30), read.next()).await {
+        match tokio::time::timeout(read_timeout, read.next()).await {
             Ok(Some(msg_result)) => {
                 match msg_result {
                     Ok(Message::Text(text)) => {
