@@ -189,8 +189,9 @@ async fn test_full_message_flow_composition_to_history() {
 
     // Verify JSON structure
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed["message_type"], "Text");
+    assert_eq!(parsed["type"], "message");
     assert_eq!(parsed["message"], "Hello, World!");
+    assert_eq!(parsed["recipientPublicKey"], recipient_key);
     assert!(parsed["signature"].is_string());
     assert!(parsed["timestamp"].is_string());
 
@@ -369,9 +370,11 @@ async fn test_message_format_for_websocket() {
 
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
-    // Verify all required protocol fields
-    assert!(parsed.get("message_type").is_some(), "Missing message_type");
+    // Verify all required protocol fields (matches server's SendMessageRequest)
+    assert!(parsed.get("type").is_some(), "Missing type");
+    assert_eq!(parsed["type"], "message", "type should be 'message'");
     assert!(parsed.get("message").is_some(), "Missing message");
+    assert!(parsed.get("recipientPublicKey").is_some(), "Missing recipientPublicKey");
     assert!(
         parsed.get("senderPublicKey").is_some(),
         "Missing senderPublicKey"

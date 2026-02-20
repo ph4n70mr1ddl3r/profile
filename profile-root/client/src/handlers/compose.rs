@@ -3,7 +3,7 @@
 //! This module provides message composition functionality for creating
 //! and sending cryptographically signed messages. Required by Story 3.1.
 
-use chrono::{SecondsFormat, Utc};
+use chrono::Utc;
 use serde_json;
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
@@ -83,7 +83,7 @@ fn validate_message_not_empty(message: &str) -> Result<(), ComposeError> {
 /// - Lock acquisition fails
 pub async fn compose_and_send_message(
     message_text: String,
-    _recipient_public_key: String,
+    recipient_public_key: String,
     key_state: &SharedKeyState,
     message_history: &SharedMessageHistory,
 ) -> Result<String, ComposeError> {
@@ -91,7 +91,7 @@ pub async fn compose_and_send_message(
     validate_message_not_empty(&message_text)?;
 
     // 1. Get keys and create signature within lock scope
-    let (public_key, signature) = {
+    let (public_key, timestamp, signature) = {
         let key_guard = key_state.lock().await;
         let public_key = key_guard
             .public_key()
@@ -99,26 +99,19 @@ pub async fn compose_and_send_message(
             .clone();
         let private_key = key_guard.private_key().ok_or(ComposeError::NoPrivateKey)?;
 
-        // Create canonical JSON for signing
-        let canonical_json = serde_json::json!({
-            "type": "message",
-            "message": message_text,
-            "senderPublicKey": hex::encode(&public_key),
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        });
+        // Create canonical message for signing (must match server verification format)
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        let canonical_message = format!("{}:{}", message_text, timestamp);
 
-        // Sign the canonical JSON
-        let signature = sign_message(private_key, canonical_json.to_string().as_bytes())
+        // Sign the canonical message
+        let signature = sign_message(private_key, canonical_message.as_bytes())
             .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
-        (public_key, signature)
+        (public_key, timestamp, signature)
     };
 
     // Convert public_key to hex string for message
     let public_key_hex = hex::encode(&public_key);
-
-    // 2. Generate timestamp (ISO8601 format - RFC3339 with seconds precision)
-    let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
 
     // 5. Create ChatMessage object with all fields
     // This message is marked as "verified" since we just signed it ourselves
@@ -136,14 +129,17 @@ pub async fn compose_and_send_message(
     }
 
     // 4. Create and serialize the protocol message for WebSocket transmission
-    let protocol_message = profile_shared::protocol::Message::new_text(
-        message_text,
-        public_key_hex.clone(),
-        hex::encode(signature),
-        timestamp,
-    );
+    // Format matches server's SendMessageRequest structure
+    let message_json = serde_json::json!({
+        "type": "message",
+        "recipientPublicKey": recipient_public_key,
+        "message": message_text,
+        "senderPublicKey": public_key_hex,
+        "signature": hex::encode(signature),
+        "timestamp": timestamp
+    });
 
-    let message_json = serde_json::to_string(&protocol_message)
+    let message_json = serde_json::to_string(&message_json)
         .map_err(|e| ComposeError::SerializationError(e.to_string()))?;
 
     Ok(message_json)
@@ -179,19 +175,14 @@ pub async fn compose_message_draft(
         // Convert public_key to hex string
         let public_key_hex = hex::encode(&public_key);
 
-        // Generate timestamp
-        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
+        // Generate timestamp (RFC3339 format)
+        let timestamp = Utc::now().to_rfc3339();
 
-        // Create canonical JSON
-        let canonical_json = serde_json::json!({
-            "type": "message",
-            "message": message_text,
-            "senderPublicKey": public_key_hex,
-            "timestamp": timestamp
-        });
+        // Create canonical message for signing (must match server verification format)
+        let canonical_message = format!("{}:{}", message_text, timestamp);
 
         // Sign the message
-        let signature = sign_message(private_key, canonical_json.to_string().as_bytes())
+        let signature = sign_message(private_key, canonical_message.as_bytes())
             .map_err(|e| ComposeError::SigningError(e.to_string()))?;
 
         (public_key_hex, timestamp, signature)
@@ -242,8 +233,9 @@ mod tests {
 
         // Verify JSON contains expected fields
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed["message_type"], "Text");
+        assert_eq!(parsed["type"], "message");
         assert_eq!(parsed["message"], "Hello, World!");
+        assert_eq!(parsed["recipientPublicKey"], "recipient_key");
         assert!(parsed["signature"].is_string());
         assert!(parsed["timestamp"].is_string());
 
@@ -326,17 +318,19 @@ mod tests {
 
     #[test]
     fn test_timestamp_format() {
-        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false);
+        let timestamp = Utc::now().to_rfc3339();
 
-        // Verify format matches expected pattern (RFC3339 basic)
-        // Should contain T and should NOT end with Z for basic format
+        // Verify format matches RFC3339 (ISO8601)
+        // Should contain T separator
         assert!(
             timestamp.contains('T'),
             "Timestamp should contain T separator"
         );
+        // RFC3339 timestamps should be parseable
         assert!(
-            !timestamp.ends_with('Z'),
-            "Basic RFC3339 should not end with Z"
+            chrono::DateTime::parse_from_rfc3339(&timestamp).is_ok(),
+            "Timestamp should be valid RFC3339: {}",
+            timestamp
         );
     }
 

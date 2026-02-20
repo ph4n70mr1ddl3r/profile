@@ -55,17 +55,6 @@ pub struct SendMessageRequest {
     pub timestamp: String,
 }
 
-/// Outbound message from server to client
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutboundMessage {
-    pub r#type: String,
-    pub message: String,
-    #[serde(rename = "senderPublicKey")]
-    pub sender_public_key: String,
-    pub signature: String,
-    pub timestamp: String,
-}
-
 /// Close frame reason codes
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CloseReason {
