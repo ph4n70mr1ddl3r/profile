@@ -164,6 +164,17 @@ pub async fn handle_connection(
             Ok(Some(msg_result)) => {
                 match msg_result {
                     Ok(Message::Text(text)) => {
+                        // Message size validation to prevent DoS
+                        const MAX_MSG_SIZE: usize = profile_shared::config::message::MAX_MESSAGE_SIZE;
+                        if text.len() > MAX_MSG_SIZE {
+                            tracing::warn!(
+                                size = text.len(),
+                                max = MAX_MSG_SIZE,
+                                "Message too large, rejecting"
+                            );
+                            continue;
+                        }
+                        
                         // Handle incoming message from authenticated user (Story 3.2 + 3.3)
                         // AC1: Route validated message to recipient via real-time push
                         if let Some(ref sender_key) = authenticated_key {
@@ -234,6 +245,22 @@ pub async fn handle_connection(
                                                     ),
                                                 }
                                             }
+                                            crate::message::ValidationError::StaleTimestamp {
+                                                details,
+                                            } => profile_shared::Message::Error {
+                                                reason: "stale_timestamp".to_string(),
+                                                details: Some(details.clone()),
+                                            },
+                                            crate::message::ValidationError::MessageTooLarge {
+                                                size,
+                                                max,
+                                            } => profile_shared::Message::Error {
+                                                reason: "message_too_large".to_string(),
+                                                details: Some(format!(
+                                                    "Message size {} exceeds maximum {}",
+                                                    size, max
+                                                )),
+                                            },
                                         };
 
                                         // Send error via the sender's WebSocket connection
@@ -393,7 +420,13 @@ pub async fn handle_connection(
                 // Clean up lobby on timeout
                 if let Some(ref key) = authenticated_key {
                     let key_hex = hex::encode(key.as_slice());
-                    let _ = crate::lobby::remove_user(&lobby, &key_hex).await;
+                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
+                        tracing::error!(
+                            "Failed to remove user {}... during timeout cleanup: {}",
+                            &key_hex[..16.min(key_hex.len())],
+                            e
+                        );
+                    }
                 }
                 break;
             }

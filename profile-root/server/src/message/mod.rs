@@ -45,6 +45,10 @@ pub enum ValidationError {
     RecipientOffline { recipient_key: String },
     /// Cannot send message to self
     CannotMessageSelf,
+    /// Timestamp is too old or too far in the future (replay attack prevention)
+    StaleTimestamp { details: String },
+    /// Message size exceeds limit
+    MessageTooLarge { size: usize, max: usize },
 }
 
 /// Handle an incoming message from a client
@@ -95,10 +99,61 @@ pub async fn handle_incoming_message(
         }
     };
 
+    // Validate timestamp to prevent replay attacks
+    const MAX_TIMESTAMP_DRIFT_SECS: i64 = 300; // 5 minutes
+    match chrono::DateTime::parse_from_rfc3339(&message_request.timestamp) {
+        Ok(timestamp) => {
+            let timestamp_utc = timestamp.with_timezone(&chrono::Utc);
+            let now = chrono::Utc::now();
+            let drift = (now - timestamp_utc).num_seconds().abs();
+            if drift > MAX_TIMESTAMP_DRIFT_SECS {
+                tracing::warn!(
+                    sender = %sender_public_key,
+                    drift_seconds = drift,
+                    "Message timestamp outside acceptable window"
+                );
+                return MessageValidationResult::Invalid {
+                    reason: ValidationError::StaleTimestamp {
+                        details: format!(
+                            "Timestamp drift of {} seconds exceeds maximum of {} seconds",
+                            drift, MAX_TIMESTAMP_DRIFT_SECS
+                        ),
+                    },
+                };
+            }
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Invalid timestamp format from {}", sender_public_key);
+            return MessageValidationResult::Invalid {
+                reason: ValidationError::MalformedJson {
+                    details: format!("Invalid timestamp format: {}", e),
+                },
+            };
+        }
+    }
+
     // Validate recipient is not self
     if message_request.recipient_public_key == sender_public_key {
         return MessageValidationResult::Invalid {
             reason: ValidationError::CannotMessageSelf,
+        };
+    }
+
+    // Validate recipient public key format
+    const EXPECTED_KEY_LEN: usize = 64;
+    if message_request.recipient_public_key.len() != EXPECTED_KEY_LEN
+        || !message_request
+            .recipient_public_key
+            .chars()
+            .all(|c| c.is_ascii_hexdigit())
+    {
+        return MessageValidationResult::Invalid {
+            reason: ValidationError::MalformedJson {
+                details: format!(
+                    "Invalid recipient public key format: expected {} hex characters",
+                    EXPECTED_KEY_LEN
+                ),
+            },
         };
     }
 
@@ -282,6 +337,13 @@ pub fn create_error_response(error: &ValidationError) -> String {
             "invalid_recipient".to_string(),
             "Cannot send message to yourself".to_string(),
         ),
+        ValidationError::StaleTimestamp { details } => {
+            ("stale_timestamp".to_string(), details.clone())
+        }
+        ValidationError::MessageTooLarge { size, max } => (
+            "message_too_large".to_string(),
+            format!("Message size {} exceeds maximum {}", size, max),
+        ),
     };
 
     let error_msg = ErrorMessage::with_details(reason, details);
@@ -358,9 +420,10 @@ mod tests {
             .unwrap();
 
         // Create a valid message request but recipient is not in lobby
-        let recipient_key = "offline_recipient_1234567890abcdef1234567890abcdef12345678";
+        // Must be 64 hex chars to pass format validation
+        let recipient_key = "0000000000000000000000000000000000000000000000000000000000000001";
         let message_content = "Hello";
-        let timestamp = "2025-12-27T10:30:00Z";
+        let timestamp = chrono::Utc::now().to_rfc3339();
 
         // Create valid signature for the message
         let canonical_message = format!("{}:{}", message_content, timestamp);
@@ -402,17 +465,17 @@ mod tests {
             .await
             .unwrap();
 
-        // Create message to self
-        let message_json = r#"{
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        let message_json = format!(r#"{{
             "type": "message",
             "recipientPublicKey": "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "message": "Hello self",
             "senderPublicKey": "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "signature": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-            "timestamp": "2025-12-27T10:30:00Z"
-        }"#;
+            "timestamp": "{}"
+        }}"#, timestamp);
 
-        let result = handle_incoming_message(&lobby, sender_key, message_json).await;
+        let result = handle_incoming_message(&lobby, sender_key, &message_json).await;
 
         assert!(matches!(
             result,
@@ -476,7 +539,7 @@ mod tests {
 
         // Create message and timestamp (canonical format: message:timestamp)
         let message_text = "Hello, world!";
-        let timestamp = "2025-12-29T12:00:00.000Z";
+        let timestamp = chrono::Utc::now().to_rfc3339();
         let canonical_message = format!("{}:{}", message_text, timestamp);
 
         // Sign using the shared library (same as client does)
