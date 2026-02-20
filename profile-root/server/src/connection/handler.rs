@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::auth::handler::{handle_authentication, AuthResult};
@@ -17,6 +19,41 @@ use profile_shared::PublicKey;
 
 fn truncate_key(key: &str) -> &str {
     &key[..16.min(key.len())]
+}
+
+enum CleanupResult {
+    Success,
+    BroadcastFailed,
+    LockFailed,
+    OtherError(LobbyError),
+}
+
+async fn cleanup_user_from_lobby(lobby: &Arc<Lobby>, key_hex: &str) -> CleanupResult {
+    match crate::lobby::remove_user(lobby, key_hex).await {
+        Ok(()) => {
+            tracing::debug!("User {}... removed from lobby successfully", truncate_key(key_hex));
+            CleanupResult::Success
+        }
+        Err(LobbyError::LockFailed) => {
+            tracing::error!(
+                "CRITICAL: Failed to acquire lobby lock for user {}... removal. \
+                 User may remain visible to others incorrectly.",
+                truncate_key(key_hex)
+            );
+            CleanupResult::LockFailed
+        }
+        Err(LobbyError::BroadcastFailed) => {
+            tracing::warn!(
+                "User {}... removed from lobby but leave notification failed to broadcast",
+                truncate_key(key_hex)
+            );
+            CleanupResult::BroadcastFailed
+        }
+        Err(e) => {
+            tracing::error!("Failed to remove user {}... from lobby: {}", truncate_key(key_hex), e);
+            CleanupResult::OtherError(e)
+        }
+    }
 }
 
 /// Atomic counter for generating unique connection IDs
@@ -103,10 +140,6 @@ pub async fn handle_connection(
                         let error_json = serde_json::to_string(&error_msg)?;
                         write.send(Message::Text(error_json)).await?;
 
-                        // Send Close frame
-                        use tokio_tungstenite::tungstenite::protocol::{
-                            frame::coding::CloseCode, CloseFrame,
-                        };
                         let close_frame = CloseFrame {
                             code: CloseCode::Policy,
                             reason: "Failed to join lobby".into(),
@@ -137,10 +170,6 @@ pub async fn handle_connection(
                 let error_json = serde_json::to_string(&error_msg)?;
                 write.send(Message::Text(error_json)).await?;
 
-                // Send Close frame with reason code per AC3
-                use tokio_tungstenite::tungstenite::protocol::{
-                    frame::coding::CloseCode, CloseFrame,
-                };
                 let close_frame = CloseFrame {
                     code: CloseCode::Normal,
                     reason: reason.into(),
@@ -271,49 +300,16 @@ pub async fn handle_connection(
                             user_key
                         );
 
-                        // CRITICAL: Clean up lobby using new API
-                        // Note: remove_user() handles broadcast_user_left internally
                         if let Some(ref key) = authenticated_key {
                             let key_hex = hex::encode(key.as_slice());
-                            if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
-                                match e {
-                                    LobbyError::LockFailed => {
-                                        // CRITICAL: User may remain "stuck" in lobby
-                                        // This is a serious error that could lead to ghost users
-                                        tracing::error!(
-                                    "CRITICAL: Failed to acquire lobby lock for user {} removal: {}. \
-                                     User may remain visible to others incorrectly.",
-                                    truncate_key(&key_hex),
-                                    e
-                                );
-                                        // Return error to signal this needs attention
-                                        return Err(format!(
-                                            "Lobby lock failure on disconnect: {}",
-                                            e
-                                        )
-                                        .into());
-                                    }
-                                    LobbyError::BroadcastFailed => {
-                                        tracing::warn!(
-                                    "User {}... removed from lobby but leave notification failed to broadcast: {}",
-                                    truncate_key(&key_hex),
-                                    e
-                                );
-                                    }
-                                    _ => {
-                                        tracing::error!(
-                                            "Failed to remove user {}... from lobby: {}",
-                                            truncate_key(&key_hex),
-                                            e
-                                        );
-                                        return Err(format!("Lobby removal error: {}", e).into());
-                                    }
+                            match cleanup_user_from_lobby(&lobby, &key_hex).await {
+                                CleanupResult::LockFailed => {
+                                    return Err("Lobby lock failure on disconnect".into());
                                 }
-                            } else {
-                                tracing::debug!(
-                                    "User {}... removed from lobby successfully",
-                                    truncate_key(&key_hex)
-                                );
+                                CleanupResult::OtherError(e) => {
+                                    return Err(format!("Lobby removal error: {}", e).into());
+                                }
+                                _ => {}
                             }
                         }
                         break;
@@ -329,47 +325,16 @@ pub async fn handle_connection(
                         // could be network flakiness, malformed messages, etc., not actual disconnections
                         tracing::error!("WebSocket error for user {}: {}", user_key, e);
 
-                        // Clean up lobby on error - this is treated as a disconnection event
-                        // because the connection stream has failed
                         if let Some(ref key) = authenticated_key {
                             let key_hex = hex::encode(key.as_slice());
-                            if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
-                                match e {
-                                    LobbyError::LockFailed => {
-                                        tracing::error!(
-                                    "CRITICAL: Failed to acquire lobby lock for user {}... removal on error: {}. \
-                                     User may remain visible to others incorrectly.",
-                                    truncate_key(&key_hex),
-                                    e
-                                );
-                                        // Return error to signal this needs attention
-                                        return Err(format!(
-                                            "Lobby lock failure on error disconnect: {}",
-                                            e
-                                        )
-                                        .into());
-                                    }
-                                    LobbyError::BroadcastFailed => {
-                                        tracing::warn!(
-                                    "User {}... removed from lobby but leave notification failed to broadcast: {}",
-                                    truncate_key(&key_hex),
-                                    e
-                                );
-                                    }
-                                    _ => {
-                                        tracing::error!(
-                                            "Failed to remove user {}... from lobby: {}",
-                                            truncate_key(&key_hex),
-                                            e
-                                        );
-                                        return Err(format!("Lobby removal error: {}", e).into());
-                                    }
+                            match cleanup_user_from_lobby(&lobby, &key_hex).await {
+                                CleanupResult::LockFailed => {
+                                    return Err("Lobby lock failure on error disconnect".into());
                                 }
-                            } else {
-                                tracing::debug!(
-                            "User {}... removed from lobby successfully after WebSocket error",
-                            truncate_key(&key_hex)
-                        );
+                                CleanupResult::OtherError(e) => {
+                                    return Err(format!("Lobby removal error: {}", e).into());
+                                }
+                                _ => {}
                             }
                         }
                         break;
@@ -399,16 +364,9 @@ pub async fn handle_connection(
                     .unwrap_or_else(|| "unauthenticated".to_string());
                 tracing::info!("User {} disconnected (timeout or stream closed)", user_key);
 
-                // Clean up lobby on timeout
                 if let Some(ref key) = authenticated_key {
                     let key_hex = hex::encode(key.as_slice());
-                    if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
-                        tracing::error!(
-                            "Failed to remove user {}... during timeout cleanup: {}",
-                            truncate_key(&key_hex),
-                            e
-                        );
-                    }
+                    let _ = cleanup_user_from_lobby(&lobby, &key_hex).await;
                 }
                 break;
             }
