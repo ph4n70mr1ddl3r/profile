@@ -974,11 +974,37 @@ impl WebSocketClient {
                                     // Queue message for delivery when recipient comes online (AC4)
                                     if let Some(msg_content) = message {
                                         let mut pending = self.pending_messages.lock().await;
-                                        pending
-                                            .entry(recipient_key.clone())
-                                            .or_insert_with(Vec::new)
-                                            .push(msg_content.clone());
-                                        debug!(recipient = %recipient_key, message = %msg_content, "Message queued for delivery when recipient comes online");
+                                        const MAX_PENDING_PER_RECIPIENT: usize = 10;
+                                        const MAX_TOTAL_PENDING: usize = 100;
+
+                                        let total_count: usize =
+                                            pending.values().map(|v| v.len()).sum();
+
+                                        if total_count >= MAX_TOTAL_PENDING {
+                                            warn!(
+                                                total = total_count,
+                                                max = MAX_TOTAL_PENDING,
+                                                "Pending messages queue full, dropping message"
+                                            );
+                                        } else {
+                                            pending
+                                                .entry(recipient_key.clone())
+                                                .or_insert_with(Vec::new);
+
+                                            if let Some(msgs) = pending.get_mut(&recipient_key) {
+                                                if msgs.len() >= MAX_PENDING_PER_RECIPIENT {
+                                                    warn!(
+                                                        recipient = %recipient_key,
+                                                        count = msgs.len(),
+                                                        max = MAX_PENDING_PER_RECIPIENT,
+                                                        "Per-recipient queue full, dropping oldest"
+                                                    );
+                                                    msgs.remove(0);
+                                                }
+                                                msgs.push(msg_content.clone());
+                                                debug!(recipient = %recipient_key, message = %msg_content, "Message queued for delivery when recipient comes online");
+                                            }
+                                        }
                                     }
 
                                     // Notify recipient_offline_handler (AC4)

@@ -79,7 +79,9 @@ fn clear_lobby_slots(ui: &AppWindow) {
                 ui.set_lobby_user_5_online(true);
                 ui.set_lobby_user_5_selected(false);
             }
-            _ => unreachable!(),
+            _ => {
+                debug_assert!(false, "Unexpected slot index: {}", i);
+            }
         }
     }
 }

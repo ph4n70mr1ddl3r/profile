@@ -45,6 +45,15 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
         };
     }
 
+    // Validate exact length for ed25519 public keys (64 hex chars = 32 bytes)
+    // Check length BEFORE hex validation for early rejection
+    if auth_message.public_key.len() != 64 {
+        return AuthResult::Failure {
+            reason: "auth_failed".to_string(),
+            details: "Public key must be exactly 64 hexadecimal characters".to_string(),
+        };
+    }
+
     // Validate hex format of public key
     if !auth_message
         .public_key
@@ -53,15 +62,7 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
     {
         return AuthResult::Failure {
             reason: "auth_failed".to_string(),
-            details: "Public key must be hexadecimal (0-9, a-f)".to_string(),
-        };
-    }
-
-    // Validate minimum length for ed25519 public keys (64 hex chars = 32 bytes)
-    if auth_message.public_key.len() < 64 {
-        return AuthResult::Failure {
-            reason: "auth_failed".to_string(),
-            details: "Public key too short (must be 64 hexadecimal characters)".to_string(),
+            details: "Public key contains invalid hexadecimal characters".to_string(),
         };
     }
 
@@ -80,7 +81,7 @@ pub async fn handle_authentication(auth_message: &AuthMessage, lobby: &Lobby) ->
         Err(_) => {
             return AuthResult::Failure {
                 reason: "auth_failed".to_string(),
-                details: "Invalid hex encoding in publicKey".to_string(),
+                details: "Public key contains invalid hexadecimal characters".to_string(),
             };
         }
     };

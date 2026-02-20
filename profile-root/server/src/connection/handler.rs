@@ -15,6 +15,10 @@ use crate::rate_limiter::AuthRateLimiter;
 use profile_shared::LobbyError;
 use profile_shared::PublicKey;
 
+fn truncate_key(key: &str) -> &str {
+    &key[..16.min(key.len())]
+}
+
 /// Atomic counter for generating unique connection IDs
 ///
 /// NOTE: Connection IDs wrap at u64::MAX (approximately 1.8e19 connections).
@@ -24,14 +28,12 @@ static CONNECTION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Generate a unique connection ID atomically
 fn generate_connection_id() -> u64 {
-    // Using Relaxed ordering since connection IDs don't require strict synchronization
-    // SeqCst is unnecessary here - we just need atomic increment for uniqueness
-    // Using wrapping_add to prevent panic on overflow (saturating not available in older Rust)
     CONNECTION_COUNTER
         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
-            Some(v.wrapping_add(1))
+            let next = v.wrapping_add(1);
+            Some(if next == 0 { 1 } else { next })
         })
-        .unwrap_or(0)
+        .unwrap_or(1)
 }
 
 /// Connection handler that processes WebSocket connections
@@ -164,19 +166,9 @@ pub async fn handle_connection(
             Ok(Some(msg_result)) => {
                 match msg_result {
                     Ok(Message::Text(text)) => {
-                        // Message size validation to prevent DoS
-                        const MAX_MSG_SIZE: usize = profile_shared::config::message::MAX_MESSAGE_SIZE;
-                        if text.len() > MAX_MSG_SIZE {
-                            tracing::warn!(
-                                size = text.len(),
-                                max = MAX_MSG_SIZE,
-                                "Message too large, rejecting"
-                            );
-                            continue;
-                        }
-                        
                         // Handle incoming message from authenticated user (Story 3.2 + 3.3)
                         // AC1: Route validated message to recipient via real-time push
+                        // Note: Message size validation is now handled in handle_incoming_message
                         if let Some(ref sender_key) = authenticated_key {
                             // Validate the message (Story 3.2)
                             let sender_key_hex = hex::encode(sender_key.as_slice());
@@ -295,7 +287,7 @@ pub async fn handle_connection(
                                         tracing::error!(
                                     "CRITICAL: Failed to acquire lobby lock for user {} removal: {}. \
                                      User may remain visible to others incorrectly.",
-                                    &key_hex[..16],
+                                    truncate_key(&key_hex),
                                     e
                                 );
                                         // Return error to signal this needs attention
@@ -306,19 +298,16 @@ pub async fn handle_connection(
                                         .into());
                                     }
                                     LobbyError::BroadcastFailed => {
-                                        // User was removed from lobby but broadcast to other users failed
-                                        // This is a non-critical error - user is cleaned up but others
-                                        // won't be notified. Log as warning.
                                         tracing::warn!(
                                     "User {}... removed from lobby but leave notification failed to broadcast: {}",
-                                    &key_hex[..16],
+                                    truncate_key(&key_hex),
                                     e
                                 );
                                     }
                                     _ => {
                                         tracing::error!(
                                             "Failed to remove user {}... from lobby: {}",
-                                            &key_hex[..16],
+                                            truncate_key(&key_hex),
                                             e
                                         );
                                         return Err(format!("Lobby removal error: {}", e).into());
@@ -327,7 +316,7 @@ pub async fn handle_connection(
                             } else {
                                 tracing::debug!(
                                     "User {}... removed from lobby successfully",
-                                    &key_hex[..16]
+                                    truncate_key(&key_hex)
                                 );
                             }
                         }
@@ -351,12 +340,10 @@ pub async fn handle_connection(
                             if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
                                 match e {
                                     LobbyError::LockFailed => {
-                                        // CRITICAL: User may remain "stuck" in lobby
-                                        // This is a serious error that could lead to ghost users
                                         tracing::error!(
                                     "CRITICAL: Failed to acquire lobby lock for user {}... removal on error: {}. \
                                      User may remain visible to others incorrectly.",
-                                    &key_hex[..16],
+                                    truncate_key(&key_hex),
                                     e
                                 );
                                         // Return error to signal this needs attention
@@ -367,17 +354,16 @@ pub async fn handle_connection(
                                         .into());
                                     }
                                     LobbyError::BroadcastFailed => {
-                                        // Non-critical: User removed but notification failed
                                         tracing::warn!(
                                     "User {}... removed from lobby but leave notification failed to broadcast: {}",
-                                    &key_hex[..16],
+                                    truncate_key(&key_hex),
                                     e
                                 );
                                     }
                                     _ => {
                                         tracing::error!(
                                             "Failed to remove user {}... from lobby: {}",
-                                            &key_hex[..16],
+                                            truncate_key(&key_hex),
                                             e
                                         );
                                         return Err(format!("Lobby removal error: {}", e).into());
@@ -386,7 +372,7 @@ pub async fn handle_connection(
                             } else {
                                 tracing::debug!(
                             "User {}... removed from lobby successfully after WebSocket error",
-                            &key_hex[..16]
+                            truncate_key(&key_hex)
                         );
                             }
                         }
@@ -423,7 +409,7 @@ pub async fn handle_connection(
                     if let Err(e) = crate::lobby::remove_user(&lobby, &key_hex).await {
                         tracing::error!(
                             "Failed to remove user {}... during timeout cleanup: {}",
-                            &key_hex[..16.min(key_hex.len())],
+                            truncate_key(&key_hex),
                             e
                         );
                     }

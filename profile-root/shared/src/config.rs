@@ -22,6 +22,9 @@ pub mod message {
 
     /// Maximum message size in bytes
     pub const MAX_MESSAGE_SIZE: usize = 4096;
+
+    /// Maximum allowed timestamp drift in seconds (5 minutes)
+    pub const MAX_TIMESTAMP_DRIFT_SECS: i64 = 300;
 }
 
 /// Connection configuration

@@ -45,10 +45,17 @@ pub enum ValidationError {
     RecipientOffline { recipient_key: String },
     /// Cannot send message to self
     CannotMessageSelf,
-    /// Timestamp is too old or too far in the future (replay attack prevention)
+    /// Timestamp validation failed - timestamp too old or too far in the future.
+    /// This prevents replay attacks by rejecting messages with timestamps
+    /// more than MAX_TIMESTAMP_DRIFT_SECS from server time.
     StaleTimestamp { details: String },
-    /// Message size exceeds limit
-    MessageTooLarge { size: usize, max: usize },
+    /// Message payload exceeds configured maximum size
+    MessageTooLarge {
+        /// Actual size in bytes
+        size: usize,
+        /// Maximum allowed size in bytes
+        max: usize,
+    },
 }
 
 /// Handle an incoming message from a client
@@ -73,6 +80,23 @@ pub async fn handle_incoming_message(
     sender_public_key: &str,
     message_json: &str,
 ) -> MessageValidationResult {
+    // Check message size first (before JSON parsing) to prevent DoS
+    const MAX_MSG_SIZE: usize = profile_shared::config::message::MAX_MESSAGE_SIZE;
+    if message_json.len() > MAX_MSG_SIZE {
+        tracing::warn!(
+            sender = %sender_public_key,
+            size = message_json.len(),
+            max = MAX_MSG_SIZE,
+            "Message too large"
+        );
+        return MessageValidationResult::Invalid {
+            reason: ValidationError::MessageTooLarge {
+                size: message_json.len(),
+                max: MAX_MSG_SIZE,
+            },
+        };
+    }
+
     // AC1 Step 1: Check sender is authenticated (has active connection in lobby)
     // This is guaranteed by the handler - only authenticated users can send messages
     // But we double-check to be safe
@@ -100,12 +124,21 @@ pub async fn handle_incoming_message(
     };
 
     // Validate timestamp to prevent replay attacks
-    const MAX_TIMESTAMP_DRIFT_SECS: i64 = 300; // 5 minutes
+    const MAX_TIMESTAMP_DRIFT_SECS: i64 = profile_shared::config::message::MAX_TIMESTAMP_DRIFT_SECS;
+    const MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE: i64 = 86400; // 24 hours - hard limit for extreme values
     match chrono::DateTime::parse_from_rfc3339(&message_request.timestamp) {
         Ok(timestamp) => {
             let timestamp_utc = timestamp.with_timezone(&chrono::Utc);
             let now = chrono::Utc::now();
-            let drift = (now - timestamp_utc).num_seconds().abs();
+            let drift = now.signed_duration_since(timestamp_utc).num_seconds().abs();
+            // Hard limit check for extreme/malformed timestamps
+            if drift > MAX_TIMESTAMP_DRIFT_SECS_ABSOLUTE {
+                return MessageValidationResult::Invalid {
+                    reason: ValidationError::StaleTimestamp {
+                        details: "Timestamp too far from current time".to_string(),
+                    },
+                };
+            }
             if drift > MAX_TIMESTAMP_DRIFT_SECS {
                 tracing::warn!(
                     sender = %sender_public_key,
@@ -466,14 +499,17 @@ mod tests {
             .unwrap();
 
         let timestamp = chrono::Utc::now().to_rfc3339();
-        let message_json = format!(r#"{{
+        let message_json = format!(
+            r#"{{
             "type": "message",
             "recipientPublicKey": "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "message": "Hello self",
             "senderPublicKey": "abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "signature": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
             "timestamp": "{}"
-        }}"#, timestamp);
+        }}"#,
+            timestamp
+        );
 
         let result = handle_incoming_message(&lobby, sender_key, &message_json).await;
 
